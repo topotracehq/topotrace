@@ -1,0 +1,57 @@
+services:
+  muster:
+    build: .
+    ports:
+      - "8080:8080"   # REST API
+      - "9090:9090"   # TCP ingest daemon
+    volumes:
+      - muster-data:/app/data
+    environment:
+      # Unset by default: muster falls back to the in-memory/JSON-snapshot
+      # store (see -data-dir above), same as running it with no flags at
+      # all. Set this to point it at the `postgres` service instead --
+      # see the "postgres" profile below and the README.
+      - MUSTER_POSTGRES_DSN=${MUSTER_POSTGRES_DSN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+    restart: unless-stopped
+
+  # Real Postgres backend (internal/store/pgstore), as an alternative to
+  # the default memstore. Opt-in via the "postgres" profile so `docker
+  # compose up -d muster` still needs nothing but the muster image, same
+  # as before this existed:
+  #   docker compose --profile postgres up -d
+  #   MUSTER_POSTGRES_DSN=postgres://muster:muster@postgres:5432/muster?sslmode=disable \
+  #     docker compose --profile postgres up -d muster
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: muster
+      POSTGRES_PASSWORD: muster
+      POSTGRES_DB: muster
+    volumes:
+      - muster-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U muster -d muster"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    profiles: ["postgres"]
+
+  # One-off demo client -- packages testdata/linux-demo-host and pushes it
+  # to `muster` over the ingest protocol, then exits. Not a long-running
+  # service; run it with:
+  #   docker compose run --rm demoagent
+  demoagent:
+    build: .
+    entrypoint: ["/app/demoagent"]
+    command: ["-addr", "muster:9090", "-host", "demo01", "-dir", "/app/testdata/linux-demo-host"]
+    depends_on:
+      - muster
+    profiles: ["demo"]
+
+volumes:
+  muster-data:
+  muster-postgres-data:

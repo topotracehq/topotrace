@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Muster</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="img/favicon-180.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/">
+      <img src="img/mark.png" alt="" class="brand-mark">
+      <span class="brand-word">MUSTER</span>
+      <span class="brand-tagline">Inventory &middot; Insight &middot; Control</span>
+    </a>
+    <nav class="view-tabs">
+      <a href="#/" data-view="hosts">Hosts</a>
+      <a href="#/board" data-view="board">Board</a>
+    </nav>
+    <form id="search-form" class="search">
+      <select id="search-field" title="Field to search">
+        <option value="distribution">Distribution</option>
+        <option value="distribution_version">Distribution version</option>
+        <option value="kernel_version">Kernel version</option>
+        <option value="os">OS</option>
+        <option value="cpu_model">CPU model</option>
+      </select>
+      <input id="search-contains" type="text" placeholder="contains&hellip; e.g. Ubuntu" autocomplete="off">
+      <button type="submit">Search</button>
+      <button type="button" id="search-clear" class="ghost" hidden>Clear</button>
+    </form>
+  </header>
+
+  <main id="app"></main>
+
+  <footer class="footer">
+    Muster &mdash; a hardware/software/configuration inventory system.
+    <a href="/healthz">healthz</a>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

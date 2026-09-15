@@ -1,0 +1,5 @@
+Name: Intel(R) Xeon(R) Platinum 8272CL CPU @ 2.60GHz
+Manufacturer: GenuineIntel
+NumberOfCores: 4
+NumberOfLogicalProcessors: 8
+MaxClockSpeedMHz: 2600
