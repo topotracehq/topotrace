@@ -421,6 +421,14 @@
     }
   }
 
+  async function loadSoftwareViolations(name) {
+    try {
+      return await api(`/api/hosts/${encodeURIComponent(name)}/software-violations`);
+    } catch {
+      return { violations: [], shadow_ai: [] };
+    }
+  }
+
   function postureCard(posture) {
     const body = el("div", { class: "posture-body" }, postureBadge(posture.score));
     if (posture.findings && posture.findings.length) {
@@ -461,13 +469,69 @@
     return el("div", { class: "fact-card" }, el("h2", { text: `Vulnerabilities (${findings.length})` }), list);
   }
 
+  // softwareViolationsCard renders the generic (operator-configured
+  // allow/deny rule) violations -- deliberately separate from
+  // shadowAICard below so the two never get lumped into one list, even
+  // though both come back from the same /software-violations call.
+  function softwareViolationsCard(violations) {
+    if (!violations.length) {
+      return el(
+        "div", { class: "fact-card" },
+        el("h2", { text: "Software violations" }),
+        el("p", { text: "No allow/deny software rule violations." })
+      );
+    }
+    const list = el("ul", { class: "vuln-list" });
+    for (const v of violations) {
+      list.appendChild(
+        el(
+          "li", { class: "vuln-row" },
+          el("span", { class: "severity-pill severity-medium", text: v.kind }),
+          el("span", { class: "vuln-detail" }, el("strong", { text: `${v.package} ${v.version}` }), ` — rule: ${v.rule}` )
+        )
+      );
+    }
+    return el("div", { class: "fact-card" }, el("h2", { text: `Software violations (${violations.length})` }), list);
+  }
+
+  // shadowAICard is its own labeled section -- see internal/allowlist's
+  // ShadowAIPatterns: a built-in, pre-seeded ruleset flagging known AI
+  // desktop apps, CLI tools, and browser extensions, distinct from the
+  // operator-configured allow/deny rules softwareViolationsCard shows.
+  function shadowAICard(findings) {
+    if (!findings.length) {
+      return el(
+        "div", { class: "fact-card shadow-ai-card" },
+        el("h2", { text: "Shadow AI" }),
+        el("p", { text: "No unauthorized AI tools detected on this host." })
+      );
+    }
+    const list = el("ul", { class: "vuln-list" });
+    for (const v of findings) {
+      list.appendChild(
+        el(
+          "li", { class: "vuln-row" },
+          el("span", { class: "severity-pill shadow-ai-pill", text: "AI" }),
+          el("span", { class: "vuln-detail" }, el("strong", { text: `${v.package} ${v.version}` }), ` — matched: ${v.rule}` )
+        )
+      );
+    }
+    return el(
+      "div", { class: "fact-card shadow-ai-card" },
+      el("h2", { text: `Shadow AI (${findings.length})` }),
+      el("p", { class: "meta", text: "Unapproved AI desktop apps, CLI tools, and browser extensions detected in installed software -- see internal/allowlist.ShadowAIPatterns." }),
+      list
+    );
+  }
+
   async function showHostDetail(name) {
-    let payload, posture, findings;
+    let payload, posture, findings, softwareViolations;
     try {
-      [payload, posture, findings] = await Promise.all([
+      [payload, posture, findings, softwareViolations] = await Promise.all([
         api(`/api/hosts/${encodeURIComponent(name)}`),
         loadPosture(name),
         loadVulnerabilities(name),
+        loadSoftwareViolations(name),
       ]);
     } catch (err) {
       app.replaceChildren(el("div", { class: "error-banner", text: `Couldn't load ${name}: ${err.message}` }));
@@ -501,6 +565,8 @@
 
     if (posture) nodes.push(postureCard(posture));
     nodes.push(vulnerabilitiesCard(findings || []));
+    nodes.push(softwareViolationsCard((softwareViolations && softwareViolations.violations) || []));
+    nodes.push(shadowAICard((softwareViolations && softwareViolations.shadow_ai) || []));
 
     if (!facts || facts.length === 0) {
       nodes.push(el("p", { text: "No facts recorded for this host yet." }));
@@ -797,7 +863,8 @@
         el("div", { class: "stat-label", text: "Average posture" })
       ),
       statCard("Hosts w/ vulnerabilities", summary.hosts_with_vulnerabilities, summary.hosts_with_vulnerabilities > 0 ? "stat-warn" : ""),
-      statCard("Total findings", summary.total_vulnerability_findings, summary.total_vulnerability_findings > 0 ? "stat-warn" : "")
+      statCard("Total findings", summary.total_vulnerability_findings, summary.total_vulnerability_findings > 0 ? "stat-warn" : ""),
+      statCard("Shadow AI detections", summary.total_shadow_ai_findings, summary.total_shadow_ai_findings > 0 ? "stat-warn" : "")
     );
 
     const platformList = el("ul", { class: "platform-breakdown" });
@@ -1437,6 +1504,67 @@
     await refreshRules();
   }
 
+  // askHistory persists across navigation (module-level, not per-render)
+  // so switching tabs and coming back to Ask Muster doesn't lose the
+  // conversation -- purely client-side display state, not synced with
+  // the server (the server's own record of every question+answer is the
+  // audit log, GET /api/audit, which is the source of truth).
+  const askHistory = [];
+
+  function askTurn(question, answerNode) {
+    return el(
+      "div", { class: "ask-turn" },
+      el("div", { class: "ask-question" }, el("strong", { text: "You: " }), question),
+      el("div", { class: "ask-answer" }, el("strong", { text: "Muster: " }), answerNode)
+    );
+  }
+
+  async function showAskMuster() {
+    const heading = el(
+      "div", { class: "section-heading" },
+      el("h1", { text: "Ask Muster" }),
+      el("span", { class: "meta", text: "Natural-language questions over your real fleet data -- every question and answer is recorded to the audit log (governed AI, not a generic chatbot)." })
+    );
+
+    const log = el("div", { class: "ask-log" });
+    for (const turn of askHistory) log.appendChild(askTurn(turn.question, turn.answer));
+
+    const questionInput = el("textarea", { class: "ask-input", rows: "2", placeholder: "e.g. Which prod hosts have known vulnerabilities? Any shadow AI detections I should know about?" });
+    const sendBtn = el("button", { type: "submit", text: "Ask" });
+    const statusMsg = el("span", { class: "save-msg" });
+    const form = el("form", { class: "ask-form" }, questionInput, sendBtn, statusMsg);
+
+    app.replaceChildren(heading, el("div", { class: "fact-card ask-card" }, log, form));
+    log.scrollTop = log.scrollHeight;
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const question = questionInput.value.trim();
+      if (!question) return;
+      questionInput.value = "";
+      sendBtn.disabled = true;
+      statusMsg.textContent = "Thinking…";
+
+      const thinking = el("em", { text: "…" });
+      const turnNode = askTurn(question, thinking);
+      log.appendChild(turnNode);
+      log.scrollTop = log.scrollHeight;
+
+      try {
+        const { answer } = await api("/api/ask", { method: "POST", body: { question } });
+        thinking.replaceWith(document.createTextNode(answer));
+        askHistory.push({ question, answer });
+        statusMsg.textContent = "";
+      } catch (err) {
+        thinking.replaceWith(el("span", { class: "ask-error", text: err.message }));
+        statusMsg.textContent = "";
+      } finally {
+        sendBtn.disabled = false;
+        log.scrollTop = log.scrollHeight;
+      }
+    });
+  }
+
   function router() {
     const hash = location.hash || "#/";
     const hostMatch = hash.match(/^#\/host\/(.+)$/);
@@ -1450,6 +1578,8 @@
       showAgents();
     } else if (hash === "#/compliance") {
       showCompliance();
+    } else if (hash === "#/ask") {
+      showAskMuster();
     } else if (hash === "#/docs") {
       showDocs();
     } else {
@@ -1467,7 +1597,7 @@
 
   function updateNavUI() {
     const hash = location.hash || "#/";
-    const view = hash === "#/board" ? "board" : hash === "#/fleet" ? "fleet" : hash === "#/agents" ? "agents" : hash === "#/compliance" ? "compliance" : hash === "#/docs" ? "docs" : "hosts";
+    const view = hash === "#/board" ? "board" : hash === "#/fleet" ? "fleet" : hash === "#/agents" ? "agents" : hash === "#/compliance" ? "compliance" : hash === "#/ask" ? "ask" : hash === "#/docs" ? "docs" : "hosts";
     for (const a of document.querySelectorAll(".view-tabs a")) {
       a.classList.toggle("active", a.dataset.view === view);
     }

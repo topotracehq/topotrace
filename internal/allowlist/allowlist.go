@@ -94,6 +94,106 @@ func matches(pattern, name string) bool {
 	return pattern == name
 }
 
+// ShadowAIPattern is one built-in, pre-seeded signature for a known AI
+// desktop app, CLI tool, or browser extension "package" -- the same
+// "small, curated, static list, not a live feed" spirit as
+// internal/vuln.Dataset. Name is documentation only (shown in the
+// violation as which tool matched); Match follows the same
+// case-insensitive exact-or-trailing-"*"-wildcard semantics as
+// model.SoftwareRule.Match.
+type ShadowAIPattern struct {
+	Name  string
+	Match string
+}
+
+// ShadowAIPatterns is Muster's built-in "shadow AI" detection ruleset:
+// AI desktop apps, CLI tools, and browser-extension packages that
+// commonly show up in an installed_software fact without ever having
+// been approved by anyone -- the same "invisible SaaS/tool sprawl"
+// problem enterprise browser security products (Island among them)
+// build shadow-IT/shadow-AI detection around. Unlike model.SoftwareRule,
+// this list ships with the binary and needs no operator setup -- every
+// Muster deployment can answer "do we have unauthorized AI tooling
+// installed anywhere" on day one.
+var ShadowAIPatterns = []ShadowAIPattern{
+	{"ChatGPT desktop", "chatgpt*"},
+	{"OpenAI tooling", "openai*"},
+	{"Ollama", "ollama*"},
+	{"LM Studio", "lm studio*"},
+	{"LM Studio", "lmstudio*"},
+	{"Claude desktop", "claude*"},
+	{"GitHub Copilot", "github copilot*"},
+	{"Copilot", "copilot*"},
+	{"Google Gemini", "gemini*"},
+	{"Google Bard", "bard*"},
+	{"Perplexity AI", "perplexity*"},
+	{"Poe", "poe*"},
+	{"Jasper AI", "jasper*"},
+	{"Character.AI", "character.ai*"},
+	{"Cursor (AI code editor)", "cursor*"},
+	{"Sider AI browser extension", "sider*"},
+	{"Monica AI browser extension", "monica*"},
+	{"DeepSeek", "deepseek*"},
+	{"Simon Willison's llm CLI", "llm-cli*"},
+	{"aichat CLI", "aichat*"},
+}
+
+// EvaluateShadowAI cross-references itemsRaw (an installed_software
+// fact's Data["items"], same shape Evaluate takes) against
+// ShadowAIPatterns, returning one Violation (Kind "shadow_ai") per
+// installed item that matches a known AI tool signature. allowRules
+// narrows that down to what's actually been explicitly sanctioned for
+// this host's scope: an AI tool an operator has approved via a Kind
+// "allow" model.SoftwareRule (the exact same allow-rule semantics
+// Evaluate's deny/allow rules already use) is silently excluded --
+// approved software isn't shadow IT. Deliberately independent of
+// Evaluate's own allow-rule "enforcement only starts once one exists"
+// behavior: an allow rule that exists only to sanction one AI tool
+// should not, as a side effect, switch on full allowlist enforcement
+// for every other package in that rule's scope, so this function checks
+// allowRules purely as an allow-list lookup, never as an
+// enable-enforcement signal.
+func EvaluateShadowAI(itemsRaw any, allowRules []model.SoftwareRule) []Violation {
+	items := asItems(itemsRaw)
+	if len(items) == 0 {
+		return nil
+	}
+
+	var violations []Violation
+	for _, item := range items {
+		name, _ := item["name"].(string)
+		version, _ := item["version"].(string)
+		if name == "" {
+			continue
+		}
+
+		var matched string
+		for _, p := range ShadowAIPatterns {
+			if matches(p.Match, name) {
+				matched = p.Name
+				break
+			}
+		}
+		if matched == "" {
+			continue
+		}
+
+		allowed := false
+		for _, r := range allowRules {
+			if r.Kind == "allow" && matches(r.Match, name) {
+				allowed = true
+				break
+			}
+		}
+		if allowed {
+			continue
+		}
+
+		violations = append(violations, Violation{Rule: matched, Kind: "shadow_ai", Package: name, Version: version})
+	}
+	return violations
+}
+
 // asItems normalizes an installed_software fact's Data["items"] the
 // same way internal/vuln.CheckWithFeed does -- []any (memstore, or
 // pgstore after a JSONB round trip) or []map[string]any (constructed

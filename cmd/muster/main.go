@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"muster/internal/aiquery"
 	"muster/internal/api"
 	"muster/internal/cook"
 	"muster/internal/evaluator"
@@ -61,6 +62,9 @@ func main() {
 		oauthRedirectURL  = flag.String("oauth-redirect-url", os.Getenv("MUSTER_OAUTH_REDIRECT_URL"), "this server's own callback URL as registered with the identity provider (e.g. http://localhost:8080/api/auth/callback). Also read from MUSTER_OAUTH_REDIRECT_URL.")
 		oauthScopes       = flag.String("oauth-scopes", os.Getenv("MUSTER_OAUTH_SCOPES"), "space-separated OAuth2 scopes to request. Defaults to \"openid email profile\" when empty. Also read from MUSTER_OAUTH_SCOPES.")
 		oauthRoleMap      = flag.String("oauth-role-map", os.Getenv("MUSTER_OAUTH_ROLE_MAP"), "comma-separated email/domain-to-role mappings, checked in order, e.g. \"admin@example.com=admin,*@example.com=readonly\". Required (and the whole -oauth-* group required) once any -oauth-* flag is set. Also read from MUSTER_OAUTH_ROLE_MAP.")
+
+		aiAPIKey = flag.String("ai-api-key", os.Getenv("MUSTER_AI_API_KEY"), "Anthropic API key for \"Ask Muster\" (POST /api/ask), a natural-language query surface over the fleet data with every question+answer recorded to the audit log. Empty disables the endpoint (it answers with a clear 'not configured' error). Also read from MUSTER_AI_API_KEY.")
+		aiModel  = flag.String("ai-model", os.Getenv("MUSTER_AI_MODEL"), "Anthropic model id Ask Muster calls (e.g. claude-opus-5). Empty uses internal/aiquery's built-in default. Also read from MUSTER_AI_MODEL.")
 	)
 	flag.Parse()
 
@@ -149,7 +153,14 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	apiSrv := &api.Server{Store: st, Logger: logger.With("component", "api"), AuthToken: *authToken, Webhooks: hooks, VulnFeed: vulnFeed, Pipeline: pipeline, OAuth: oauthCfg, Sessions: sessions}
+	if *aiAPIKey != "" {
+		model := *aiModel
+		if model == "" {
+			model = "(default)"
+		}
+		logger.Info("Ask Muster (AI query) enabled", "model", model)
+	}
+	apiSrv := &api.Server{Store: st, Logger: logger.With("component", "api"), AuthToken: *authToken, Webhooks: hooks, VulnFeed: vulnFeed, Pipeline: pipeline, OAuth: oauthCfg, Sessions: sessions, AIQuery: aiquery.Config{APIKey: *aiAPIKey, Model: *aiModel}}
 	apiSrv.Register(mux)
 	mux.Handle("/", webHandler)
 

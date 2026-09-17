@@ -23,7 +23,9 @@ not alphabetically.
 - `GET /api/hosts/{host}/vulnerabilities` -- known-vulnerable installed
   packages (static dataset + live OSV.dev feed if `-vuln-feed` is on).
 - `GET /api/hosts/{host}/software-violations` -- denied/unauthorized
-  installed software, per the software rules in scope for this host.
+  installed software (`violations`), plus shadow AI detections
+  (`shadow_ai`) against the built-in `internal/allowlist.ShadowAIPatterns`
+  ruleset, per the software rules in scope for this host.
 - `GET /api/hosts/{host}/compliance` -- every built-in compliance
   framework's score for this host.
 - `GET /api/compliance/summary` -- fleet-wide compliance rollup.
@@ -54,9 +56,20 @@ not alphabetically.
 - `POST /api/discover-report` -- ingest a network-discovery sweep's
   results as `DiscoveredAsset` records.
 
+## Ask Muster
+
+- `POST /api/ask` -- `{"question": "..."}`, `readonly` or higher.
+  Answers a natural-language question about the fleet using the
+  Anthropic Messages API, grounded in a compact JSON snapshot built
+  from the Store (never a live model call with no context). Returns
+  `503` with a clear message if `-ai-api-key`/`MUSTER_AI_API_KEY` isn't
+  set. Every question and answer (truncated) is recorded to the audit
+  log as an `ask-muster` entry. See the Ask Muster doc page.
+
 ## Fleet, audit, keys, auth
 
-- `GET /api/summary` -- fleet rollup (counts, average posture, etc).
+- `GET /api/summary` -- fleet rollup (counts, average posture, hosts
+  with shadow AI detections, etc).
 - `GET /api/audit` -- audit trail (`admin`).
 - `GET/POST /api/keys`, `DELETE /api/keys/{id}` -- named API keys
   (`admin`).
@@ -69,4 +82,4 @@ not alphabetically.
 - `GET /healthz` -- liveness.
 - `GET /metrics` -- Prometheus text format.
 - `GET /#/...` -- the web dashboard itself (Hosts, Board, Fleet,
-  Compliance, Agents, Docs).
+  Compliance, Ask Muster, Agents, Docs).

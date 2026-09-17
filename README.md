@@ -279,6 +279,34 @@ curl -X PATCH localhost:8080/api/hosts/demo01 -d '{"group":"prod","tags":["east-
 Then open `http://localhost:8080/#/board` to see it show up as a card
 in the "prod" column.
 
+### Demo seed data
+
+`demoagent` above proves the pipeline end to end with one host; to see
+the dashboard the way a populated fleet actually looks -- for a demo,
+or to try out Fleet/Compliance/Ask Muster with real variety on hand --
+`cmd/seed` writes a realistic, varied synthetic fleet straight into the
+Store: 15 hosts across Linux/Windows/macOS, a mix of compliant and
+non-compliant posture, real-looking vulnerability findings against
+`internal/vuln.Dataset`'s curated CVEs, three shadow AI detections plus
+one generic software-allowlist violation, two hosts backdated past the
+staleness threshold, a handful of policy/software rules, and a few
+network-discovered-but-unmanaged assets.
+
+```
+go run ./cmd/seed              # writes into ./data/muster.json (memstore)
+go run ./cmd/muster            # then (re)start the server to serve it
+```
+
+It talks to the Store directly with the same `-data-dir`/`-postgres-dsn`
+flags `cmd/muster` itself takes -- see `cmd/seed/main.go`'s package doc
+comment for exactly why (there's no "insert one host's worth of
+arbitrary facts" HTTP endpoint in the API today) and for the one
+honest timing caveat: against the default memstore backend this only
+takes effect the next time `cmd/muster` (re)starts against the same
+`-data-dir`, since memstore keeps its state in memory once loaded.
+Point both at the same `-postgres-dsn` instead and it works against an
+already-running server immediately, live, no restart needed.
+
 ### Testing with the Windows agent
 
 To send data from an actual Windows machine instead of synthetic test
@@ -649,6 +677,82 @@ query has actually been run against it yet. Enable `-vuln-feed` against
 a real network and check the server log for a successful refresh (or
 whatever error it reports) before relying on it.
 
+## Shadow AI detection
+
+```
+GET /api/hosts/{host}/software-violations   # -> {"violations": [...], "shadow_ai": [...]}
+```
+
+Alongside the operator-defined software allow/deny lists above,
+`internal/allowlist` ships a **built-in, pre-seeded ruleset**
+(`ShadowAIPatterns`) flagging known AI desktop apps, CLI tools, and
+browser-extension packages -- ChatGPT, Claude, Ollama, LM Studio,
+GitHub Copilot, Gemini, Perplexity, and others -- found in a host's
+`installed_software` fact. No configuration required: every Muster
+deployment can answer "do we have unauthorized AI tooling anywhere"
+on day one, the same "invisible SaaS/tool sprawl" problem enterprise
+browser security products (this mirrors [Island](https://island.io)'s
+governed-AI/shadow-AI framing) build shadow-IT detection around.
+
+An AI tool an operator has explicitly sanctioned via a `Kind: "allow"`
+software rule matching its name is excluded from shadow AI results --
+approved software isn't shadow IT. That check is deliberately
+independent of the generic allow/deny enforcement's own "an allow rule
+switches on enforcement for its whole scope" behavior (see
+`internal/allowlist.Evaluate`'s doc comment): sanctioning one AI tool
+for a group never has the side effect of flagging every *other*
+package in that scope as unauthorized.
+
+Shadow AI detections are surfaced as their own labeled `shadow_ai`
+field -- never lumped into the generic `violations` list -- at
+`GET /api/hosts/{host}/software-violations`, as their own card on a
+host's detail page in the dashboard, as a
+`hosts_with_shadow_ai`/`total_shadow_ai_findings` stat tile on the
+Fleet tab (`GET /api/summary`), and as their own Muster Baseline
+compliance check (`no-shadow-ai`, see "Compliance frameworks" in the
+in-app Docs tab).
+
+## Ask Muster
+
+```
+go run ./cmd/muster -ai-api-key "sk-ant-..."   # or MUSTER_AI_API_KEY
+POST /api/ask   {"question": "which prod hosts have known vulnerabilities?"}
+```
+
+A natural-language query surface over the fleet data above -- but the
+pitch is **governed AI**, not "there's a chatbot": every question asked
+and the answer Muster gave are recorded to the same audit trail every
+other privileged action in this project already goes through
+(`Store.RecordAudit`, truncated, actor-attributed the same way a board
+write or a policy change is). `POST /api/ask` is gated at `readonly`
+(asking a question is a read, not a write); left unconfigured (no
+`-ai-api-key`/`MUSTER_AI_API_KEY`), it answers with a clear `503 "not
+configured"` error rather than ever making an outbound request with no
+credential.
+
+`internal/aiquery` builds a compact JSON snapshot straight from the
+Store -- fleet summary, every host's posture score/findings, known
+vulnerabilities, software-allowlist and shadow-AI violations,
+compliance score, plus the configured policy rules, software rules,
+and discovered-but-unmanaged assets, reusing the exact same
+`complianceInput` computation the Compliance tab already uses so Ask
+Muster's answers are grounded in the same numbers the rest of the
+dashboard shows -- then calls the Anthropic Messages API (stdlib
+`net/http` only, no SDK, same integration style as `internal/vuln`'s
+OSV.dev client and `internal/oauth`'s token exchange) with that
+context plus the question, instructing the model to answer only from
+the supplied snapshot rather than invent hosts or findings. A small
+chat-style panel on the dashboard's **Ask Muster** tab is wired to the
+endpoint directly.
+
+**Unverified note, stated plainly:** this was built and reviewed
+without a real Anthropic API key in hand -- `internal/aiquery`'s
+request/response shapes were written against the Messages API's
+documented contract and exercised against the "not configured" path
+(no key set), but no live call has actually been made against
+`api.anthropic.com` yet. Set `-ai-api-key` to a real key and ask it a
+question before relying on it.
+
 ## Policy rules & the background evaluator
 
 Policies are what closes the loop the original "what's next" list
@@ -990,12 +1094,38 @@ That's not a hedge to bury in fine print: it's the honest status, and
 it's why this section says so plainly instead of just listing the
 features as "done."
 
+And a fifth phase, aimed squarely at a security-company interview demo:
+`cmd/seed` (a synthetic-but-realistic 15-host fleet, one command),
+built-in shadow AI detection layered onto the existing software
+allow/deny lists (`internal/allowlist.ShadowAIPatterns`, its own
+labeled category everywhere the dashboard shows allowlist violations),
+and "Ask Muster" (`POST /api/ask`, `internal/aiquery`, a governed-AI
+natural-language query surface over the fleet data with every
+question+answer recorded to the audit log) -- see "Shadow AI
+detection" and "Ask Muster" above, and "Demo seed data" under "Running
+it." Unlike the fourth phase above, this one *was* built with a real
+Go toolchain on hand: every new and changed file passes `go build
+./...` and `go vet ./...`, `go test ./...` still passes (including a
+new `internal/allowlist` test for shadow AI detection and its
+allowlist-suppression behavior), and the seed tool, the Shadow AI
+endpoints, and the dashboard's new Fleet/host-detail UI were all
+smoke-tested end to end against a real running server. The one piece
+that couldn't be verified live: `internal/aiquery`'s actual call to
+`api.anthropic.com` -- built with no real Anthropic API key in hand
+this pass, so only its request/response shapes and the "not
+configured" error path are proven; see "Ask Muster"'s own unverified
+note above.
+
 Deliberately not done yet, in rough priority order:
 - **A real compiled/run verification pass on the fourth phase** --
   see the paragraph just above. This is the single most important
   thing to do before trusting any of it: `go build ./...`, `go vet
   ./...`, and a live run against a real host, a real (or sandboxed)
   cloud account, and a real identity provider.
+- **A live call through Ask Muster with a real Anthropic API key** --
+  see the fifth-phase paragraph above. `-ai-api-key`/`MUSTER_AI_API_KEY`
+  needs to actually be set to something real before this pitch is
+  proven end to end, not just reviewed.
 - **Real-device verification for this phase's newest pieces** — the
   Android app, the iOS Shortcuts flow, the live OSV.dev feed, and the
   systemd unit/install script were all written in an environment with no

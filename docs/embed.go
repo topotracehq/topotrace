@@ -23,4 +23,5 @@ var Index = []struct {
 	{"api-reference", "API Reference"},
 	{"security-model", "Security Model"},
 	{"compliance", "Compliance & Software Lists"},
+	{"ask-muster", "Ask Muster"},
 }

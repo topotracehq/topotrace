@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"muster/agent"
+	"muster/internal/aiquery"
 	"muster/internal/allowlist"
 	"muster/internal/compliance"
 	"muster/internal/cook"
@@ -86,6 +87,13 @@ type Server struct {
 	// issued after a successful login. Only ever non-nil alongside
 	// OAuth -- cmd/muster constructs one iff -oauth-* flags parsed.
 	Sessions *oauth.SessionStore
+
+	// AIQuery is "Ask Muster"'s Anthropic credential/model (see
+	// -ai-api-key/-ai-model). A zero-value Config (Enabled() == false,
+	// the default when neither flag/env var is set) means handleAsk
+	// answers with a clear "not configured" error instead of ever
+	// calling out to the network with no key.
+	AIQuery aiquery.Config
 }
 
 func (s *Server) log() *slog.Logger {
@@ -143,6 +151,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/auth/callback", s.handleAuthCallback)
 	mux.HandleFunc("POST /api/auth/logout", s.handleAuthLogout)
 	mux.HandleFunc("GET /api/auth/me", s.handleAuthMe)
+	mux.HandleFunc("POST /api/ask", s.handleAsk)
 }
 
 // Handler returns a standalone, logged handler for just the API -- used
@@ -808,12 +817,16 @@ func (s *Server) handleGetSoftwareViolations(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	violations := []allowlist.Violation{}
+	shadowAI := []allowlist.Violation{}
 	if ok {
 		if v := allowlist.Evaluate(fact.Data["items"], inScope); v != nil {
 			violations = v
 		}
+		if v := allowlist.EvaluateShadowAI(fact.Data["items"], inScope); v != nil {
+			shadowAI = v
+		}
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"host": name, "violations": violations})
+	s.writeJSON(w, http.StatusOK, map[string]any{"host": name, "violations": violations, "shadow_ai": shadowAI})
 }
 
 // complianceInput gathers everything compliance.Input needs for host
@@ -842,13 +855,15 @@ func (s *Server) complianceInput(ctx context.Context, host model.Host, softwareR
 		}
 	}
 	var violations []allowlist.Violation
+	var shadowAI []allowlist.Violation
 	if sw, ok := byCategory["installed_software"]; ok {
 		violations = allowlist.Evaluate(sw.Data["items"], inScope)
+		shadowAI = allowlist.EvaluateShadowAI(sw.Data["items"], inScope)
 	}
 
 	return compliance.Input{
 		Host: host, Facts: byCategory, Stale: stale, Posture: posture,
-		VulnFindings: vulnFindings, SoftwareViolations: violations,
+		VulnFindings: vulnFindings, SoftwareViolations: violations, ShadowAIViolations: shadowAI,
 	}, nil
 }
 
@@ -951,6 +966,11 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "listing hosts")
 		return
 	}
+	softwareRules, err := s.Store.ListSoftwareRules(r.Context())
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "listing software rules")
+		return
+	}
 
 	now := time.Now().UTC()
 	byPlatform := map[string]int{}
@@ -958,6 +978,8 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 	scoreSum := 0
 	vulnerableHosts := 0
 	totalFindings := 0
+	shadowAIHosts := 0
+	totalShadowAI := 0
 
 	for _, h := range hosts {
 		byPlatform[h.Platform]++
@@ -972,6 +994,16 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		}
 		scoreSum += policy.ComputePosture(h.Platform, byCategory, stale).Score
 		if sw, ok := byCategory["installed_software"]; ok {
+			var inScope []model.SoftwareRule
+			for _, rule := range softwareRules {
+				if rule.Group == "" || rule.Group == h.Group {
+					inScope = append(inScope, rule)
+				}
+			}
+			if shadowAI := allowlist.EvaluateShadowAI(sw.Data["items"], inScope); len(shadowAI) > 0 {
+				shadowAIHosts++
+				totalShadowAI += len(shadowAI)
+			}
 			if findings := vuln.CheckWithFeed(sw.Data["items"], s.VulnFeed); len(findings) > 0 {
 				vulnerableHosts++
 				totalFindings += len(findings)
@@ -990,7 +1022,180 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		"average_posture_score":        avgScore,
 		"hosts_with_vulnerabilities":   vulnerableHosts,
 		"total_vulnerability_findings": totalFindings,
+		"hosts_with_shadow_ai":         shadowAIHosts,
+		"total_shadow_ai_findings":     totalShadowAI,
 	})
+}
+
+// askHostContext is one host's compact, LLM-friendly summary -- the
+// same signals the compliance/posture/vulnerability/allowlist endpoints
+// already compute, flattened into short strings instead of nested
+// structures, so the fleet context handed to the model stays small and
+// readable rather than a raw dump of every fact category on every host.
+type askHostContext struct {
+	Name               string   `json:"name"`
+	Platform           string   `json:"platform"`
+	Group              string   `json:"group,omitempty"`
+	Tags               []string `json:"tags,omitempty"`
+	Stale              bool     `json:"stale"`
+	LastReported       string   `json:"last_reported"`
+	PostureScore       int      `json:"posture_score"`
+	PostureFindings    []string `json:"posture_findings,omitempty"`
+	ComplianceScore    int      `json:"compliance_score"`
+	Vulnerabilities    []string `json:"vulnerabilities,omitempty"`
+	SoftwareViolations []string `json:"software_violations,omitempty"`
+	ShadowAI           []string `json:"shadow_ai_detections,omitempty"`
+}
+
+// askContext is the full compact snapshot handed to aiquery.Ask
+// alongside the operator's question.
+type askContext struct {
+	GeneratedAt      time.Time               `json:"generated_at"`
+	FleetSummary     map[string]any          `json:"fleet_summary"`
+	Hosts            []askHostContext        `json:"hosts"`
+	PolicyRules      []model.Rule            `json:"policy_rules"`
+	SoftwareRules    []model.SoftwareRule    `json:"software_rules"`
+	DiscoveredAssets []model.DiscoveredAsset `json:"discovered_assets"`
+}
+
+// buildAskContext gathers everything askContext needs from the Store,
+// reusing complianceInput -- the same per-host posture/vulnerability/
+// allowlist computation handleGetCompliance and handleComplianceSummary
+// already do -- so Ask Muster's answers are grounded in exactly the same
+// numbers the rest of the dashboard shows, never a separately computed
+// (and possibly inconsistent) view of the same facts.
+func (s *Server) buildAskContext(ctx context.Context) (askContext, error) {
+	hosts, err := s.Store.ListHosts(ctx)
+	if err != nil {
+		return askContext{}, fmt.Errorf("listing hosts: %w", err)
+	}
+	softwareRules, err := s.Store.ListSoftwareRules(ctx)
+	if err != nil {
+		return askContext{}, fmt.Errorf("listing software rules: %w", err)
+	}
+	policyRules, err := s.Store.ListRules(ctx)
+	if err != nil {
+		return askContext{}, fmt.Errorf("listing policy rules: %w", err)
+	}
+	assets, err := s.Store.ListDiscoveredAssets(ctx)
+	if err != nil {
+		return askContext{}, fmt.Errorf("listing discovered assets: %w", err)
+	}
+
+	now := time.Now().UTC()
+	byPlatform := map[string]int{}
+	staleCount := 0
+	hostCtxs := make([]askHostContext, 0, len(hosts))
+	for _, h := range hosts {
+		byPlatform[h.Platform]++
+		stale := policy.IsStale(h.LastCooked, now)
+		if stale {
+			staleCount++
+		}
+		in, err := s.complianceInput(ctx, h, softwareRules)
+		if err != nil {
+			s.log().Error("ask muster: gathering compliance input", "host", h.Name, "err", err)
+			continue
+		}
+		result := compliance.Baseline.Evaluate(in)
+		hc := askHostContext{
+			Name: h.Name, Platform: h.Platform, Group: h.Group, Tags: h.Tags,
+			Stale: stale, LastReported: h.LastCooked.Format(time.RFC3339),
+			PostureScore: in.Posture.Score, PostureFindings: in.Posture.Findings,
+			ComplianceScore: result.Score,
+		}
+		for _, f := range in.VulnFindings {
+			hc.Vulnerabilities = append(hc.Vulnerabilities, fmt.Sprintf("%s %s (%s, severity %s): %s", f.Package, f.Version, f.CVE, f.Severity, f.Description))
+		}
+		for _, v := range in.SoftwareViolations {
+			hc.SoftwareViolations = append(hc.SoftwareViolations, fmt.Sprintf("%s %s (%s rule %q)", v.Package, v.Version, v.Kind, v.Rule))
+		}
+		for _, v := range in.ShadowAIViolations {
+			hc.ShadowAI = append(hc.ShadowAI, fmt.Sprintf("%s %s (matched: %s)", v.Package, v.Version, v.Rule))
+		}
+		hostCtxs = append(hostCtxs, hc)
+	}
+
+	return askContext{
+		GeneratedAt: now,
+		FleetSummary: map[string]any{
+			"total_hosts": len(hosts), "stale_hosts": staleCount, "by_platform": byPlatform,
+		},
+		Hosts:            hostCtxs,
+		PolicyRules:      policyRules,
+		SoftwareRules:    softwareRules,
+		DiscoveredAssets: assets,
+	}, nil
+}
+
+// truncateForAudit shortens s to at most n runes (appending "..." when
+// it does), the same "record it, but don't let one field blow up the
+// audit log" discipline internal/webhook's payload and every other
+// short audit Detail string in this project already follows.
+func truncateForAudit(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "..."
+}
+
+// askRequest is the body of POST /api/ask.
+type askRequest struct {
+	Question string `json:"question"`
+}
+
+// handleAsk is POST /api/ask -- "Ask Muster": a natural-language query
+// over the fleet data this server already holds, gated at "readonly"
+// (the same tier as every other read-only endpoint -- asking a question
+// about the fleet isn't a write). Every question and its answer are
+// recorded to the audit log via Store.RecordAudit, truncated -- this is
+// meant to be a "governed AI" feature with a real audit trail, not a
+// generic chatbot bolted on: see internal/aiquery's package doc comment.
+func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.requireRole(w, r, "readonly")
+	if !ok {
+		return
+	}
+	if !s.AIQuery.Enabled() {
+		s.writeError(w, http.StatusServiceUnavailable, aiquery.ErrNotConfigured.Error())
+		return
+	}
+	var req askRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.Question = strings.TrimSpace(req.Question)
+	if req.Question == "" {
+		s.writeError(w, http.StatusBadRequest, "question is required")
+		return
+	}
+
+	fleetCtx, err := s.buildAskContext(r.Context())
+	if err != nil {
+		s.log().Error("ask muster: building fleet context", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "gathering fleet context")
+		return
+	}
+
+	answer, err := aiquery.Ask(r.Context(), s.AIQuery, req.Question, fleetCtx)
+	if err != nil {
+		s.log().Error("ask muster", "err", err)
+		if errors.Is(err, aiquery.ErrNotConfigured) {
+			s.writeError(w, http.StatusServiceUnavailable, err.Error())
+			return
+		}
+		s.writeError(w, http.StatusBadGateway, "Ask Muster: "+err.Error())
+		return
+	}
+
+	detail := fmt.Sprintf("Q: %s | A: %s", truncateForAudit(req.Question, 200), truncateForAudit(answer, 500))
+	if _, err := s.Store.RecordAudit(r.Context(), actor, "ask-muster", "", detail); err != nil {
+		s.log().Error("recording audit entry", "err", err)
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]string{"answer": answer})
 }
 
 // handleListAudit is GET /api/audit[?host=...&limit=N] -- who did what,

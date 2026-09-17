@@ -473,6 +473,39 @@ main#app {
 .severity-medium { background: #fdf3d9; color: #8a6300; }
 .severity-low { background: #eef1f2; color: #4a5257; }
 
+/* Shadow AI -- its own visual identity, distinct from generic
+   allow/deny violations and CVE severity, so it reads as its own
+   category at a glance. */
+.shadow-ai-pill { background: #ede4fb; color: #5b2fa8; }
+.shadow-ai-card h2 { color: #5b2fa8; }
+
+/* Ask Muster -- a small chat-style panel over POST /api/ask. */
+.ask-card { display: flex; flex-direction: column; gap: 12px; }
+.ask-log {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.ask-turn { display: flex; flex-direction: column; gap: 6px; }
+.ask-question { color: var(--mu-text-muted); }
+.ask-answer { white-space: pre-wrap; line-height: 1.5; }
+.ask-error { color: #a33a2a; }
+.ask-form { display: flex; gap: 10px; align-items: flex-end; }
+.ask-input {
+  flex: 1;
+  resize: vertical;
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--mu-border);
+  border-radius: var(--radius);
+  background: var(--mu-card-bg);
+  color: inherit;
+}
+.ask-form button { flex: none; }
+
 /* Fleet summary */
 .stat-grid {
   display: grid;

@@ -49,6 +49,7 @@ type Input struct {
 	Posture            policy.PostureResult
 	VulnFindings       []vuln.Finding
 	SoftwareViolations []allowlist.Violation
+	ShadowAIViolations []allowlist.Violation
 }
 
 // check is one named, described test against an Input -- a small,
@@ -133,6 +134,16 @@ var Baseline = Framework{
 			evaluate: func(in Input) (bool, string) {
 				if len(in.SoftwareViolations) > 0 {
 					return false, fmt.Sprintf("%d software violation(s)", len(in.SoftwareViolations))
+				}
+				return true, ""
+			},
+		},
+		{
+			id:          "no-shadow-ai",
+			description: "No unauthorized AI tools (desktop apps, CLI tools, browser extensions) detected",
+			evaluate: func(in Input) (bool, string) {
+				if len(in.ShadowAIViolations) > 0 {
+					return false, fmt.Sprintf("%d unauthorized AI tool(s) detected", len(in.ShadowAIViolations))
 				}
 				return true, ""
 			},
