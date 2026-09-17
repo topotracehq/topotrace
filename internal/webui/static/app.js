@@ -655,7 +655,68 @@
     }
   }
 
-  function policyRow(rule) {
+  function policyRuleForm(onCreated) {
+    const nameInput = el("input", { type: "text", placeholder: "rule name" });
+    const kindSelect = el(
+      "select", {},
+      el("option", { value: "stale", text: "Stale (hasn't reported in 24h)" }),
+      el("option", { value: "score_below", text: "Posture score below..." }),
+      el("option", { value: "category_missing", text: "Category never reported" }),
+      el("option", { value: "vulnerabilities_found", text: "Any known-vulnerable package" })
+    );
+    const thresholdInput = el("input", { type: "number", placeholder: "threshold % (score_below only)", min: "0", max: "100" });
+    const categoryInput = el("input", { type: "text", placeholder: "category (category_missing only)" });
+    const groupInput = el("input", { type: "text", placeholder: "group (optional)" });
+    const remediateSelect = el(
+      "select", {},
+      el("option", { value: "", text: "No auto-remediation" }),
+      el("option", { value: "restart-service", text: "Auto: restart-service" }),
+      el("option", { value: "apply-updates", text: "Auto: apply-updates" })
+    );
+    const remediateArgInput = el("input", { type: "text", placeholder: "service name (restart-service only)" });
+    const msg = el("span", { class: "save-msg" });
+    const form = el(
+      "form",
+      { class: "editor-row" },
+      el("label", { text: "New policy rule" }),
+      nameInput, kindSelect, thresholdInput, categoryInput, groupInput, remediateSelect, remediateArgInput,
+      el("button", { type: "submit", text: "Create" }),
+      msg
+    );
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = nameInput.value.trim();
+      if (!name) return;
+      msg.textContent = "Creating...";
+      try {
+        await api("/api/policies", {
+          method: "POST",
+          body: {
+            name,
+            kind: kindSelect.value,
+            threshold: thresholdInput.value ? Number(thresholdInput.value) : 0,
+            category: categoryInput.value.trim(),
+            group: groupInput.value.trim(),
+            auto_remediate: remediateSelect.value,
+            auto_remediate_arg: remediateArgInput.value.trim(),
+          },
+        });
+        msg.textContent = "";
+        nameInput.value = "";
+        thresholdInput.value = "";
+        categoryInput.value = "";
+        groupInput.value = "";
+        remediateArgInput.value = "";
+        remediateSelect.value = "";
+        onCreated();
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    return form;
+  }
+
+  function policyRow(rule, onDelete) {
     const parts = [
       el("span", { class: "policy-name", text: rule.name }),
       el("span", { class: "policy-scope", text: rule.group ? `group: ${rule.group}` : "all hosts" }),
@@ -664,7 +725,26 @@
     if (rule.auto_remediate) {
       parts.push(el("span", { class: "tag-pill", text: `auto: ${rule.auto_remediate}${rule.auto_remediate_arg ? " " + rule.auto_remediate_arg : ""}` }));
     }
+    if (onDelete) {
+      const delBtn = el("button", { type: "button", class: "ghost", text: "Delete" });
+      delBtn.addEventListener("click", () => onDelete(rule));
+      parts.push(delBtn);
+    }
     return el("li", { class: "policy-row" }, ...parts);
+  }
+
+  function discoveredAssetRow(asset, onDelete) {
+    const delBtn = el("button", { type: "button", class: "ghost", text: "Dismiss" });
+    delBtn.addEventListener("click", () => onDelete(asset));
+    return el(
+      "li",
+      { class: "policy-row" },
+      el("span", { class: "policy-name", text: asset.address }),
+      el("span", { class: `posture-badge ${asset.known ? "posture-good" : "posture-warn"}`, text: asset.known ? "known" : "unknown" }),
+      el("span", { class: "policy-condition", text: (asset.open_ports && asset.open_ports.length) ? `ports: ${asset.open_ports.join(", ")}` : "no open ports responded" }),
+      el("span", { class: "change-time", text: `last seen ${timeAgo(asset.last_seen_at)}${asset.scanned_cidr ? " -- " + asset.scanned_cidr : ""}` }),
+      delBtn
+    );
   }
 
   function auditRow(entry) {
@@ -693,9 +773,10 @@
     // Policies are readonly; the audit log is admin-only -- a
     // readonly/remediate key (or demo mode with no auth at all) simply
     // won't see the audit section rather than erroring the whole page.
-    const [policiesResult, auditResult] = await Promise.allSettled([api("/api/policies"), api("/api/audit?limit=20")]);
+    const [policiesResult, auditResult, discoveredResult] = await Promise.allSettled([api("/api/policies"), api("/api/audit?limit=20"), api("/api/discovered-assets")]);
     const policies = policiesResult.status === "fulfilled" ? policiesResult.value : [];
     const audit = auditResult.status === "fulfilled" ? auditResult.value : null;
+    const discoveredAssets = discoveredResult.status === "fulfilled" ? discoveredResult.value : [];
 
     const heading = el(
       "div",
@@ -733,12 +814,54 @@
     }
     const platformCard = el("div", { class: "fact-card" }, el("h2", { text: "By platform" }), platformList);
 
-    const policiesList = policies.length
-      ? el("ul", { class: "policy-list" }, ...policies.map(policyRow))
-      : el("p", { text: "No policy rules configured yet. Create one with POST /api/policies (admin key required)." });
-    const policiesCard = el("div", { class: "fact-card" }, el("h2", { text: `Policies (${policies.length})` }), policiesList);
+    const policiesFormSlot = el("div", {});
+    const policiesListSlot = el("div", {});
 
-    const nodes = [heading, stats, platformCard, policiesCard];
+    function renderPolicyList(list) {
+      const listEl = list.length
+        ? el("ul", { class: "policy-list" }, ...list.map((r) =>
+            policyRow(r, async (target) => {
+              if (!confirm(`Delete policy rule "${target.name}"?`)) return;
+              try { await api(`/api/policies/${target.id}`, { method: "DELETE" }); refreshPolicies(); }
+              catch (err) { alert(`Couldn't delete: ${err.message}`); }
+            })
+          ))
+        : el("p", { text: "No policy rules configured yet." });
+      policiesListSlot.replaceChildren(el("div", { class: "fact-card" }, el("h2", { text: `Policies (${list.length})` }), listEl));
+    }
+    async function refreshPolicies() {
+      try {
+        renderPolicyList(await api("/api/policies"));
+      } catch (err) {
+        policiesListSlot.replaceChildren(el("div", { class: "fact-card" }, el("p", { text: `Couldn't load policy rules: ${err.message} -- managing policies requires an admin API token.` })));
+      }
+    }
+    policiesFormSlot.replaceChildren(el("div", { class: "fact-card" }, policyRuleForm(refreshPolicies)));
+    renderPolicyList(policies);
+
+    const discoveredSlot = el("div", {});
+    function renderDiscovered(list) {
+      const listEl = list.length
+        ? el("ul", { class: "policy-list" }, ...list.map((a) =>
+            discoveredAssetRow(a, async (target) => {
+              if (!confirm(`Dismiss discovered asset "${target.address}"?`)) return;
+              try { await api(`/api/discovered-assets/${target.id}`, { method: "DELETE" }); refreshDiscovered(); }
+              catch (err) { alert(`Couldn't dismiss: ${err.message}`); }
+            })
+          ))
+        : el("p", { text: "No unmanaged devices found yet -- run cmd/discover against a network range and it'll report in here." });
+      discoveredSlot.replaceChildren(el("div", { class: "fact-card" }, el("h2", { text: `Discovered assets (${list.length})` }), listEl));
+    }
+    async function refreshDiscovered() {
+      try {
+        renderDiscovered(await api("/api/discovered-assets"));
+      } catch (err) {
+        discoveredSlot.replaceChildren(el("div", { class: "fact-card" }, el("p", { text: `Couldn't load discovered assets: ${err.message}` })));
+      }
+    }
+    renderDiscovered(discoveredAssets);
+
+    const nodes = [heading, stats, platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
 
     if (audit) {
       const auditList = audit.length
@@ -772,6 +895,15 @@
     ios: "iOS",
   };
   const PLATFORM_ORDER = ["linux", "windows", "macos", "android", "ios"];
+
+  // HOST_NAME_RE mirrors the agent scripts' assert_safe_token charset and
+  // the server's own validHostName check (internal/api/server.go): the
+  // TCP wire protocol header is space-delimited and the generated install
+  // command drops the host name into a shell/PowerShell command line
+  // unquoted, so anything outside letters/digits/'.'/'_'/'-' breaks
+  // either one downstream. Checking it here means a bad host name is
+  // caught before an enrollment (and its one-time token) is even created.
+  const HOST_NAME_RE = /^[a-zA-Z0-9._-]{1,128}$/;
 
   // installSnippet builds the copy-paste command (or, for the two
   // mobile platforms, the setup details) an operator pastes into a
@@ -827,17 +959,58 @@
     );
   }
 
+  // copyToClipboard tries the modern Clipboard API first, then falls back
+  // to the old execCommand("copy") trick via a hidden textarea.
+  // navigator.clipboard is only defined in secure contexts (https, or
+  // localhost) -- Muster is routinely reached over plain
+  // http://<lan-ip>:8080 (see the dashboard's own address bar), where
+  // navigator.clipboard is undefined, not merely rejecting, so the old
+  // try/await/catch here never even reached the catch block; it threw
+  // synchronously on `.writeText` and looked like the button did nothing.
+  async function copyToClipboard(text) {
+    if (window.isSecureContext && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        // fall through to the execCommand fallback below
+      }
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
+    document.body.removeChild(textarea);
+    return ok;
+  }
+
   function revealPanel(enr, token) {
     const pre = el("pre", { class: "install-snippet", text: installSnippet(enr, token) });
     const copyBtn = el("button", { type: "button", text: "Copy" });
     copyBtn.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(pre.textContent);
+      const ok = await copyToClipboard(pre.textContent);
+      if (ok) {
         copyBtn.textContent = "Copied";
         setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
-      } catch {
-        // clipboard API can be unavailable (insecure context, permissions) --
-        // the text is already selectable in the <pre>, so this is a soft failure
+      } else {
+        // both copy paths failed -- select the text so the person can
+        // still grab it with a manual Ctrl+C/Cmd+C
+        const range = document.createRange();
+        range.selectNodeContents(pre);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        copyBtn.textContent = "Selected -- press Ctrl+C";
+        setTimeout(() => { copyBtn.textContent = "Copy"; }, 2500);
       }
     });
     return el(
@@ -866,6 +1039,10 @@
       e.preventDefault();
       const host = hostInput.value.trim();
       if (!host) return;
+      if (!HOST_NAME_RE.test(host)) {
+        msg.textContent = "Host name may only contain letters, digits, '.', '_', '-' (no spaces) -- 1-128 characters.";
+        return;
+      }
       msg.textContent = "Creating...";
       try {
         const created = await api("/api/enrollments", { method: "POST", body: { host, platform: platformSelect.value } });

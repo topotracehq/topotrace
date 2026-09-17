@@ -18,6 +18,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -1368,6 +1369,18 @@ func (s *Server) handleListEnrollments(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, enrollments)
 }
 
+// validHostName mirrors the agent scripts' own assert_safe_token charset
+// (agent/ubuntu/muster-agent.sh, agent/windows/muster-agent.ps1) and
+// cmd/muster's validAuthToken: letters, digits, '.', '_', '-' only, 1-128
+// chars. This isn't cosmetic -- the TCP wire protocol header is
+// space-delimited (internal/ingest/protocol.go, parsed with
+// strings.Fields), and the generated install command drops the host name
+// into a shell/PowerShell command line unquoted, so a host name with a
+// space (or any other shell metacharacter) breaks both. Rejecting it here,
+// at creation time, is a lot friendlier than the agent script's own
+// assert_safe_token failing on a host someone already tried to enroll.
+var validHostName = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,128}$`)
+
 // handleCreateEnrollment is POST /api/enrollments with {"host": "...",
 // "platform": "..."} -- issues a fresh 192-bit token scoped to exactly
 // that host, returned in this one response and never again (same
@@ -1390,6 +1403,10 @@ func (s *Server) handleCreateEnrollment(w http.ResponseWriter, r *http.Request) 
 	req.Host = strings.TrimSpace(req.Host)
 	if req.Host == "" || req.Platform == "" {
 		s.writeError(w, http.StatusBadRequest, "host and platform are required")
+		return
+	}
+	if !validHostName.MatchString(req.Host) {
+		s.writeError(w, http.StatusBadRequest, "host name may only contain letters, digits, '.', '_', '-' (no spaces) -- 1-128 characters")
 		return
 	}
 	raw, err := randomToken()
