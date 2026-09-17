@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- INTERNET: required to POST to Muster's /api/mobile-report.
+         ACCESS_NETWORK_STATE: lets DeviceFacts report a best-effort
+         network-transport type (wifi/cellular/none) and lets ReportWorker
+         require NetworkType.CONNECTED instead of firing (and failing)
+         with no connectivity at all. Neither is a dangerous permission --
+         no runtime prompt needed. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.MusterAgent"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:usesCleartextTraffic="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- No custom WorkManager Configuration.Provider / manifest entry
+             needed -- androidx.work's default ContentProvider-based
+             initializer is fine for a single periodic job like this one. -->
+    </application>
+</manifest>

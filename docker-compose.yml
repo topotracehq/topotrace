@@ -52,6 +52,24 @@ services:
       - muster
     profiles: ["demo"]
 
+  # A real (if containerized) run of agent/ubuntu/muster-agent.sh -- unlike
+  # demoagent above, this actually shells out to `cat /proc/cpuinfo`,
+  # `uname -a`, etc. inside its own container and reports genuine (if
+  # container-scoped) system facts, instead of replaying canned test
+  # files. One-off, not a long-running service; run it with:
+  #   docker compose --profile ubuntu-agent run --rm ubuntu-agent
+  # Override the default args (e.g. a different --host-name) by passing
+  # your own after `run --rm ubuntu-agent` -- that replaces `command`
+  # entirely, so include --muster-host again if you do.
+  ubuntu-agent:
+    build:
+      context: .
+      dockerfile: agent/ubuntu/Dockerfile
+    command: ["--muster-host", "muster", "--muster-port", "9090", "--host-name", "ubuntu-container01"]
+    depends_on:
+      - muster
+    profiles: ["ubuntu-agent"]
+
 volumes:
   muster-data:
   muster-postgres-data:

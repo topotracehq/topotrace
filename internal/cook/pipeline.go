@@ -12,6 +12,9 @@ import (
 	"muster/internal/store"
 )
 
+// (sort was already imported for latestSnapshot's directory-name sort;
+// Cook now also uses it for a stable category iteration order.)
+
 // Pipeline finds the most recent raw capture directory for a host and
 // cooks it into the store, dispatching to the right platform parser.
 type Pipeline struct {
@@ -19,22 +22,26 @@ type Pipeline struct {
 	Store      store.Store
 }
 
-// Cook processes the newest raw snapshot for (platform, host). Returns
-// the field-level changes recorded against the previous cooked fact, if
-// any -- same "what changed since last time" signal the store layer
-// produces for every UpsertFact call.
+// Cook processes the newest raw snapshot for (platform, host), storing
+// every fact category the platform's cook step can produce -- not just
+// system_summary. Returns the combined field-level changes recorded
+// across all of them against their previous cooked values, if any --
+// same "what changed since last time" signal the store layer produces
+// for every UpsertFact call, just flattened across categories.
 func (p *Pipeline) Cook(ctx context.Context, platform, host string) ([]model.Change, error) {
 	rawDir, err := p.latestSnapshot(platform, host)
 	if err != nil {
 		return nil, err
 	}
 
-	var data map[string]any
+	var categories map[string]map[string]any
 	switch platform {
 	case "linux":
-		data, err = CookLinux(rawDir)
+		categories, err = CookLinuxCategories(rawDir)
 	case "windows":
-		data, err = CookWindows(rawDir)
+		categories, err = CookWindowsCategories(rawDir)
+	case "darwin":
+		categories, err = CookDarwinCategories(rawDir)
 	default:
 		return nil, fmt.Errorf("cook: no parser registered for platform %q", platform)
 	}
@@ -47,16 +54,29 @@ func (p *Pipeline) Cook(ctx context.Context, platform, host string) ([]model.Cha
 		return nil, fmt.Errorf("cook: upserting host: %w", err)
 	}
 
-	changes, err := p.Store.UpsertFact(ctx, model.Fact{
-		Host:     host,
-		Category: "system_summary",
-		Data:     data,
-		CookedAt: now,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("cook: upserting fact: %w", err)
+	// Sorted so a run's changes come back in a stable, predictable
+	// category order -- useful for tests/logs, and costs nothing given
+	// how few categories there are.
+	names := make([]string, 0, len(categories))
+	for name := range categories {
+		names = append(names, name)
 	}
-	return changes, nil
+	sort.Strings(names)
+
+	var allChanges []model.Change
+	for _, name := range names {
+		changes, err := p.Store.UpsertFact(ctx, model.Fact{
+			Host:     host,
+			Category: name,
+			Data:     categories[name],
+			CookedAt: now,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("cook: upserting fact %q: %w", name, err)
+		}
+		allChanges = append(allChanges, changes...)
+	}
+	return allChanges, nil
 }
 
 // latestSnapshot returns the raw/<platform>/<host>/<snapshot> directory

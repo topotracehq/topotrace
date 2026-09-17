@@ -1,0 +1,26 @@
+# Runs muster-agent.sh as a one-shot report -- paired with
+# muster-agent.timer for the actual schedule. Install both under
+# /etc/systemd/system/, then:
+#
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now muster-agent.timer
+#   sudo systemctl start muster-agent.service   # run once right now, don't wait for the timer
+#
+# This is the bare-metal/VM equivalent of what charts/muster/templates/
+# cronjob-agent.yaml already does inside Kubernetes -- same script, same
+# schedule-by-default (15 minutes), just started by systemd instead of
+# the cluster.
+[Unit]
+Description=Muster agent (one-shot system report)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Runs as a dedicated, unprivileged user -- nothing this script collects
+# (/proc/cpuinfo, /etc/os-release, its own crontab, etc.) needs root.
+# Create the user first: sudo useradd --system --no-create-home muster-agent
+User=muster-agent
+EnvironmentFile=-/etc/muster-agent.env
+WorkingDirectory=/opt/muster
+ExecStart=/bin/bash -c '/opt/muster/muster-agent.sh --muster-host "$MUSTER_HOST" --muster-port "${MUSTER_PORT:-9090}" ${MUSTER_TOKEN:+--token "$MUSTER_TOKEN"} ${MUSTER_HOST_NAME:+--host-name "$MUSTER_HOST_NAME"}'

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Muster servers are very often run on a home/office LAN or a bare
+  systemd box without TLS in front of them (see deploy/systemd's setup
+  docs) -- exactly the same "plain HTTP to a box on your own network" the
+  desktop agents already assume over their raw TCP protocol. This config
+  allows cleartext (HTTP, not HTTPS) traffic ONLY -- it does not disable
+  certificate validation for HTTPS connections; android:usesCleartextTraffic
+  in the manifest is set alongside it for older API levels' behavior, both
+  expressing the same intent so neither is a silent no-op on its own.
+  If your Muster server is reachable over HTTPS, just use an https:// URL
+  in the setup screen and this block is simply unused.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

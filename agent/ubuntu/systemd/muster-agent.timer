@@ -1,0 +1,14 @@
+# Pairs with muster-agent.service. OnUnitActiveSec=15min matches
+# charts/muster/values.yaml's default agent.cronjob.schedule
+# (*/15 * * * *) -- change both together if you want a different
+# cadence across your Kubernetes and bare-metal fleets.
+[Unit]
+Description=Run the Muster agent on a schedule
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

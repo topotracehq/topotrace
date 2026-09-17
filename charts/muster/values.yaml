@@ -1,0 +1,124 @@
+# Default values for the muster chart. Override with -f myvalues.yaml or
+# --set on `helm install`/`helm upgrade`. See README.md in this directory
+# for the full walkthrough (build/load images, kind vs. minikube vs.
+# Docker Desktop, etc.) -- this file just documents each knob in place.
+
+image:
+  # Built locally from the repo root: docker build -t muster:latest .
+  # Not published to any registry -- see this chart's README for how to
+  # get it into your cluster (kind load / minikube image load / Docker
+  # Desktop's built-in k8s needs nothing extra).
+  repository: muster
+  tag: latest
+  pullPolicy: IfNotPresent
+
+agentImage:
+  # Built from agent/ubuntu/Dockerfile: docker build -f agent/ubuntu/Dockerfile -t muster-ubuntu-agent:latest .
+  repository: muster-ubuntu-agent
+  tag: latest
+  pullPolicy: IfNotPresent
+
+server:
+  replicaCount: 1
+  apiPort: 8080
+  ingestPort: 9090
+  resources: {}
+  service:
+    api:
+      type: ClusterIP
+    ingest:
+      # Real agents *outside* the cluster (an actual Windows/Ubuntu box)
+      # need a way to reach this port. NodePort is the simplest option
+      # that works on any cluster, including kind/minikube; switch to
+      # LoadBalancer if your cluster provisions one, or ClusterIP if
+      # every agent will always run inside the cluster too.
+      type: NodePort
+      nodePort: 30909
+
+ingress:
+  # Optional, off by default -- port-forwarding the API service is
+  # simpler for local testing. Turn this on if you've got an ingress
+  # controller and want a real hostname for the dashboard.
+  enabled: false
+  className: ""
+  host: muster.local
+  annotations: {}
+
+auth:
+  # Empty (default, same as leaving -auth-token unset) means demo mode:
+  # every GET, board write, and agent connection stays open, and
+  # remediation/policies/API keys stay unavailable -- see the main
+  # README's "Authentication, roles & remediation" section. Set token
+  # for a quick local test; for anything beyond a throwaway cluster,
+  # point existingSecret at your own Secret (must have a "token" key)
+  # instead of putting a real token in plaintext values, the same
+  # pattern postgres.credentials.existingSecret already uses below.
+  token: ""
+  existingSecret: ""
+
+webhooks:
+  # Comma-separated URLs muster POSTs policy_violation/remediation_executed
+  # JSON events to (see the main README's "Webhooks" section). Empty
+  # (default) disables webhooks entirely.
+  urls: ""
+
+evaluator:
+  # How often the background policy evaluator re-checks every host
+  # against every persisted rule -- see the main README's "Policy rules
+  # & the background evaluator" section. Only matters once at least one
+  # policy exists (POST /api/policies).
+  intervalSeconds: 300
+
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  storage: 1Gi
+  # Empty = your cluster's default StorageClass.
+  storageClassName: ""
+  resources: {}
+  credentials:
+    user: muster
+    password: muster
+    database: muster
+    # Set this to use your own pre-created Secret (must have a "dsn" key,
+    # e.g. postgres://user:pass@host:5432/db?sslmode=disable) instead of
+    # the chart generating one from the plaintext values above. The
+    # defaults above are fine for a local kind/minikube test cluster and
+    # nothing else.
+    existingSecret: ""
+  # postgres.enabled: false makes the server fall back to memstore
+  # (in-memory + JSON snapshot to an emptyDir) -- zero setup, but data is
+  # lost on pod restart. That's the correct tradeoff for a quick demo;
+  # anything you want to survive a restart should run with Postgres on.
+
+agent:
+  cronjob:
+    enabled: true
+    # Every 15 minutes by default -- adjust freely, this is a demo cadence.
+    schedule: "*/15 * * * *"
+    hostName: "k8s-cronjob"
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 3
+  daemonset:
+    # Off by default: this is the "one pod per node, reporting real host
+    # facts on a loop" variant -- see the chart README for what hostPID
+    # actually buys you here (less than you'd think for today's fields,
+    # more once listening-ports/local-users collection lands).
+    enabled: false
+    hostPID: true
+    hostNetwork: false
+    reportIntervalSeconds: 300
+
+rbac:
+  create: true
+  # Off by default. Nothing in this chart calls the Kubernetes API today
+  # -- see the chart README's RBAC section for the reasoning. Every
+  # ServiceAccount below has automountServiceAccountToken disabled unless
+  # this is true, so there's no dangling API credential sitting in a pod
+  # that never uses it. Flip this on once an in-cluster-awareness agent
+  # feature (reading pod counts via the API, say) actually lands and
+  # needs the get/list-on-pods Role this also creates.
+  grantPodReadAccess: false
+
+networkPolicy:
+  enabled: true

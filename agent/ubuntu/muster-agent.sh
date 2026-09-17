@@ -12,13 +12,26 @@
 # same MUSTER1 header-plus-payload protocol cmd/demoagent and the Windows
 # agent both use:
 #
-#     MUSTER1 <platform> <host> <payload-bytes>\n
+#     MUSTER1 <platform> <host> <token> <payload-bytes>\n
 #     <that many raw bytes of gzip-compressed tar>
+#
+# If the server hands back a second reply line -- a queued remediation
+# action (`ACTION <id> <verb> <arg>`) -- this script executes it if (and
+# only if) the verb is one of the small set case-matched in run_action
+# below, then reports the outcome back over a second, short
+# MUSTER1-RESULT connection. See internal/remediate/actions.go for the
+# authoritative allow-list; an unknown or not-yet-implemented verb is
+# reported "unsupported," never guessed at or passed to a shell as-is.
 #
 # The capture file names/contents are Muster's own raw-capture contract
 # (see internal/cook/linux.go's doc comment) -- this script just runs the
 # exact commands that contract expects and tars the results, no parsing
-# of its own.
+# of its own. Beyond those original five, it also captures df -Pk,
+# dpkg -l, running systemd units, listening TCP sockets (ss -tln),
+# /etc/passwd, network interfaces (ip -o addr), the reporting user's own
+# crontab, apt's upgradable-package list, and ufw's status -- each fully
+# best-effort (see internal/cook/linux_extra.go for what's parsed from
+# each, and what's tolerated as absent).
 #
 # Requirements: bash (uses /dev/tcp, a bash built-in -- no netcat/socat
 # needed), tar, gzip. All standard on any Ubuntu install; no packages to
@@ -38,7 +51,11 @@
 #                         change this if internal/cook has a matching
 #                         parser -- otherwise the server stores the host
 #                         with an empty summary.
-#   --out-dir DIR        Directory to write capture files + archive into
+#   --token TOKEN         Shared secret matching the server's -auth-token,
+#                         if it was started with one. Omit if the server
+#                         has no -auth-token configured. Same charset as
+#                         --host-name applies.
+#   --out-dir DIR         Directory to write capture files + archive into
 #                         (default: a fresh mktemp -d).
 #   --keep-files          Don't delete --out-dir's contents afterward.
 #   -h, --help            Show this help and exit.
@@ -46,6 +63,7 @@
 # Examples:
 #   ./muster-agent.sh --muster-host 192.168.1.50
 #   ./muster-agent.sh --muster-host localhost --host-name webbox01 --keep-files
+#   ./muster-agent.sh --muster-host 192.168.1.50 --token "$MUSTER_TOKEN"
 #
 # Verification status: the wire protocol and the capture-file format this
 # script produces are the same contract internal/cook/linux.go already
@@ -54,6 +72,10 @@
 # handling exactly and has been reasoned through carefully, but treat a
 # first run the normal way you'd treat any new script: try it against a
 # test/dev Muster instance before trusting it on anything that matters.
+# The remediation path (run_action/report_action_result below) is new
+# and has not been exercised against a live server with a real queued
+# action -- try --token plus a manually-queued restart-service action
+# against a throwaway service before relying on it.
 
 set -euo pipefail
 
@@ -63,9 +85,11 @@ PLATFORM="linux"
 OUT_DIR=""
 KEEP_FILES=0
 MUSTER_HOST=""
+TOKEN=""
+AIRGAP_OUT=""
 
 usage() {
-    sed -n '2,50p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,58p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 while [[ $# -gt 0 ]]; do
@@ -74,15 +98,17 @@ while [[ $# -gt 0 ]]; do
         --muster-port) MUSTER_PORT="$2"; shift 2 ;;
         --host-name) HOST_NAME="$2"; shift 2 ;;
         --platform) PLATFORM="$2"; shift 2 ;;
+        --token) TOKEN="$2"; shift 2 ;;
         --out-dir) OUT_DIR="$2"; shift 2 ;;
         --keep-files) KEEP_FILES=1; shift ;;
+        --airgap-out) AIRGAP_OUT="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage >&2; exit 1 ;;
     esac
 done
 
-if [[ -z "$MUSTER_HOST" ]]; then
-    echo "Error: --muster-host is required." >&2
+if [[ -z "$MUSTER_HOST" && -z "$AIRGAP_OUT" ]]; then
+    echo "Error: --muster-host is required (or --airgap-out, for a host with no network route to Muster at all -- see agent/airgap/README.md)." >&2
     exit 1
 fi
 
@@ -95,6 +121,10 @@ assert_safe_token() {
 }
 assert_safe_token "$PLATFORM" "--platform"
 assert_safe_token "$HOST_NAME" "--host-name"
+if [[ -n "$TOKEN" ]]; then
+    assert_safe_token "$TOKEN" "--token"
+fi
+AUTH_TOKEN="${TOKEN:--}"
 
 for cmd in tar gzip; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -116,6 +146,68 @@ cleanup() {
     fi
 }
 trap cleanup EXIT
+
+# report_action_result opens a short second MUSTER1-RESULT connection to
+# tell the server what happened when this script executed a delivered
+# action. Best-effort: a failure to report back doesn't change the exit
+# status of the run that already succeeded at its actual job (submitting
+# this host's report).
+report_action_result() {
+    local action_id="$1" status="$2" detail="$3"
+    local detail_bytes
+    detail_bytes="$(printf '%s' "$detail" | wc -c | tr -d '[:space:]')"
+
+    local rfd
+    if ! exec {rfd}<>"/dev/tcp/${MUSTER_HOST}/${MUSTER_PORT}"; then
+        echo "  (could not open a second connection to report the action result)" >&2
+        return
+    fi
+    printf 'MUSTER1-RESULT %s %s %s %s\n' "$AUTH_TOKEN" "$action_id" "$status" "$detail_bytes" >&"$rfd"
+    printf '%s' "$detail" >&"$rfd"
+    local result_reply=""
+    read -r -u "$rfd" result_reply || true
+    exec {rfd}<&- {rfd}>&- 2>/dev/null || true
+    echo "  Result report acknowledged: $result_reply"
+}
+
+# run_action executes an allow-listed remediation action the server
+# handed back after accepting this run's report. Only the verbs
+# explicitly case-matched below ever run anything -- an unknown or
+# not-yet-implemented verb (see internal/remediate/actions.go) is
+# reported as unsupported, never guessed at or passed to a shell as-is.
+run_action() {
+    local line="$1"
+    local _tag action_id verb arg
+    read -r _tag action_id verb arg <<< "$line"
+
+    echo "Received action: id=$action_id verb=$verb arg=$arg"
+
+    local status detail logfile
+    logfile="$(mktemp -t muster-action.XXXXXX)"
+    case "$verb" in
+        restart-service)
+            if systemctl restart -- "$arg" >"$logfile" 2>&1; then
+                status="ok"
+                detail="restarted $arg via systemctl"
+            else
+                status="fail"
+                detail="systemctl restart $arg failed: $(tail -c 400 "$logfile")"
+            fi
+            ;;
+        apply-updates)
+            status="fail"
+            detail="apply-updates is allow-listed but not yet implemented by this agent"
+            ;;
+        *)
+            status="fail"
+            detail="unsupported action verb: $verb"
+            ;;
+    esac
+    rm -f "$logfile"
+
+    echo "Action result: $status -- $detail"
+    report_action_result "$action_id" "$status" "$detail"
+}
 
 echo "Collecting system info into $OUT_DIR ..."
 
@@ -156,6 +248,54 @@ if command -v uptime >/dev/null 2>&1; then
     collected+=("uptime.txt")
 fi
 
+# --- extra feeds: each is fully best-effort, same "skip what's missing"
+# policy as the five files above. internal/cook/linux_extra.go tolerates
+# any subset of these being absent.
+if command -v df >/dev/null 2>&1; then
+    df -Pk > "$OUT_DIR/df.txt"
+    collected+=("df.txt")
+fi
+
+if command -v dpkg >/dev/null 2>&1; then
+    dpkg -l > "$OUT_DIR/packages.txt" 2>/dev/null || true
+    collected+=("packages.txt")
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl list-units --type=service --state=running --no-legend --no-pager > "$OUT_DIR/services.txt" 2>/dev/null || true
+    collected+=("services.txt")
+fi
+
+if command -v ss >/dev/null 2>&1; then
+    ss -tln > "$OUT_DIR/ports.txt" 2>/dev/null || true
+    collected+=("ports.txt")
+fi
+
+if [[ -r /etc/passwd ]]; then
+    cat /etc/passwd > "$OUT_DIR/users.txt"
+    collected+=("users.txt")
+fi
+
+if command -v ip >/dev/null 2>&1; then
+    ip -o addr show > "$OUT_DIR/interfaces.txt" 2>/dev/null || true
+    collected+=("interfaces.txt")
+fi
+
+if command -v crontab >/dev/null 2>&1; then
+    crontab -l > "$OUT_DIR/cron.txt" 2>&1 || true
+    collected+=("cron.txt")
+fi
+
+if command -v apt >/dev/null 2>&1; then
+    apt list --upgradable > "$OUT_DIR/updates.txt" 2>/dev/null || true
+    collected+=("updates.txt")
+fi
+
+if command -v ufw >/dev/null 2>&1; then
+    ufw status > "$OUT_DIR/firewall.txt" 2>/dev/null || true
+    collected+=("firewall.txt")
+fi
+
 if [[ ${#collected[@]} -eq 0 ]]; then
     echo "Error: nothing could be collected -- nothing to send." >&2
     exit 1
@@ -172,16 +312,49 @@ tar -czf "$archive" -C "$OUT_DIR" "${collected[@]}"
 payload_size="$(wc -c < "$archive" | tr -d '[:space:]')"
 echo "Packaged $payload_size bytes."
 
+# --- air-gapped output (no network path to Muster at all) ----------------
+# Same capture + tar.gz packaging as the normal path above; instead of
+# opening a socket, base64-encode the archive and write it (or print it)
+# as the JSON body POST /api/airgap-report expects. See
+# agent/airgap/README.md for the intended workflow: run this on the
+# air-gapped host, move the resulting file by hand (USB drive, pasted
+# text, a small QR code for short captures) to any machine that *can*
+# reach Muster, and POST it from there.
+if [[ -n "$AIRGAP_OUT" ]]; then
+    echo "Air-gapped mode: encoding the payload instead of sending it over the network."
+    payload_b64="$(base64 -w0 "$archive")"
+    json="{\"platform\":\"$PLATFORM\",\"host\":\"$HOST_NAME\",\"payload_b64\":\"$payload_b64\"}"
+    if [[ "$AIRGAP_OUT" == "-" ]]; then
+        printf '%s\n' "$json"
+    else
+        printf '%s\n' "$json" > "$AIRGAP_OUT"
+        echo "Wrote air-gapped report to $AIRGAP_OUT ($(wc -c < "$AIRGAP_OUT" | tr -d '[:space:]') bytes)."
+        echo "Move this file to any machine that can reach Muster and POST it, e.g.:"
+        echo "  curl -sS -X POST 'http://<muster-host>:8080/api/airgap-report' -H 'Content-Type: application/json' --data @$AIRGAP_OUT"
+    fi
+    if [[ "$KEEP_FILES" -eq 0 ]]; then
+        rm -rf "$OUT_DIR"
+    fi
+    exit 0
+fi
+
 # --- send over MUSTER1 -----------------------------------------------------
 echo "Connecting to ${MUSTER_HOST}:${MUSTER_PORT} ..."
 exec 3<>"/dev/tcp/${MUSTER_HOST}/${MUSTER_PORT}"
 
-printf 'MUSTER1 %s %s %s\n' "$PLATFORM" "$HOST_NAME" "$payload_size" >&3
+printf 'MUSTER1 %s %s %s %s\n' "$PLATFORM" "$HOST_NAME" "$AUTH_TOKEN" "$payload_size" >&3
 cat "$archive" >&3
 
 reply=""
 read -r -u 3 reply || true
 echo "Server replied: $reply"
+
+# The server may follow "OK <n>" with one more line delivering a queued
+# remediation action for this host -- read opportunistically; if there
+# isn't one, the connection is already at EOF and this just comes back
+# empty.
+action_line=""
+read -r -u 3 action_line || true
 
 exec 3<&- 3>&-
 
@@ -191,3 +364,7 @@ if [[ "$reply" != OK* ]]; then
 fi
 
 echo "Done -- reported as platform='$PLATFORM' host='$HOST_NAME'."
+
+if [[ "$action_line" == ACTION* ]]; then
+    run_action "$action_line"
+fi

@@ -37,6 +37,22 @@ powershell -ExecutionPolicy Bypass -File .\muster-agent.ps1 -MusterHost <server>
 or unblock the downloaded file first (`Unblock-File .\muster-agent.ps1`),
 per your organization's usual policy for one-off scripts.
 
+## Running on a schedule
+
+`register-scheduled-task.ps1` in this directory wires up a Windows
+Scheduled Task that runs `muster-agent.ps1` every 15 minutes by default
+(matching `charts/muster/values.yaml`'s CronJob cadence) -- the bare-metal
+equivalent of what the Helm chart's CronJob already does inside
+Kubernetes. Run it once, elevated:
+
+```powershell
+.\register-scheduled-task.ps1 -MusterHost <server-ip-or-hostname>
+```
+
+See its own `Get-Help .\register-scheduled-task.ps1 -Full` for every
+parameter, and its `.NOTES` for how to check whether it's actually
+firing (`Get-ScheduledTaskInfo`) and how to remove it.
+
 ## What it collects
 
 Four flat "Key: Value" files (`cpu.txt`, `memory.txt`, `os.txt`,

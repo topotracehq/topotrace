@@ -1,0 +1,36 @@
+{{/*
+Off by default (rbac.grantPodReadAccess: false) -- see values.yaml and the
+chart README. When turned on, this grants exactly one thing: read-only
+get/list on Pods in this namespace, for the agent ServiceAccount only.
+That's scoped to what a future in-cluster-awareness agent feature would
+need (a pod count / namespace inventory fact) and nothing more -- no
+write verbs, no cluster-scoped resources, no access for the server or
+Postgres ServiceAccounts, which never call the Kubernetes API at all.
+*/}}
+{{- if and .Values.rbac.create .Values.rbac.grantPodReadAccess }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "muster.fullname" . }}-agent-pod-reader
+  labels:
+    {{- include "muster.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "muster.fullname" . }}-agent-pod-reader
+  labels:
+    {{- include "muster.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "muster.fullname" . }}-agent
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "muster.fullname" . }}-agent-pod-reader
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

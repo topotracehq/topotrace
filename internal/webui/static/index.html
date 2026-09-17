@@ -19,7 +19,21 @@
     <nav class="view-tabs">
       <a href="#/" data-view="hosts">Hosts</a>
       <a href="#/board" data-view="board">Board</a>
+      <a href="#/fleet" data-view="fleet">Fleet</a>
+      <a href="#/agents" data-view="agents">Agents</a>
+      <a href="#/compliance" data-view="compliance">Compliance</a>
+      <a href="#/docs" data-view="docs">Docs</a>
     </nav>
+    <div class="auth-control">
+      <span id="oauth-status" class="oauth-status" hidden></span>
+      <button type="button" id="auth-toggle" class="ghost">Auth</button>
+      <form id="auth-form" class="auth-form" hidden>
+        <input id="auth-token-input" type="password" placeholder="Bearer token (master or an API key)" autocomplete="off">
+        <button type="submit">Save</button>
+        <button type="button" id="auth-clear" class="ghost">Clear</button>
+        <span id="auth-status" class="save-msg"></span>
+      </form>
+    </div>
     <form id="search-form" class="search">
       <select id="search-field" title="Field to search">
         <option value="distribution">Distribution</option>

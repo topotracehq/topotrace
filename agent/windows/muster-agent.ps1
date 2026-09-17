@@ -17,8 +17,17 @@
     resulting .tar.gz to the ingest daemon over a raw TCP socket using the
     same MUSTER1 header-plus-payload protocol cmd/demoagent uses:
 
-        MUSTER1 <platform> <host> <payload-bytes>\n
+        MUSTER1 <platform> <host> <token> <payload-bytes>\n
         <that many raw bytes of gzip-compressed tar>
+
+    If the server hands back a second reply line -- a queued remediation
+    action (`ACTION <id> <verb> <arg>`) -- this script executes it if
+    (and only if) the verb is one of the small set case-matched in
+    Invoke-MusterAction below, then reports the outcome back over a
+    second, short MUSTER1-RESULT connection. See
+    internal/remediate/actions.go for the authoritative allow-list; an
+    unknown or not-yet-implemented verb is reported "unsupported," never
+    guessed at or passed to a shell as-is.
 
     The capture file field names deliberately match what
     internal/cook/windows.go parses -- see that file's doc comment for the
@@ -26,7 +35,10 @@
 
     Requirements: Windows PowerShell 5.1+ (or PowerShell 7+), and tar.exe
     on PATH (built into Windows 10 1803+ / Server 2019+; check with
-    `tar.exe --version`). No admin rights, no modules to install.
+    `tar.exe --version`). No admin rights, no modules to install -- except
+    that Restart-Service (used by the restart-service remediation action,
+    if one is ever queued for this host) needs whatever privileges
+    restarting that specific service normally requires.
 
 .PARAMETER MusterHost
     Hostname or IP of the machine running the Muster ingest daemon.
@@ -44,6 +56,11 @@
     Platform tag to report. Defaults to "windows" -- only change this if
     you know internal/cook has (or will have) a matching parser, otherwise
     the server will store the host with an empty summary.
+
+.PARAMETER Token
+    Shared secret matching the server's -auth-token, if it was started
+    with one. Omit if the server has no -auth-token configured. Same
+    charset restriction as -HostName applies.
 
 .PARAMETER OutDir
     Directory to write the capture files and archive into. Defaults to a
@@ -65,21 +82,25 @@
     Reports as "winbox01" instead of the real computer name, and leaves
     the collected capture files + archive on disk afterward for review.
 
+.EXAMPLE
+    .\muster-agent.ps1 -MusterHost 192.168.1.50 -Token $env:MUSTER_TOKEN
+
+    Same, but authenticates with a shared secret -- required once the
+    server is started with -auth-token.
+
 .NOTES
     This script has been carefully written to match the wire protocol and
     capture-file format Muster's Go server expects, and that server-side
     contract has been verified end to end (ingest -> cook -> store -> API
-    -> web UI) using a synthetic payload in this exact format. The
-    PowerShell itself, however, has NOT been executed on an actual
-    Windows machine as part of building this -- there was no Windows host
-    or PowerShell runtime available in the environment this was written
-    in. Please treat first runs with the normal caution you'd give any
-    new script: try it against a test/dev Muster instance first.
+    -> web UI) using a synthetic payload in this exact format. Treat a
+    first run -- and especially the remediation path added alongside
+    -Token, which has not been exercised against a live server with a
+    real queued action -- with the normal caution you'd give any new
+    script: try it against a test/dev Muster instance first.
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$MusterHost,
+    [string]$MusterHost = "",
 
     [int]$MusterPort = 9090,
 
@@ -87,9 +108,18 @@ param(
 
     [string]$Platform = "windows",
 
+    [string]$Token = "",
+
     [string]$OutDir = (Join-Path $env:TEMP "muster-agent-$([guid]::NewGuid().ToString('N').Substring(0,8))"),
 
-    [switch]$KeepFiles
+    [switch]$KeepFiles,
+
+    # AirgapOut, when set, skips the network send entirely and instead
+    # base64-encodes the packaged archive into the JSON body
+    # POST /api/airgap-report expects, written to this path ("-" for
+    # stdout) -- for a host with no route to Muster at all. See
+    # agent/airgap/README.md.
+    [string]$AirgapOut = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -103,6 +133,88 @@ function Assert-SafeToken {
 
 Assert-SafeToken -Value $Platform -Name "-Platform"
 Assert-SafeToken -Value $HostName -Name "-HostName"
+if ($Token) {
+    Assert-SafeToken -Value $Token -Name "-Token"
+}
+$AuthToken = if ($Token) { $Token } else { "-" }
+
+if (-not $MusterHost -and -not $AirgapOut) {
+    throw "-MusterHost is required (or -AirgapOut, for a host with no network route to Muster at all -- see agent/airgap/README.md)."
+}
+
+# Send-MusterActionResult opens a short second TCP connection to report
+# what happened when this script executed a delivered action. Best-
+# effort: a failure to report back doesn't change the outcome of the run
+# that already succeeded at its actual job (submitting this host's
+# report).
+function Send-MusterActionResult {
+    param(
+        [string]$MusterHost, [int]$MusterPort, [string]$Token,
+        [string]$ActionId, [string]$Status, [string]$Detail
+    )
+    $detailBytes = [System.Text.Encoding]::UTF8.GetBytes($Detail)
+    $client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        $client.Connect($MusterHost, $MusterPort)
+        $stream = $client.GetStream()
+        $header = "MUSTER1-RESULT $Token $ActionId $Status $($detailBytes.Length)`n"
+        $headerBytes = [System.Text.Encoding]::ASCII.GetBytes($header)
+        $stream.Write($headerBytes, 0, $headerBytes.Length)
+        $stream.Write($detailBytes, 0, $detailBytes.Length)
+        $stream.Flush()
+        $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::ASCII)
+        $resultReply = $reader.ReadLine()
+        Write-Host "  Result report acknowledged: $resultReply"
+    } catch {
+        Write-Warning "  (could not report the action result: $($_.Exception.Message))"
+    } finally {
+        $client.Close()
+    }
+}
+
+# Invoke-MusterAction executes an allow-listed remediation action the
+# server handed back after accepting this run's report. Only the verbs
+# explicitly case-matched below ever run anything -- an unknown or
+# not-yet-implemented verb (see internal/remediate/actions.go) is
+# reported as unsupported, never guessed at or passed to a shell as-is.
+function Invoke-MusterAction {
+    param(
+        [Parameter(Mandatory = $true)][string]$Line,
+        [Parameter(Mandatory = $true)][string]$MusterHost,
+        [Parameter(Mandatory = $true)][int]$MusterPort,
+        [Parameter(Mandatory = $true)][string]$Token
+    )
+    # Line is "ACTION <id> <verb> <arg>".
+    $parts = $Line -split '\s+'
+    $actionId = $parts[1]
+    $verb = $parts[2]
+    $arg = $parts[3]
+
+    Write-Host "Received action: id=$actionId verb=$verb arg=$arg"
+
+    $status = "fail"
+    $detail = "unsupported action verb: $verb"
+
+    switch ($verb) {
+        "restart-service" {
+            try {
+                Restart-Service -Name $arg -Force -ErrorAction Stop
+                $status = "ok"
+                $detail = "restarted $arg via Restart-Service"
+            } catch {
+                $status = "fail"
+                $detail = "Restart-Service $arg failed: $($_.Exception.Message)"
+            }
+        }
+        "apply-updates" {
+            $status = "fail"
+            $detail = "apply-updates is allow-listed but not yet implemented by this agent"
+        }
+    }
+
+    Write-Host "Action result: $status -- $detail"
+    Send-MusterActionResult -MusterHost $MusterHost -MusterPort $MusterPort -Token $Token -ActionId $actionId -Status $status -Detail $detail
+}
 
 $tar = Get-Command tar.exe -ErrorAction SilentlyContinue
 if (-not $tar) {
@@ -153,13 +265,84 @@ $uptimeStr = "{0} days, {1}:{2:D2}:{3:D2}" -f $up.Days, $up.Hours, $up.Minutes, 
     "Uptime: $uptimeStr"
 ) | Set-Content -Path (Join-Path $OutDir "system.txt") -Encoding ascii
 
+# --- extra feeds ---------------------------------------------------------
+# Each is fully best-effort (wrapped so one missing cmdlet/module or one
+# access-denied doesn't abort the whole run) and written as CSV via
+# ConvertTo-Csv -NoTypeInformation -- internal/cook/windows_extra.go
+# parses that directly, headers and all, no hand-rolled quoting on either
+# side. A cmdlet that legitimately returns nothing (e.g. no listening
+# TCP sockets) still produces a header-only CSV, which the cook side
+# treats as "zero rows," not an error.
+$extraFiles = @()
+
+function Export-MusterExtra {
+    param([string]$Name, [scriptblock]$Collect)
+    try {
+        & $Collect | ConvertTo-Csv -NoTypeInformation | Set-Content -Path (Join-Path $OutDir $Name) -Encoding ascii
+        $script:extraFiles += $Name
+    } catch {
+        Write-Host "  (skipping $Name -- $($_.Exception.Message))"
+    }
+}
+
+Export-MusterExtra -Name "disks.txt" -Collect {
+    Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType=3" |
+        Select-Object DeviceID, Size, FreeSpace
+}
+
+Export-MusterExtra -Name "software.txt" -Collect {
+    Get-ItemProperty @(
+        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
+        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+    ) -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName } |
+        Select-Object DisplayName, DisplayVersion
+}
+
+Export-MusterExtra -Name "services_running.txt" -Collect {
+    Get-Service | Where-Object { $_.Status -eq "Running" } |
+        Select-Object Name, DisplayName, Status
+}
+
+Export-MusterExtra -Name "ports.txt" -Collect {
+    Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+        Select-Object LocalAddress, LocalPort
+}
+
+Export-MusterExtra -Name "users.txt" -Collect {
+    Get-LocalUser | Select-Object Name, Enabled
+}
+
+Export-MusterExtra -Name "netadapters.txt" -Collect {
+    Get-NetIPAddress -ErrorAction SilentlyContinue |
+        Select-Object InterfaceAlias, AddressFamily, IPAddress
+}
+
+Export-MusterExtra -Name "scheduledtasks.txt" -Collect {
+    Get-ScheduledTask -ErrorAction SilentlyContinue |
+        Where-Object { $_.State -ne "Disabled" } |
+        Select-Object TaskName, State
+}
+
+# Installed patches, not pending ones -- the real "what's outstanding"
+# answer needs the Windows Update COM API, out of scope for this pass.
+# See internal/cook/windows_extra.go's cookWinHotfixes doc comment.
+Export-MusterExtra -Name "hotfixes.txt" -Collect {
+    Get-HotFix -ErrorAction SilentlyContinue | Select-Object HotFixID, InstalledOn
+}
+
+Export-MusterExtra -Name "firewall.txt" -Collect {
+    Get-NetFirewallProfile -ErrorAction SilentlyContinue | Select-Object Name, Enabled
+}
+
 # --- package -------------------------------------------------------------
 $archivePath = Join-Path $OutDir "payload.tar.gz"
 Write-Host "Packaging capture files with tar.exe ..."
 # -C changes into $OutDir before adding files, so the archive contains
 # bare "cpu.txt" etc. at its root -- matching what the server's
 # extractPayload() expects (flat files, no leading directory component).
-& tar.exe -czf $archivePath -C $OutDir cpu.txt memory.txt os.txt system.txt
+$captureFiles = @("cpu.txt", "memory.txt", "os.txt", "system.txt") + $extraFiles
+& tar.exe -czf $archivePath -C $OutDir @captureFiles
 if ($LASTEXITCODE -ne 0) {
     throw "tar.exe exited with code $LASTEXITCODE"
 }
@@ -167,14 +350,38 @@ if ($LASTEXITCODE -ne 0) {
 $payload = [System.IO.File]::ReadAllBytes($archivePath)
 Write-Host "Packaged $($payload.Length) bytes."
 
+# --- air-gapped output (no network path to Muster at all) ----------------
+# Same capture + tar.gz packaging as the normal path above; instead of
+# opening a socket, base64-encode the archive and write it (or print it)
+# as the JSON body POST /api/airgap-report expects. See
+# agent/airgap/README.md for the intended workflow.
+if ($AirgapOut) {
+    Write-Host "Air-gapped mode: encoding the payload instead of sending it over the network."
+    $payloadB64 = [System.Convert]::ToBase64String($payload)
+    $json = "{`"platform`":`"$Platform`",`"host`":`"$HostName`",`"payload_b64`":`"$payloadB64`"}"
+    if ($AirgapOut -eq "-") {
+        Write-Output $json
+    } else {
+        Set-Content -Path $AirgapOut -Value $json -NoNewline -Encoding ascii
+        Write-Host "Wrote air-gapped report to $AirgapOut ($((Get-Item $AirgapOut).Length) bytes)."
+        Write-Host "Move this file to any machine that can reach Muster and POST it, e.g.:"
+        Write-Host "  curl -sS -X POST 'http://<muster-host>:8080/api/airgap-report' -H 'Content-Type: application/json' --data '@$AirgapOut'"
+    }
+    if (-not $KeepFiles) {
+        Remove-Item -Path $OutDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    exit 0
+}
+
 # --- send over MUSTER1 ----------------------------------------------------
 Write-Host "Connecting to ${MusterHost}:${MusterPort} ..."
 $client = [System.Net.Sockets.TcpClient]::new()
+$actionLine = $null
 try {
     $client.Connect($MusterHost, $MusterPort)
     $stream = $client.GetStream()
 
-    $header = "MUSTER1 $Platform $HostName $($payload.Length)`n"
+    $header = "MUSTER1 $Platform $HostName $AuthToken $($payload.Length)`n"
     $headerBytes = [System.Text.Encoding]::ASCII.GetBytes($header)
     $stream.Write($headerBytes, 0, $headerBytes.Length)
     $stream.Write($payload, 0, $payload.Length)
@@ -183,6 +390,10 @@ try {
     $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::ASCII)
     $reply = $reader.ReadLine()
     Write-Host "Server replied: $reply"
+
+    # The server may follow "OK <n>" with one more line delivering a
+    # queued remediation action for this host.
+    $actionLine = $reader.ReadLine()
 
     if ($reply -notmatch '^OK\b') {
         throw "Muster ingest daemon did not report success: $reply"
@@ -199,3 +410,7 @@ if ($KeepFiles) {
 }
 
 Write-Host "Done -- reported as platform='$Platform' host='$HostName'."
+
+if ($actionLine -and $actionLine.StartsWith("ACTION")) {
+    Invoke-MusterAction -Line $actionLine -MusterHost $MusterHost -MusterPort $MusterPort -Token $AuthToken
+}

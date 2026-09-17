@@ -28,7 +28,13 @@ func main() {
 	platform := flag.String("platform", "linux", "platform name")
 	host := flag.String("host", "demo01", "host name to report as")
 	dir := flag.String("dir", "./testdata/linux-demo-host", "directory of capture files to package and send")
+	token := flag.String("token", "", "shared secret to send, matching the server's -auth-token if it has one; empty sends the no-token sentinel")
 	flag.Parse()
+
+	tok := *token
+	if tok == "" {
+		tok = "-"
+	}
 
 	payload, err := packDir(*dir)
 	if err != nil {
@@ -43,7 +49,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	fmt.Fprintf(conn, "MUSTER1 %s %s %d\n", *platform, *host, payload.Len())
+	fmt.Fprintf(conn, "MUSTER1 %s %s %s %d\n", *platform, *host, tok, payload.Len())
 	if _, err := conn.Write(payload.Bytes()); err != nil {
 		fmt.Fprintln(os.Stderr, "sending payload:", err)
 		os.Exit(1)

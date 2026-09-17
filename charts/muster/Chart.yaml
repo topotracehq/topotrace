@@ -1,0 +1,18 @@
+apiVersion: v2
+name: muster
+description: >-
+  Muster -- a hardware/software/configuration inventory system. This chart
+  deploys the ingest daemon + REST API + web dashboard (one process,
+  cmd/muster), an optional Postgres backend (StatefulSet), and scheduled
+  agent workloads (CronJob and/or DaemonSet) that report real system facts
+  in using the same MUSTER1 protocol and scripts documented in agent/.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/ (repo not yet pushed -- see main README)
+keywords:
+  - inventory
+  - observability
+  - asset-management
+maintainers:
+  - name: Michael McGinnis

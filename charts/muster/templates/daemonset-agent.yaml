@@ -1,0 +1,87 @@
+{{/*
+One agent pod per node, reporting on a loop instead of once. Off by
+default -- see values.yaml and the chart README for what hostPID/
+hostNetwork actually buy here today (less than you'd expect: see below)
+versus what they set up for.
+
+muster-agent.sh is a one-shot script by design (matches how it's meant to
+run on a real host, via cron/systemd timer/Scheduled Task -- see
+agent/ubuntu/README.md), so this wraps it in a shell loop rather than
+changing the script itself. hostPID is on by default even though none of
+today's five fields (cpuinfo/meminfo/uname/os-release/uptime) strictly
+need it -- /proc/cpuinfo and /proc/meminfo already reflect the real node's
+hardware inside an ordinary container, not a cgroup-scoped view, since
+those particular procfs files aren't PID-namespace-virtualized (a common
+container-internals gotcha). What DOES need real host visibility is
+everything on the "more agent feeds" list this chart doesn't collect yet
+-- listening ports, local users, running services -- so hostPID/
+hostNetwork are wired in now, ready for that, rather than added later as
+a breaking change to this chart.
+*/}}
+{{- if .Values.agent.daemonset.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "muster.fullname" . }}-agent-daemon
+  labels:
+    {{- include "muster.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent-daemon
+spec:
+  selector:
+    matchLabels:
+      {{- include "muster.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: agent-daemon
+  template:
+    metadata:
+      labels:
+        {{- include "muster.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: agent-daemon
+        # Shared across the CronJob and DaemonSet agent variants -- see
+        # the matching comment in cronjob-agent.yaml.
+        muster.io/network-role: agent
+    spec:
+      {{- if .Values.rbac.create }}
+      serviceAccountName: {{ include "muster.fullname" . }}-agent
+      {{- end }}
+      automountServiceAccountToken: {{ .Values.rbac.grantPodReadAccess }}
+      hostPID: {{ .Values.agent.daemonset.hostPID }}
+      hostNetwork: {{ .Values.agent.daemonset.hostNetwork }}
+      tolerations:
+        # Report from control-plane nodes too, not just workers.
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: agent
+          image: "{{ .Values.agentImage.repository }}:{{ .Values.agentImage.tag }}"
+          imagePullPolicy: {{ .Values.agentImage.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              while true; do
+                /usr/local/bin/muster-agent.sh \
+                  --muster-host {{ include "muster.fullname" . }}-ingest \
+                  --muster-port {{ .Values.server.ingestPort }} \
+                  --host-name "$NODE_NAME" \
+                  {{- if eq (include "muster.authEnabled" .) "true" }}
+                  --token "$MUSTER_TOKEN" \
+                  {{- end }}
+                || echo "agent run failed, will retry next cycle" >&2
+                sleep {{ .Values.agent.daemonset.reportIntervalSeconds }}
+              done
+          env:
+            # The Downward API, not the Kubernetes API -- no ServiceAccount
+            # token or RBAC needed for this, it's just the pod spec's own
+            # field, injected at container start.
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            {{- if eq (include "muster.authEnabled" .) "true" }}
+            - name: MUSTER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "muster.authSecretName" . }}
+                  key: token
+            {{- end }}
+{{- end }}

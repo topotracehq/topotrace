@@ -432,6 +432,91 @@ main#app {
   margin-bottom: 16px;
 }
 
+/* Posture badges -- coarse red/yellow/green, shared by the host detail
+   header, the posture card, and the fleet summary's average-score tile. */
+.posture-badge {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.posture-good { background: #e4f5e6; color: #1f7a34; }
+.posture-warn { background: #fdf3d9; color: #8a6300; }
+.posture-bad { background: #fdecec; color: #a33a2a; }
+.posture-body { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.posture-findings { margin: 0; padding-left: 18px; }
+.posture-clean { color: var(--mu-text-muted); margin: 0; }
+
+.vuln-list { list-style: none; margin: 0; padding: 0; }
+.vuln-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--mu-border);
+  font-size: 0.88rem;
+}
+.vuln-row:last-child { border-bottom: none; }
+.vuln-detail { flex: 1; }
+.severity-pill {
+  flex: none;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.severity-critical { background: #fdecec; color: #a33a2a; }
+.severity-high { background: #fdecec; color: #a33a2a; }
+.severity-medium { background: #fdf3d9; color: #8a6300; }
+.severity-low { background: #eef1f2; color: #4a5257; }
+
+/* Fleet summary */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--mu-card-bg);
+  border: 1px solid var(--mu-border);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+.stat-card.stat-warn { border-color: #f3b4b4; }
+.stat-value { font-size: 1.8rem; font-weight: 700; }
+.stat-label { color: var(--mu-text-muted); font-size: 0.82rem; margin-top: 4px; }
+
+.platform-breakdown { list-style: none; margin: 0; padding: 0; }
+.platform-breakdown li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--mu-border);
+}
+.platform-breakdown li:last-child { border-bottom: none; }
+.platform-breakdown .platform-icon { width: 20px; height: 20px; }
+.platform-breakdown .count { margin-left: auto; color: var(--mu-text-muted); }
+
+.policy-list { list-style: none; margin: 0; padding: 0; }
+.policy-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--mu-border);
+  font-size: 0.88rem;
+}
+.policy-row:last-child { border-bottom: none; }
+.policy-name { font-weight: 700; }
+.policy-scope, .policy-condition { color: var(--mu-text-muted); }
+
 .footer {
   text-align: center;
   color: var(--mu-text-muted);
@@ -439,3 +524,179 @@ main#app {
   padding: 20px;
 }
 .footer a { color: var(--mu-text-muted); }
+
+/* Auth control (header) -- mirrors .search's dark-on-topbar button/input
+   styling since .auth-control sits in the same header.topbar as .search. */
+.auth-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.oauth-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mu-white);
+  font-size: 0.9rem;
+}
+.oauth-status a {
+  color: var(--mu-yellow);
+  font-weight: 600;
+  text-decoration: none;
+}
+.oauth-status a:hover { text-decoration: underline; }
+.auth-control button {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  background: var(--mu-yellow);
+  color: var(--mu-black);
+  font-weight: 700;
+  cursor: pointer;
+}
+.auth-control button:hover { background: var(--mu-yellow-dark); }
+.auth-control button.ghost {
+  background: transparent;
+  color: var(--mu-white);
+  font-weight: 500;
+  border: 1px solid rgba(255,255,255,0.35);
+}
+.auth-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.auth-form input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 0.9rem;
+  min-width: 220px;
+}
+.auth-form .save-msg { color: var(--mu-white); opacity: 0.85; font-size: 0.78rem; }
+
+/* Agents view (main content, light theme) -- one-time token reveal panel
+   and the plain-text download list, styled to match .fact-card/.policy-row. */
+.reveal-panel {
+  background: #fff9e6;
+  border: 1px solid var(--mu-yellow-dark);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 18px;
+}
+.reveal-panel p { margin: 0 0 10px; }
+.install-snippet {
+  background: var(--mu-black);
+  color: var(--mu-white);
+  padding: 12px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.reveal-panel button {
+  margin-top: 10px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--mu-border);
+  background: var(--mu-card-bg);
+  cursor: pointer;
+  font-weight: 600;
+}
+.reveal-panel button:hover { background: var(--mu-page-bg); }
+
+.downloads-list { list-style: none; margin: 0; padding: 0; }
+.downloads-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--mu-border);
+  font-size: 0.88rem;
+}
+.downloads-list li:last-child { border-bottom: none; }
+.downloads-list a { color: var(--mu-text); font-weight: 700; text-decoration: none; }
+.downloads-list a:hover { text-decoration: underline; }
+
+/* Generic ghost button for light-background contexts (Revoke, etc. --
+   distinct from .search/.auth-control's dark-header ghost variant). */
+.policy-row button.ghost {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--mu-border);
+  background: transparent;
+  color: var(--mu-text);
+  cursor: pointer;
+  font-weight: 600;
+}
+.policy-row button.ghost:hover { background: var(--mu-page-bg); }
+
+/* Docs tab: two-column sidebar nav + rendered markdown body. */
+.docs-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+.docs-nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  width: 180px;
+}
+.docs-nav li { margin-bottom: 2px; }
+.docs-nav a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--mu-text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+.docs-nav a:hover { background: var(--mu-page-bg); }
+.docs-nav a.active { background: var(--mu-accent-soft, var(--mu-page-bg)); color: var(--mu-accent, var(--mu-text)); }
+.docs-body {
+  flex: 1;
+  min-width: 0;
+  background: var(--mu-card-bg);
+  border: 1px solid var(--mu-border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+}
+.docs-body h2 { font-size: 1.15rem; margin: 20px 0 10px; }
+.docs-body h2:first-child { margin-top: 0; }
+.docs-body h3 { font-size: 1rem; margin: 16px 0 8px; }
+.docs-body h4 { font-size: 0.92rem; margin: 12px 0 6px; }
+.docs-body p { line-height: 1.55; margin: 0 0 12px; }
+.docs-body code { background: var(--mu-page-bg); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
+.docs-list { margin: 0 0 12px; padding-left: 22px; }
+.docs-list li { margin-bottom: 4px; line-height: 1.5; }
+.docs-table { width: 100%; border-collapse: collapse; margin: 0 0 16px; font-size: 0.88rem; }
+.docs-table th, .docs-table td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--mu-border);
+}
+.docs-table th { color: var(--mu-text-muted); font-size: 0.78rem; text-transform: uppercase; }
+@media (max-width: 720px) {
+  .docs-layout { flex-direction: column; }
+  .docs-nav { width: 100%; }
+}
+
+/* Air-gapped import panel (Agents tab): a plain textarea for pasting
+   the JSON blob an air-gapped host's script produced. */
+.airgap-form { flex-direction: column; align-items: stretch; }
+.airgap-textarea {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  padding: 8px 10px;
+  border: 1px solid var(--mu-border);
+  border-radius: 6px;
+  resize: vertical;
+  box-sizing: border-box;
+}

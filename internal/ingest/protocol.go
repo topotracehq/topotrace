@@ -1,16 +1,38 @@
 // Package ingest is Muster's TCP front door: a lightweight, deliberately
-// simple framed protocol agents use to push a captured data packet.
+// simple framed protocol agents use to push a captured data packet, and
+// to report back the outcome of a remediation action they were asked to
+// run.
 //
-// Wire format, one request per connection:
+// Wire format, one request per connection, one of two shapes:
 //
-//	MUSTER1 <platform> <host> <payload-bytes>\n
+//	MUSTER1 <platform> <host> <token> <payload-bytes>\n
 //	<payload-bytes> raw bytes of a gzip-compressed tar archive>
 //
-// The server replies with a single line and closes the connection:
+//	MUSTER1-RESULT <token> <action-id> <ok|fail> <detail-bytes>\n
+//	<detail-bytes> raw bytes of a short plain-text detail message>
+//
+// <token> is the shared secret configured on the server via -auth-token,
+// or the literal sentinel "-" when none is configured/known -- always
+// present as a fixed field rather than optional, so parsing either shape
+// stays a single strings.Fields call.
+//
+// The server replies with one line (a MUSTER1 upload may get a second
+// line right after, see below) and closes the connection:
 //
 //	OK <changes>\n     -- packet accepted, cooked, N fields changed since last time
+//	OK\n                -- (MUSTER1-RESULT only) result recorded
 //	ERR <message>\n    -- rejected; message is safe to log/display, never
 //	                      raw internal error text
+//
+// A MUSTER1 upload's "OK <changes>" line may be followed by one more
+// line, delivering a queued remediation action to the host that just
+// reported in:
+//
+//	ACTION <action-id> <verb> <arg>\n
+//
+// <arg> is "-" when the verb takes none. See internal/remediate for the
+// fixed, allow-listed set <verb> can ever be, and internal/api's
+// handleQueueAction for the only path that ever creates one.
 //
 // This is a from-scratch design, not a port of anything -- picked because
 // it's the simplest thing that (a) is a real length-prefixed protocol
@@ -27,23 +49,44 @@ import (
 	"strings"
 )
 
-const protocolVersion = "MUSTER1"
+const (
+	protocolUpload = "MUSTER1"
+	protocolResult = "MUSTER1-RESULT"
 
-// header is a parsed request line.
-type header struct {
+	// noToken is the sentinel an agent sends in place of a real token
+	// when none is configured, and what the server treats as "presented
+	// no credential" when checking against a configured -auth-token.
+	noToken = "-"
+)
+
+// uploadHeader is a parsed MUSTER1 request line: an agent pushing a
+// captured data packet.
+type uploadHeader struct {
 	Platform string
 	Host     string
+	Token    string
 	Bytes    int64
+}
+
+// resultHeader is a parsed MUSTER1-RESULT request line: an agent
+// reporting what happened when it executed a remediation action the
+// server handed it on an earlier connection.
+type resultHeader struct {
+	Token    string
+	ActionID string
+	Status   string // "ok" or "fail"
+	Bytes    int64  // length of the plain-text detail payload that follows
 }
 
 var (
 	// Keep these conservative -- this is a network-facing parser reading
-	// attacker-shaped input before any auth layer exists (see server.go's
-	// TODO on auth). Platform/host feed directly into filesystem paths
-	// downstream, so they're restricted to a safe charset here, at the
-	// earliest possible point, rather than trusted and sanitized later.
-	maxHeaderLine = 512
-	maxPayload    = int64(256 << 20) // 256MB per packet
+	// attacker-shaped input before any auth check runs. Platform/host
+	// feed directly into filesystem paths downstream, so they're
+	// restricted to a safe charset here, at the earliest possible point,
+	// rather than trusted and sanitized later.
+	maxHeaderLine  = 512
+	maxPayload     = int64(256 << 20) // 256MB per packet
+	maxResultBytes = int64(8 << 10)   // 8KB -- a short log line, not a capture
 )
 
 func isSafeToken(s string) bool {
@@ -61,28 +104,61 @@ func isSafeToken(s string) bool {
 	return true
 }
 
-func readHeader(r *bufio.Reader) (header, error) {
+// readLine reads one line off r, enforcing maxHeaderLine, and returns its
+// whitespace-split fields so the caller can dispatch on fields[0] before
+// fully parsing either header shape.
+func readLine(r *bufio.Reader) ([]string, error) {
 	line, err := r.ReadString('\n')
 	if err != nil {
-		return header{}, fmt.Errorf("reading header: %w", err)
+		return nil, fmt.Errorf("reading header: %w", err)
 	}
 	if len(line) > maxHeaderLine {
-		return header{}, fmt.Errorf("header line too long")
+		return nil, fmt.Errorf("header line too long")
 	}
-	fields := strings.Fields(line)
-	if len(fields) != 4 {
-		return header{}, fmt.Errorf("malformed header: want 4 fields, got %d", len(fields))
+	return strings.Fields(line), nil
+}
+
+func readUploadHeader(fields []string) (uploadHeader, error) {
+	if len(fields) != 5 {
+		return uploadHeader{}, fmt.Errorf("malformed upload header: want 5 fields, got %d", len(fields))
 	}
-	if fields[0] != protocolVersion {
-		return header{}, fmt.Errorf("unsupported protocol %q", fields[0])
+	if fields[0] != protocolUpload {
+		return uploadHeader{}, fmt.Errorf("unsupported protocol %q", fields[0])
 	}
-	platform, host := strings.ToLower(fields[1]), fields[2]
+	platform, host, token := strings.ToLower(fields[1]), fields[2], fields[3]
 	if !isSafeToken(platform) || !isSafeToken(host) {
-		return header{}, fmt.Errorf("invalid platform/host")
+		return uploadHeader{}, fmt.Errorf("invalid platform/host")
 	}
-	n, err := strconv.ParseInt(fields[3], 10, 64)
+	if token != noToken && !isSafeToken(token) {
+		return uploadHeader{}, fmt.Errorf("invalid token")
+	}
+	n, err := strconv.ParseInt(fields[4], 10, 64)
 	if err != nil || n < 0 || n > maxPayload {
-		return header{}, fmt.Errorf("invalid payload size")
+		return uploadHeader{}, fmt.Errorf("invalid payload size")
 	}
-	return header{Platform: platform, Host: host, Bytes: n}, nil
+	return uploadHeader{Platform: platform, Host: host, Token: token, Bytes: n}, nil
+}
+
+func readResultHeader(fields []string) (resultHeader, error) {
+	if len(fields) != 5 {
+		return resultHeader{}, fmt.Errorf("malformed result header: want 5 fields, got %d", len(fields))
+	}
+	if fields[0] != protocolResult {
+		return resultHeader{}, fmt.Errorf("unsupported protocol %q", fields[0])
+	}
+	token, actionID, status := fields[1], fields[2], fields[3]
+	if token != noToken && !isSafeToken(token) {
+		return resultHeader{}, fmt.Errorf("invalid token")
+	}
+	if !isSafeToken(actionID) {
+		return resultHeader{}, fmt.Errorf("invalid action id")
+	}
+	if status != "ok" && status != "fail" {
+		return resultHeader{}, fmt.Errorf("status must be ok or fail")
+	}
+	n, err := strconv.ParseInt(fields[4], 10, 64)
+	if err != nil || n < 0 || n > maxResultBytes {
+		return resultHeader{}, fmt.Errorf("invalid detail size")
+	}
+	return resultHeader{Token: token, ActionID: actionID, Status: status, Bytes: n}, nil
 }
