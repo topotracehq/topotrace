@@ -27,6 +27,7 @@ package compliance
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"muster/internal/allowlist"
@@ -148,7 +149,7 @@ var Baseline = Framework{
 			description: "No known-vulnerable installed packages",
 			evaluate: func(in Input) (bool, string) {
 				if len(in.VulnFindings) > 0 {
-					return false, fmt.Sprintf("%d known-vulnerable package(s)", len(in.VulnFindings))
+					return false, VulnDetail(in.VulnFindings)
 				}
 				return true, ""
 			},
@@ -228,4 +229,35 @@ func EvaluateAll(in Input) []Result {
 		out = append(out, f.Evaluate(in))
 	}
 	return out
+}
+
+// VulnDetail words a set of vulnerability findings for a check's detail
+// line. Findings Muster produced itself come from matching installed
+// package versions against its dataset or feed, so "package" is the
+// right noun; findings imported from a third-party scanner (see
+// internal/scanner) carry a Source and may be network- or
+// configuration-level, so they are counted separately and attributed.
+func VulnDetail(findings []vuln.Finding) string {
+	own := 0
+	imported := map[string]int{}
+	for _, f := range findings {
+		if f.Source == "" {
+			own++
+			continue
+		}
+		imported[f.Source]++
+	}
+	var parts []string
+	if own > 0 {
+		parts = append(parts, fmt.Sprintf("%d known-vulnerable package(s)", own))
+	}
+	sources := make([]string, 0, len(imported))
+	for src := range imported {
+		sources = append(sources, src)
+	}
+	sort.Strings(sources)
+	for _, src := range sources {
+		parts = append(parts, fmt.Sprintf("%d imported %s finding(s)", imported[src], src))
+	}
+	return strings.Join(parts, "; ")
 }

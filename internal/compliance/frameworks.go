@@ -108,8 +108,8 @@ var HIPAA = Framework{
 			description: "No known-vulnerable installed packages and no software the organization has denied",
 			evaluate: func(in Input) (bool, string) {
 				var parts []string
-				if n := len(in.VulnFindings); n > 0 {
-					parts = append(parts, fmt.Sprintf("%d known-vulnerable package(s)", n))
+				if len(in.VulnFindings) > 0 {
+					parts = append(parts, VulnDetail(in.VulnFindings))
 				}
 				if n := len(in.SoftwareViolations); n > 0 {
 					parts = append(parts, fmt.Sprintf("%d denied software item(s)", n))
@@ -192,8 +192,8 @@ var NIST80053 = Framework{
 			description: "No known-vulnerable installed packages and no pending OS updates",
 			evaluate: func(in Input) (bool, string) {
 				var parts []string
-				if n := len(in.VulnFindings); n > 0 {
-					parts = append(parts, fmt.Sprintf("%d known-vulnerable package(s)", n))
+				if len(in.VulnFindings) > 0 {
+					parts = append(parts, VulnDetail(in.VulnFindings))
 				}
 				if n := pendingUpdates(in); n > 0 {
 					parts = append(parts, fmt.Sprintf("%d pending update(s)", n))

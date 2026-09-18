@@ -32,6 +32,7 @@ func TestLoadMissingFileReturnsZeroValue(t *testing.T) {
 func TestSaveThenLoadRoundTrips(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings-overrides.json")
 	want := Overrides{
+		SIEMBackend:  "splunk-hec",
 		SIEMHECURL:   "https://splunk.example.com:8088",
 		SIEMHECToken: "s3cr3t",
 		AIAPIKey:     "sk-ant-test",

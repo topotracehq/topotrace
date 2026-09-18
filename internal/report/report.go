@@ -59,6 +59,9 @@ type HostRow struct {
 // VulnRow is one finding in the vulnerabilities export.
 type VulnRow struct {
 	Host, Package, Version, CVE, Severity, Description string
+	// Source is "" for Muster's own package-version match, or the
+	// scanner an imported finding came from (see internal/scanner).
+	Source string
 }
 
 // Data is everything a report can draw on, built once by Build.
@@ -114,7 +117,7 @@ func Build(inputs []compliance.Input, series []history.Series, audit []model.Aud
 			d.High++
 		}
 		for _, f := range in.VulnFindings {
-			d.Vulns = append(d.Vulns, VulnRow{Host: in.Host.Name, Package: f.Package, Version: f.Version, CVE: f.CVE, Severity: f.Severity, Description: f.Description})
+			d.Vulns = append(d.Vulns, VulnRow{Host: in.Host.Name, Package: f.Package, Version: f.Version, CVE: f.CVE, Severity: f.Severity, Description: f.Description, Source: f.Source})
 		}
 	}
 	if n := len(inputs); n > 0 {
@@ -150,9 +153,13 @@ func CSV(d Data, name string) ([]byte, error) {
 			w.Write([]string{h.Host, strconv.Itoa(h.Risk), h.RiskLevel, h.Criticality, h.Exposure, strconv.Itoa(h.Posture), strconv.Itoa(h.Compliance), strconv.Itoa(h.Vulns)})
 		}
 	case "vulnerabilities":
-		w.Write([]string{"host", "package", "installed_version", "cve", "severity", "description"})
+		w.Write([]string{"host", "package", "installed_version", "cve", "severity", "source", "description"})
 		for _, v := range d.Vulns {
-			w.Write([]string{v.Host, v.Package, v.Version, v.CVE, v.Severity, v.Description})
+			source := v.Source
+			if source == "" {
+				source = "muster"
+			}
+			w.Write([]string{v.Host, v.Package, v.Version, v.CVE, v.Severity, source, v.Description})
 		}
 	case "audit":
 		w.Write([]string{"id", "created_at", "actor", "action", "target", "detail"})
@@ -260,8 +267,8 @@ var execTemplate = template.Must(template.New("exec").Funcs(funcs).Parse(`<!doct
 </table>
 
 {{if .Vulns}}<h2>Known vulnerabilities ({{len .Vulns}})</h2>
-<table><tr><th>Host</th><th>Package</th><th>Version</th><th>CVE</th><th>Severity</th></tr>
-{{range .Vulns}}<tr><td>{{.Host}}</td><td>{{.Package}}</td><td>{{.Version}}</td><td>{{.CVE}}</td><td class="{{if or (eq .Severity "critical") (eq .Severity "high")}}warn{{end}}">{{.Severity}}</td></tr>{{end}}
+<table><tr><th>Host</th><th>Package</th><th>Version</th><th>CVE</th><th>Severity</th><th>Source</th></tr>
+{{range .Vulns}}<tr><td>{{.Host}}</td><td>{{.Package}}</td><td>{{.Version}}</td><td>{{.CVE}}</td><td class="{{if or (eq .Severity "critical") (eq .Severity "high")}}warn{{end}}">{{.Severity}}</td><td>{{with .Source}}{{.}}{{else}}muster{{end}}</td></tr>{{end}}
 </table>{{end}}
 
 {{if .Audit}}<h2>Recent activity</h2>

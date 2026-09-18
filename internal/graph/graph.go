@@ -64,9 +64,9 @@ type Graph struct {
 	Height int    `json:"height"`
 }
 
-// hostAddresses pulls IPv4 addresses out of a network_interfaces fact,
+// HostAddresses pulls IPv4 addresses out of a network_interfaces fact,
 // skipping loopback.
-func hostAddresses(fact model.Fact, ok bool) []string {
+func HostAddresses(fact model.Fact, ok bool) []string {
 	if !ok {
 		return nil
 	}
@@ -120,7 +120,7 @@ func Build(inputs []compliance.Input, interfaces map[string]model.Fact, assets [
 		n := Node{ID: "host:" + in.Host.Name, Kind: "host", Label: in.Host.Name, Level: r.Level, Score: r.Score,
 			Href: "#/host/" + in.Host.Name, Platform: in.Host.Platform}
 		f, ok := interfaces[in.Host.Name]
-		addrs := hostAddresses(f, ok)
+		addrs := HostAddresses(f, ok)
 		hubID := ""
 		if len(addrs) > 0 {
 			n.Sub = addrs[0]

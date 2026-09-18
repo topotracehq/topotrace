@@ -96,6 +96,7 @@ func main() {
 		publicStatus = flag.Bool("public-status", true, "serve an unauthenticated aggregate-only status page at /status (and /status.json): host count, percent compliant, average scores, open findings, which integrations are on. Never host names or findings. Set false to disable.")
 		hibpAPIKey   = flag.String("hibp-api-key", os.Getenv("MUSTER_HIBP_API_KEY"), "Have I Been Pwned API key for account-level breach exposure lookups (GET /api/breaches?domain=). Without it, only the public breaches-of-a-domain lookup works. Also read from MUSTER_HIBP_API_KEY.")
 
+		siemBackend  = flag.String("siem-backend", os.Getenv("MUSTER_SIEM_BACKEND"), "which SIEM the -siem-hec-* URL/token point at: splunk-hec (default), sumo-http (a Sumo Logic HTTP Logs Source URL, token optional) or logrhythm-webhook (a LogRhythm Open Collector webhook URL, token optional). Also read from MUSTER_SIEM_BACKEND.")
 		siemHECURL   = flag.String("siem-hec-url", os.Getenv("MUSTER_SIEM_HEC_URL"), "Splunk HTTP Event Collector base URL (e.g. https://splunk.example.com:8088) to forward every audit-log entry to, via internal/siemforward. Leave both -siem-hec-* flags empty to disable SIEM forwarding entirely. Also read from MUSTER_SIEM_HEC_URL.")
 		siemHECToken = flag.String("siem-hec-token", os.Getenv("MUSTER_SIEM_HEC_TOKEN"), "Splunk HEC token, sent as \"Authorization: Splunk <token>\". Required once -siem-hec-url is set. Also read from MUSTER_SIEM_HEC_TOKEN.")
 	)
@@ -158,20 +159,26 @@ func main() {
 	// constructed and always wrapped around st below, even when
 	// starting disabled -- see internal/siemforward.Dynamic's doc
 	// comment.
-	resolvedSIEMURL, resolvedSIEMToken := *siemHECURL, *siemHECToken
+	resolvedSIEMURL, resolvedSIEMToken, resolvedSIEMBackend := *siemHECURL, *siemHECToken, *siemBackend
 	if resolvedSIEMURL == "" && resolvedSIEMToken == "" && overrides.SIEMHECURL != "" {
-		resolvedSIEMURL, resolvedSIEMToken = overrides.SIEMHECURL, overrides.SIEMHECToken
+		resolvedSIEMURL, resolvedSIEMToken, resolvedSIEMBackend = overrides.SIEMHECURL, overrides.SIEMHECToken, overrides.SIEMBackend
 		logger.Info("SIEM forwarding: using settings saved from the dashboard (no -siem-hec-* flag set)")
 	}
-	if resolvedSIEMURL != "" || resolvedSIEMToken != "" {
-		if resolvedSIEMURL == "" || resolvedSIEMToken == "" {
-			fmt.Fprintln(os.Stderr, "siem forwarding partially configured -- both -siem-hec-url and -siem-hec-token must be set together")
-			os.Exit(1)
-		}
+	if resolvedSIEMBackend == "" {
+		resolvedSIEMBackend = "splunk-hec"
+	}
+	// Splunk HEC needs both URL and token; the other backends carry the
+	// credential in the URL and may omit the token.
+	if resolvedSIEMBackend == "splunk-hec" && (resolvedSIEMURL == "") != (resolvedSIEMToken == "") {
+		fmt.Fprintln(os.Stderr, "siem forwarding partially configured -- splunk-hec needs both -siem-hec-url and -siem-hec-token")
+		os.Exit(1)
 	}
 	siemDynamic := siemforward.NewDynamic()
 	if resolvedSIEMURL != "" {
-		siemDynamic.SetSplunkHEC(resolvedSIEMURL, resolvedSIEMToken)
+		if err := siemDynamic.Set(resolvedSIEMBackend, resolvedSIEMURL, resolvedSIEMToken); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 		logger.Info("SIEM forwarding enabled", "backend", siemDynamic.Backend(), "url", resolvedSIEMURL)
 	}
 	st = siemforward.WrapStore(st, siemDynamic, logger.With("component", "siemforward"))

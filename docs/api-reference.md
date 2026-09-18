@@ -210,6 +210,20 @@ not alphabetically.
   (`admin`, audited): with `-hibp-api-key`, every alias on the domain
   found in a breach; always, the public list of breaches of the domain
   itself, and a `mode` string saying which you got.
+- `POST /api/scanner-import?format=nessus|qualys|generic` -- import a
+  third-party scanner's CSV export (`admin`, strict, audited as
+  `scanner-import`). The request body is the CSV itself, capped at
+  2 MB. Findings are matched to hosts by full name, short name, or an
+  IPv4 address from the host's `network_interfaces` fact, then stored
+  as a `scanner_findings` fact per host so they merge into the same
+  compliance checks, risk factors, summary counts, CSV export and Ask
+  Muster context as Muster's own package-version matches, tagged with
+  the scanner they came from. Findings for hosts Muster does not know
+  come back under `unmatched` and are not stored. One import replaces
+  that host's previous `scanner_findings` fact. See the Scanner Import
+  doc page.
+- `GET /api/scanner-import/formats` -- the format names
+  `POST /api/scanner-import` accepts (`readonly`).
 - `GET /api/notifications/queue` -- the outbound delivery queue
   (`admin`): configured sinks (generic webhook URLs redacted to their
   host), pending deliveries with attempts/next attempt/last error, and
@@ -235,9 +249,15 @@ not alphabetically.
   `-ai-api-key` flag or env var already set, which always takes
   precedence over a saved override. Body fields (all optional, but at
   least one required):
-  - `siem_hec_url`, `siem_hec_token` -- must be provided together to
-    configure or change Splunk HEC forwarding (the current URL/token
-    are never readable back, so changing either means resending both).
+  - `siem_hec_url`, `siem_hec_token` -- the endpoint and credential for
+    the selected backend. Splunk HEC needs both together (the current
+    URL/token are never readable back, so changing either means
+    resending both); `sumo-http` and `logrhythm-webhook` accept a URL
+    alone, since their token is optional.
+  - `siem_backend` -- which forwarder the URL/token configure:
+    `splunk-hec` (default), `sumo-http`, or `logrhythm-webhook`. The
+    accepted names also come back in `GET /api/settings` under
+    `siem.backends`. See the SIEM Integration doc page.
   - `siem_disable` -- `true` turns SIEM forwarding off.
   - `ai_api_key` -- sets/changes the Anthropic API key. Omit to keep
     the current key while changing only `ai_model`.

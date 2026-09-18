@@ -703,6 +703,47 @@ query has actually been run against it yet. Enable `-vuln-feed` against
 a real network and check the server log for a successful refresh (or
 whatever error it reports) before relying on it.
 
+## Importing a real scanner's findings
+
+```
+POST /api/scanner-import?format=nessus   # or qualys, generic; body is the CSV export
+```
+
+The version matching above is honest about being a demonstration.
+Anyone who would actually deploy Muster already owns a scanner, so
+Muster imports its output rather than pretending to replace it
+(`internal/scanner`): a Nessus, Qualys or generic CSV export goes in,
+and each finding is matched to a host by full name, short name, or an
+IPv4 address from that host's `network_interfaces` fact. Matched
+findings are stored as a `scanner_findings` fact -- an ordinary
+`model.Fact`, so it is versioned and visible like any agent-collected
+category -- which `internal/signals` merges into the host's findings,
+so they flow through the identical compliance checks, risk factors,
+fleet summary counts, CSV export and Ask Muster context as Muster's own
+matches. Imported findings carry the scanner they came from, so a
+compliance detail reads "2 known-vulnerable package(s); 1 imported
+nessus finding(s)" rather than blurring the two.
+
+Findings for hosts Muster has never enrolled are reported back as
+unmatched and deliberately not stored -- the scanner seeing an asset
+Muster does not know is the interesting part, and inventing host
+records from a CSV would be worse than naming the gap. One import
+replaces that host's previous `scanner_findings` fact, so re-importing
+after a rescan is how it stays current.
+
+The Compliance tab has the import form; the parsers are unit tested and
+the whole path was exercised end to end (all three formats, matching by
+FQDN/short name/IP, unmatched hosts, informational rows dropped, error
+and authorization cases). What has *not* happened is an export from a
+live Nessus or Qualys console: the sample CSVs were written to each
+vendor's documented column layout, so a real export with an unexpected
+column name may need the alias list in `internal/scanner.Parse`
+extended. See `docs/scanner-import.md`.
+
+![Importing a Nessus CSV export](docs/screenshots/compliance-scanner-import.png)
+
+![A host's merged findings](docs/screenshots/host-vulns-imported.png)
+
 ## Shadow AI detection
 
 ```
@@ -1073,19 +1114,29 @@ Muster query, enrollment/key management action, and OAuth login, the
 same events `GET /api/audit` shows -- to a real SIEM, fire-and-forget
 with a 5-second timeout so a slow or unreachable SIEM can never block or
 fail the request that triggered the event. Built on a small `Forwarder`
-interface (`Send(ctx, event) error`) so more backends can be added
-without touching any call site; the one real implementation this round
-is Splunk's HTTP Event Collector (a plain HTTPS `POST` to
-`<hec-url>/services/collector/event`, `Authorization: Splunk <token>`,
-`{"event": <audit entry>, "sourcetype": "muster", "time": <unix-ts>}`),
-hand-rolled against Splunk's published HEC docs, stdlib `net/http` only
--- same "no SDK, no module proxy access" approach as every other
-outbound integration here. LogRhythm and Sumo Logic are documented as
-natural next backends (both accept similar HTTP-collector-style
-ingestion) but not implemented yet -- see `docs/siem-integration.md`.
+interface (`Send(ctx, event) error`) so a backend can be added without
+touching any call site. Three exist today, chosen with
+`-siem-backend` (`MUSTER_SIEM_BACKEND`):
+
+| Backend | Transport |
+| --- | --- |
+| `splunk-hec` (default) | HTTPS `POST` to `<url>/services/collector/event`, `Authorization: Splunk <token>`, `{"event": <audit entry>, "sourcetype": "muster", "time": <unix-ts>}` |
+| `sumo-http` | `POST` of the event JSON to a Sumo Logic HTTP Logs Source URL, `X-Sumo-Category: muster/audit`, optional `X-Sumo-Token` |
+| `logrhythm-webhook` | `POST` of the event JSON to a LogRhythm Open Collector webhook beat, optional bearer token |
+
+All three are hand-rolled against each vendor's published ingestion
+docs, stdlib `net/http` only -- same "no SDK, no module proxy access"
+approach as every other outbound integration here. Splunk is the only
+one that requires both a URL and a token; the other two take a URL
+alone. The backend can be switched at runtime from the Settings page or
+`PATCH /api/settings` with no restart, which was verified end to end
+against a local capture server (a switch to `sumo-http` took effect
+immediately and the next audit entry arrived at the new endpoint).
 Payload construction is unit-tested against an `httptest.Server`
-(`internal/siemforward/splunk_test.go`); not verified against a live
-Splunk instance, since this dev environment has none to test against.
+(`internal/siemforward/splunk_test.go`,
+`internal/siemforward/backends_test.go`); none of the three is verified
+against a live vendor tenant, since this dev environment has none to
+test against. See `docs/siem-integration.md`.
 
 ## Server settings
 

@@ -46,10 +46,25 @@ func NewDynamic() *Dynamic {
 // HEC endpoint. Safe to call at any time, including while forwarding
 // is already active with a different URL or token.
 func (d *Dynamic) SetSplunkHEC(url, token string) {
+	_ = d.Set("splunk-hec", url, token)
+}
+
+// Set configures d with any backend NewBackend knows ("splunk-hec",
+// "sumo-http", "logrhythm-webhook"). An unknown name leaves d unchanged
+// and returns the error.
+func (d *Dynamic) Set(backend, url, token string) error {
+	fwd, err := NewBackend(backend, url, token)
+	if err != nil {
+		return err
+	}
+	if backend == "" {
+		backend = "splunk-hec"
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.backend = NewSplunkHEC(url, token)
-	d.name = "splunk-hec"
+	d.backend = fwd
+	d.name = backend
+	return nil
 }
 
 // Disable turns off forwarding -- Send becomes a no-op again, same as

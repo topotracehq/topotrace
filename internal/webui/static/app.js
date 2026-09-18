@@ -187,8 +187,14 @@
     if (token) headers["Authorization"] = `Bearer ${token}`;
     if (opts && opts.method) {
       fetchOpts.method = opts.method;
-      headers["Content-Type"] = "application/json";
-      fetchOpts.body = JSON.stringify(opts.body ?? {});
+      if (opts.raw !== undefined) {
+        // Scanner CSV exports go up as-is, not wrapped in JSON.
+        headers["Content-Type"] = "text/csv";
+        fetchOpts.body = opts.raw;
+      } else {
+        headers["Content-Type"] = "application/json";
+        fetchOpts.body = JSON.stringify(opts.body ?? {});
+      }
     }
     if (Object.keys(headers).length) fetchOpts.headers = headers;
     const res = await fetch(path, fetchOpts);
@@ -514,8 +520,10 @@
           el(
             "span",
             { class: "vuln-detail" },
-            el("strong", { text: `${f.package} ${f.installed_version}` }),
-            ` — ${f.cve}: ${f.description}`
+            el("strong", { text: f.installed_version ? `${f.package} ${f.installed_version}` : f.package }),
+            f.cve ? ` ${f.cve}` : "",
+            f.source ? el("span", { class: "meta", text: ` (imported from ${f.source})` }) : "",
+            f.description ? `: ${f.description}` : ""
           )
         )
       );
@@ -1528,6 +1536,48 @@
     return card;
   }
 
+  // scannerImportCard is the Compliance tab's third-party scanner
+  // import: a Nessus/Qualys/generic CSV export is read in the browser
+  // and POSTed to /api/scanner-import, which matches each finding to a
+  // Muster host by name or IP and stores it as a scanner_findings fact.
+  function scannerImportCard() {
+    const file = el("input", { type: "file", accept: ".csv,text/csv" });
+    const format = el("select", {},
+      el("option", { value: "nessus", text: "Nessus (.csv export)" }),
+      el("option", { value: "qualys", text: "Qualys (.csv export)" }),
+      el("option", { value: "generic", text: "Generic (host,cve,severity,title)" }));
+    const btn = el("button", { type: "submit", text: "Import" });
+    const msg = el("span", { class: "save-msg" });
+    const results = el("div", {});
+    const form = el("form", { class: "editor-row" }, el("label", { text: "Format" }), format, file, btn, msg);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = file.files && file.files[0];
+      if (!f) { msg.textContent = "Pick a CSV export first."; return; }
+      msg.textContent = "Importing…";
+      try {
+        const csv = await f.text();
+        const d = await api(`/api/scanner-import?format=${encodeURIComponent(format.value)}`, { method: "POST", raw: csv });
+        msg.textContent = "";
+        const parts = [el("p", { text: `Parsed ${d.parsed} finding(s) from ${f.name}; matched ${(d.hosts || []).length} host(s).` })];
+        if ((d.hosts || []).length) {
+          parts.push(el("ul", { class: "posture-findings" }, ...d.hosts.map((h) => el("li", { text: `${h}: ${d.matched[h]} finding(s)` }))));
+        }
+        const un = Object.keys(d.unmatched || {});
+        if (un.length) {
+          parts.push(el("p", { class: "meta", text: `${un.length} scanner host(s) not enrolled in Muster (nothing stored for them): ${un.slice(0, 12).join(", ")}` }));
+        }
+        results.replaceChildren(...parts);
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+        results.replaceChildren();
+      }
+    });
+    return el("div", { class: "fact-card" }, el("h2", { text: "Import scanner findings" }),
+      el("p", { class: "meta", text: "Muster's own vulnerability view matches installed package versions against a static dataset. A real program already has a scanner; this imports its CSV export so those findings land on the same host records and flow into compliance, risk, and the summary. Findings are matched by hostname, short hostname, or an IPv4 address from the host's network_interfaces fact. Admin only." }),
+      form, results);
+  }
+
   // breachCard is the Compliance tab's Have I Been Pwned lookup.
   function breachCard() {
     const input = el("input", { type: "text", placeholder: "your-company.com" });
@@ -2364,15 +2414,19 @@
   // retyping both fields, same "all-or-nothing pair" the -siem-hec-*
   // flags themselves enforce.
   function siemForwardingEditor(s) {
-    const urlInput = el("input", { type: "text", placeholder: "https://splunk.example.com:8088" });
-    const tokenInput = el("input", { type: "password", placeholder: "HEC token" });
+    const backends = (s.siem && s.siem.backends) || ["splunk-hec"];
+    const backendSelect = el("select", {}, ...backends.map((b) => el("option", { value: b, text: b, selected: b === (s.siem.backend || "splunk-hec") ? "selected" : null })));
+    for (const o of backendSelect.options) if (o.getAttribute("selected") === "null") o.removeAttribute("selected");
+    const urlInput = el("input", { type: "text", placeholder: "https://splunk.example.com:8088 (or Sumo source / LogRhythm webhook URL)" });
+    const tokenInput = el("input", { type: "password", placeholder: "token (required for Splunk HEC)" });
     const disableBox = el("input", { type: "checkbox" });
     const msg = el("span", { class: "save-msg" });
     const form = el(
       "form",
       { class: "editor-row" },
-      el("label", { text: "HEC URL" }), urlInput,
-      el("label", { text: "HEC token" }), tokenInput,
+      el("label", { text: "Backend" }), backendSelect,
+      el("label", { text: "URL" }), urlInput,
+      el("label", { text: "Token" }), tokenInput,
       el("label", { text: "Disable" }), disableBox,
       el("button", { type: "submit", text: "Save" }),
       msg
@@ -2387,7 +2441,8 @@
         const url = urlInput.value.trim();
         const token = tokenInput.value.trim();
         if (!url && !token) { msg.textContent = "Nothing to save"; return; }
-        if (!url || !token) { msg.textContent = "Error: HEC URL and token must both be set together"; return; }
+        if (!url || (!token && backendSelect.value === "splunk-hec")) { msg.textContent = "Error: Splunk HEC needs both URL and token; the other backends need the URL"; return; }
+        body.siem_backend = backendSelect.value;
         body.siem_hec_url = url;
         body.siem_hec_token = token;
       }
@@ -2600,7 +2655,7 @@
     const rulesFormSlot = el("div", {});
     const rulesListSlot = el("div", {});
     const sprawlSlot = el("div", {});
-    app.replaceChildren(heading, summarySlot, rulesFormSlot, rulesListSlot, sprawlSlot, breachCard());
+    app.replaceChildren(heading, summarySlot, rulesFormSlot, rulesListSlot, sprawlSlot, scannerImportCard(), breachCard());
     sprawlCard().then((card) => sprawlSlot.replaceChildren(card));
 
     // Framework selector: every built-in framework scores the same

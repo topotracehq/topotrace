@@ -31,6 +31,7 @@ import (
 	"muster/internal/eol"
 	"muster/internal/model"
 	"muster/internal/policy"
+	"muster/internal/scanner"
 	"muster/internal/store"
 	"muster/internal/vuln"
 )
@@ -77,6 +78,9 @@ func FromFacts(host model.Host, byCategory map[string]model.Fact, softwareRules 
 		in.VulnFindings = vuln.CheckWithFeed(sw.Data["items"], feed)
 		in.SoftwareViolations = allowlist.Evaluate(sw.Data["items"], inScope)
 		in.ShadowAIViolations = allowlist.EvaluateShadowAI(sw.Data["items"], inScope)
+	}
+	if sf, ok := byCategory["scanner_findings"]; ok {
+		in.VulnFindings = append(in.VulnFindings, scanner.FromFact(sf.Data["items"])...)
 	}
 	if ext, ok := byCategory["browser_extensions"]; ok {
 		in.BrowserExtensions = browserext.Evaluate(browserext.FromFact(ext.Data["items"]))

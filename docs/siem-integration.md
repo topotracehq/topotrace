@@ -7,17 +7,18 @@ logins, and every other authenticated write) also reach an operator's
 existing security tooling -- not just Muster's own dashboard.
 
 This is built on a small `Forwarder` interface
-(`internal/siemforward.Forwarder`, `Send(ctx, event) error`) so more
-backends can be added later without touching any call site: every place
+(`internal/siemforward.Forwarder`, `Send(ctx, event) error`) with three
+implementations today (Splunk, Sumo Logic, LogRhythm) and room for more
+without touching any call site: every place
 in the codebase that calls `Store.RecordAudit` (the evaluator's
 background policy checks, every admin-facing API handler) is unaffected
 either way -- forwarding happens in a wrapper around the store itself,
 not at each of those call sites. See `internal/siemforward`'s package
 doc comment for the full design.
 
-## Splunk HTTP Event Collector (HEC) -- available now
+## Splunk HTTP Event Collector (HEC)
 
-The one real backend implemented so far. Configure it with:
+The default backend. Configure it with:
 
 - `-siem-hec-url` / `MUSTER_SIEM_HEC_URL` -- your HEC base URL, e.g.
   `https://splunk.example.com:8088`.
@@ -54,13 +55,58 @@ tested against an `httptest.Server` (`internal/siemforward/splunk_test.go`)
 -- not verified against a live Splunk instance, since this dev
 environment has none to test against.
 
-## LogRhythm and Sumo Logic -- documented, not implemented
+## Choosing a backend
 
-Both are natural second backends for `Forwarder`: LogRhythm's HTTP Log
-& Metrics Collector and Sumo Logic's HTTP Source both accept
-HEC-style/similar plain-HTTPS-POST-with-a-token ingestion, close enough
-to Splunk HEC's shape that adding either should mean a new
-`internal/siemforward/<backend>.go` implementing `Forwarder` -- nothing
-else in the codebase would need to change, per the whole point of the
-`Forwarder` seam. Neither is implemented this round; only Splunk HEC is
-real today.
+`-siem-backend` (env `MUSTER_SIEM_BACKEND`) names which forwarder the
+URL and token configure. It accepts:
+
+| Name | Product | What the URL is | What the token is |
+| --- | --- | --- | --- |
+| `splunk-hec` (default) | Splunk HTTP Event Collector | the HEC endpoint, e.g. `https://splunk.example.com:8088/services/collector/event` | the HEC token, sent as `Authorization: Splunk <token>`; required |
+| `sumo-http` | Sumo Logic HTTP Logs Source | the collector's source URL, which already carries its own unique key | optional; sent as `X-Sumo-Token` for newer token-authenticated sources, omit for the classic URL-embedded kind |
+| `logrhythm-webhook` | LogRhythm Open Collector webhook beat | the beat's listener, e.g. `http://open-collector.example.com:8085/webhook` | optional; sent as a bearer token for a collector behind an authenticating proxy |
+
+The same three names are accepted by `PATCH /api/settings` as
+`siem_backend`, and the Settings page's SIEM Forwarding card offers
+them in a dropdown, so an operator can switch backends at runtime
+without a restart. Splunk is the only one that insists on both a URL
+and a token; the other two take a URL alone.
+
+Every backend receives the identical `SIEMEvent` -- one audit entry,
+flattened -- so switching backends changes the transport and nothing
+about what Muster says.
+
+## Sumo Logic
+
+`internal/siemforward.SumoHTTP` POSTs each event as JSON to a Sumo
+Logic [HTTP Logs and Metrics
+Source](https://help.sumologic.com/docs/send-data/hosted-collectors/http-source/logs-metrics/).
+Sumo's classic HTTP sources embed a unique key in the URL, so the URL
+alone is the credential; newer token-authenticated sources also take an
+`X-Sumo-Token` header, which is what `-siem-hec-token` supplies when
+set. Muster sends `X-Sumo-Category: muster/audit` so the events land
+under a predictable source category.
+
+## LogRhythm
+
+`internal/siemforward.LogRhythmWebhook` POSTs each event as JSON to a
+LogRhythm Open Collector webhook beat (by default a JSON-over-HTTP
+listener on port 8085), which normalizes the JSON into LogRhythm's own
+schema on the collector side. The beat is unauthenticated on a trusted
+network; when it sits behind an authenticating proxy, a token set on
+Muster's side is sent as `Authorization: Bearer <token>`.
+
+## What is and is not verified
+
+All three backends are stdlib `net/http` only, written against each
+vendor's published ingestion docs, with payload construction unit
+tested against an `httptest.Server`
+(`internal/siemforward/splunk_test.go`,
+`internal/siemforward/backends_test.go`). Backend selection and the
+live switch were exercised end to end against a local capture server:
+a `PATCH /api/settings` to `sumo-http` took effect immediately and the
+next audit entry arrived at the new endpoint.
+
+None of the three has been tested against a live vendor tenant -- this
+dev environment has no route to one. Treat the wire formats as
+"written from the docs and unit tested," not "verified in production."

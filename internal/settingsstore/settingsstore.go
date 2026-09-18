@@ -37,6 +37,7 @@ import (
 // permissions; unlike GET /api/settings's response, this file is
 // deliberately not safe to expose over HTTP or log.
 type Overrides struct {
+	SIEMBackend  string `json:"siem_backend,omitempty"` // "splunk-hec" (default), "sumo-http", "logrhythm-webhook"
 	SIEMHECURL   string `json:"siem_hec_url,omitempty"`
 	SIEMHECToken string `json:"siem_hec_token,omitempty"`
 	AIAPIKey     string `json:"ai_api_key,omitempty"`

@@ -53,6 +53,7 @@ import (
 	"muster/internal/oauth"
 	"muster/internal/policy"
 	"muster/internal/remediate"
+	"muster/internal/scanner"
 	"muster/internal/settingsstore"
 	"muster/internal/siemforward"
 	"muster/internal/signals"
@@ -225,6 +226,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/trust/{host}", s.handleTrust)
 	mux.HandleFunc("GET /api/signals", s.handleSignals)
 	mux.HandleFunc("GET /api/breaches", s.handleBreaches)
+	mux.HandleFunc("POST /api/scanner-import", s.handleScannerImport)
+	mux.HandleFunc("GET /api/scanner-import/formats", s.handleScannerFormats)
 	mux.HandleFunc("GET /api/alerts", s.handleListAlerts)
 	mux.HandleFunc("POST /api/alerts/snooze", s.handleSnoozeAlert)
 	mux.HandleFunc("GET /api/approvals", s.handleListApprovals)
@@ -339,8 +342,9 @@ type settingsWebhooks struct {
 // settingsSIEM is GET /api/settings's SIEM-forwarding slice (see
 // internal/siemforward) -- never the HEC token itself.
 type settingsSIEM struct {
-	Configured bool   `json:"configured"`
-	Backend    string `json:"backend,omitempty"`
+	Configured bool     `json:"configured"`
+	Backend    string   `json:"backend,omitempty"`
+	Backends   []string `json:"backends"` // what PATCH accepts as siem_backend
 }
 
 // settingsResponse is GET /api/settings's full shape -- see
@@ -410,6 +414,7 @@ func (s *Server) settingsSnapshot() settingsResponse {
 		resp.SIEM = settingsSIEM{
 			Configured: s.SIEMForwarder.Configured(),
 			Backend:    s.SIEMForwarder.Backend(),
+			Backends:   siemforward.Backends,
 		}
 	}
 	return resp
@@ -432,6 +437,7 @@ func (s *Server) settingsSnapshot() settingsResponse {
 // internal/aiquery.ConfigStore's current Config is readable
 // server-side for exactly that merge.
 type settingsPatchRequest struct {
+	SIEMBackend  string  `json:"siem_backend,omitempty"` // "splunk-hec" (default), "sumo-http", "logrhythm-webhook"
 	SIEMHECURL   *string `json:"siem_hec_url,omitempty"`
 	SIEMHECToken *string `json:"siem_hec_token,omitempty"`
 	SIEMDisable  bool    `json:"siem_disable,omitempty"`
@@ -491,6 +497,7 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.SIEMForwarder.Disable()
+		overrides.SIEMBackend = ""
 		overrides.SIEMHECURL = ""
 		overrides.SIEMHECToken = ""
 		actions = append(actions, "siem forwarding disabled")
@@ -501,18 +508,26 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		hecURL := strings.TrimSpace(strPtrVal(req.SIEMHECURL))
 		hecToken := strings.TrimSpace(strPtrVal(req.SIEMHECToken))
-		if hecURL == "" || hecToken == "" {
-			s.writeError(w, http.StatusBadRequest, "siem_hec_url and siem_hec_token must both be provided together (or set siem_disable instead)")
+		if hecURL == "" || (hecToken == "" && (req.SIEMBackend == "" || req.SIEMBackend == "splunk-hec")) {
+			s.writeError(w, http.StatusBadRequest, "siem_hec_url and siem_hec_token must both be provided together for splunk-hec (or set siem_disable instead); sumo-http and logrhythm-webhook need only the URL")
 			return
 		}
 		if !strings.HasPrefix(hecURL, "http://") && !strings.HasPrefix(hecURL, "https://") {
 			s.writeError(w, http.StatusBadRequest, "siem_hec_url must start with http:// or https://")
 			return
 		}
-		s.SIEMForwarder.SetSplunkHEC(hecURL, hecToken)
+		backend := req.SIEMBackend
+		if backend == "" {
+			backend = "splunk-hec"
+		}
+		if err := s.SIEMForwarder.Set(backend, hecURL, hecToken); err != nil {
+			s.writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		overrides.SIEMBackend = backend
 		overrides.SIEMHECURL = hecURL
 		overrides.SIEMHECToken = hecToken
-		actions = append(actions, "siem forwarding configured (splunk-hec)")
+		actions = append(actions, "siem forwarding configured ("+backend+")")
 	}
 
 	switch {
@@ -1205,6 +1220,12 @@ func (s *Server) handleGetVulnerabilities(w http.ResponseWriter, r *http.Request
 			findings = f
 		}
 	}
+	// Findings imported from a third-party scanner live in their own
+	// fact and show up here alongside Muster's own matches, the same way
+	// internal/signals merges them for compliance and risk.
+	if sf, ok, err := s.Store.GetFact(r.Context(), name, "scanner_findings"); err == nil && ok {
+		findings = append(findings, scanner.FromFact(sf.Data["items"])...)
+	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"host": name, "findings": findings})
 }
 
@@ -1579,7 +1600,11 @@ func (s *Server) buildAskContext(ctx context.Context) (askContext, error) {
 			ComplianceScore: result.Score,
 		}
 		for _, f := range in.VulnFindings {
-			hc.Vulnerabilities = append(hc.Vulnerabilities, fmt.Sprintf("%s %s (%s, severity %s): %s", f.Package, f.Version, f.CVE, f.Severity, f.Description))
+			origin := "package version match"
+			if f.Source != "" {
+				origin = "imported from " + f.Source
+			}
+			hc.Vulnerabilities = append(hc.Vulnerabilities, fmt.Sprintf("%s %s (%s, severity %s, %s): %s", f.Package, f.Version, f.CVE, f.Severity, origin, f.Description))
 		}
 		for _, v := range in.SoftwareViolations {
 			hc.SoftwareViolations = append(hc.SoftwareViolations, fmt.Sprintf("%s %s (%s rule %q)", v.Package, v.Version, v.Kind, v.Rule))
