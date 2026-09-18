@@ -937,3 +937,68 @@ func (s *Store) DeleteEnrollment(ctx context.Context, id string) error {
 
 // compile-time check that Store satisfies store.Store.
 var _ store.Store = (*Store)(nil)
+
+// PutDocument creates or replaces the document keyed by (Kind, ID).
+func (s *Store) PutDocument(ctx context.Context, doc model.Document) error {
+	data := doc.Data
+	if len(data) == 0 {
+		data = json.RawMessage(`{}`)
+	}
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO documents (kind, id, data, updated_at)
+		VALUES ($1, $2, $3::jsonb, $4)
+		ON CONFLICT (kind, id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at`,
+		doc.Kind, doc.ID, []byte(data), time.Now().UTC())
+	if err != nil {
+		return fmt.Errorf("pgstore: putting document %s/%s: %w", doc.Kind, doc.ID, err)
+	}
+	return nil
+}
+
+// GetDocument returns the document keyed by (kind, id), if any.
+func (s *Store) GetDocument(ctx context.Context, kind, id string) (model.Document, bool, error) {
+	var d model.Document
+	var raw []byte
+	err := s.db.QueryRowContext(ctx, `SELECT kind, id, data, updated_at FROM documents WHERE kind = $1 AND id = $2`, kind, id).
+		Scan(&d.Kind, &d.ID, &raw, &d.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.Document{}, false, nil
+	}
+	if err != nil {
+		return model.Document{}, false, fmt.Errorf("pgstore: getting document %s/%s: %w", kind, id, err)
+	}
+	d.Data = json.RawMessage(raw)
+	return d, true, nil
+}
+
+// ListDocuments returns every document of one kind, sorted by ID.
+func (s *Store) ListDocuments(ctx context.Context, kind string) ([]model.Document, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT kind, id, data, updated_at FROM documents WHERE kind = $1 ORDER BY id`, kind)
+	if err != nil {
+		return nil, fmt.Errorf("pgstore: listing documents of kind %q: %w", kind, err)
+	}
+	defer rows.Close()
+	out := []model.Document{}
+	for rows.Next() {
+		var d model.Document
+		var raw []byte
+		if err := rows.Scan(&d.Kind, &d.ID, &raw, &d.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("pgstore: scanning document: %w", err)
+		}
+		d.Data = json.RawMessage(raw)
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+// DeleteDocument removes one document by (kind, id).
+func (s *Store) DeleteDocument(ctx context.Context, kind, id string) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM documents WHERE kind = $1 AND id = $2`, kind, id)
+	if err != nil {
+		return fmt.Errorf("pgstore: deleting document %s/%s: %w", kind, id, err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return store.ErrDocumentNotFound
+	}
+	return nil
+}

@@ -2,7 +2,10 @@
 // ingest, cook, storage, and API layers.
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Host is a single managed system Muster has collected data about.
 type Host struct {
@@ -195,4 +198,22 @@ type DiscoveredAsset struct {
 
 	DiscoveredAt time.Time `json:"discovered_at"` // first time this address was ever seen, never changes on later reports
 	LastSeenAt   time.Time `json:"last_seen_at"`
+}
+
+// Document is a small JSON record keyed by (Kind, ID), for the secondary
+// state features accumulate that doesn't warrant its own table and its
+// own five Store methods each: a host's score history, a saved config
+// baseline, a pending remediation approval, a demo bookmark, an agent's
+// health record. Kind is a short namespace owned by whichever package
+// writes it (e.g. "score_history", "baseline"); Data is that package's
+// own JSON shape, opaque to the store. The trade-off is deliberate: a
+// Postgres deployment can't index inside Data the way it can a real
+// column, so anything that needs to be queried across hosts at scale
+// (facts, changes, audit) keeps its dedicated table -- this is for
+// per-host or per-object records that are always read back by key.
+type Document struct {
+	Kind      string          `json:"kind"`
+	ID        string          `json:"id"`
+	Data      json.RawMessage `json:"data"`
+	UpdatedAt time.Time       `json:"updated_at"`
 }

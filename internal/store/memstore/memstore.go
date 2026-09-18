@@ -40,6 +40,7 @@ type snapshot struct {
 	NextSoftwareID   int                              `json:"next_software_id,omitempty"`
 	DiscoveredAssets []model.DiscoveredAsset          `json:"discovered_assets,omitempty"`
 	NextAssetID      int                              `json:"next_asset_id,omitempty"`
+	Documents        []model.Document                 `json:"documents,omitempty"`
 }
 
 // Store is a concurrency-safe, optionally file-backed Store implementation.
@@ -64,6 +65,7 @@ type Store struct {
 	nextSoftwareID   int
 	discoveredAssets []model.DiscoveredAsset
 	nextAssetID      int
+	documents        map[string]map[string]model.Document // kind -> id -> doc
 }
 
 // New creates a Store. If path is non-empty, existing state is loaded
@@ -71,10 +73,11 @@ type Store struct {
 // to that path.
 func New(path string) (*Store, error) {
 	s := &Store{
-		path:   path,
-		hosts:  make(map[string]model.Host),
-		facts:  make(map[string]map[string]model.Fact),
-		groups: make(map[string]bool),
+		path:      path,
+		hosts:     make(map[string]model.Host),
+		facts:     make(map[string]map[string]model.Fact),
+		groups:    make(map[string]bool),
+		documents: make(map[string]map[string]model.Document),
 	}
 	if path == "" {
 		return s, nil
@@ -130,6 +133,12 @@ func New(path string) (*Store, error) {
 		s.discoveredAssets = snap.DiscoveredAssets
 	}
 	s.nextAssetID = snap.NextAssetID
+	for _, d := range snap.Documents {
+		if s.documents[d.Kind] == nil {
+			s.documents[d.Kind] = make(map[string]model.Document)
+		}
+		s.documents[d.Kind][d.ID] = d
+	}
 	return s, nil
 }
 
@@ -152,6 +161,7 @@ func (s *Store) persist() error {
 		Enrollments: s.enrollments, NextEnrollID: s.nextEnrollID,
 		SoftwareRules: s.softwareRules, NextSoftwareID: s.nextSoftwareID,
 		DiscoveredAssets: s.discoveredAssets, NextAssetID: s.nextAssetID,
+		Documents: s.documentList(),
 	}
 	data, err := json.MarshalIndent(snap, "", "  ")
 	if err != nil {
@@ -730,6 +740,68 @@ func (s *Store) DeleteDiscoveredAsset(_ context.Context, id string) error {
 		}
 	}
 	return store.ErrDiscoveredAssetNotFound
+}
+
+// documentList flattens the documents map for the snapshot, in a stable
+// (kind, id) order so the JSON file diffs cleanly. Must be called with
+// s.mu held.
+func (s *Store) documentList() []model.Document {
+	var out []model.Document
+	for _, byID := range s.documents {
+		for _, d := range byID {
+			out = append(out, d)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Kind != out[j].Kind {
+			return out[i].Kind < out[j].Kind
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out
+}
+
+// PutDocument creates or replaces the document keyed by (Kind, ID).
+func (s *Store) PutDocument(_ context.Context, doc model.Document) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.documents[doc.Kind] == nil {
+		s.documents[doc.Kind] = make(map[string]model.Document)
+	}
+	doc.UpdatedAt = time.Now().UTC()
+	s.documents[doc.Kind][doc.ID] = doc
+	return s.persist()
+}
+
+// GetDocument returns the document keyed by (kind, id), if any.
+func (s *Store) GetDocument(_ context.Context, kind, id string) (model.Document, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	d, ok := s.documents[kind][id]
+	return d, ok, nil
+}
+
+// ListDocuments returns every document of one kind, sorted by ID.
+func (s *Store) ListDocuments(_ context.Context, kind string) ([]model.Document, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]model.Document, 0, len(s.documents[kind]))
+	for _, d := range s.documents[kind] {
+		out = append(out, d)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}
+
+// DeleteDocument removes one document by (kind, id).
+func (s *Store) DeleteDocument(_ context.Context, kind, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.documents[kind][id]; !ok {
+		return store.ErrDocumentNotFound
+	}
+	delete(s.documents[kind], id)
+	return s.persist()
 }
 
 // compile-time check that Store satisfies store.Store.

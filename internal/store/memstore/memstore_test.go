@@ -2,6 +2,7 @@ package memstore
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -184,5 +185,46 @@ func TestListChanges(t *testing.T) {
 	}
 	if none == nil || len(none) != 0 {
 		t.Fatalf("expected non-nil empty slice for unknown host, got %v", none)
+	}
+}
+
+func TestDocumentsRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	s, err := New("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := s.GetDocument(ctx, "k", "a"); ok {
+		t.Fatal("expected no document yet")
+	}
+	if err := s.PutDocument(ctx, model.Document{Kind: "k", ID: "b", Data: json.RawMessage(`{"n":2}`)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PutDocument(ctx, model.Document{Kind: "k", ID: "a", Data: json.RawMessage(`{"n":1}`)}); err != nil {
+		t.Fatal(err)
+	}
+	d, ok, err := s.GetDocument(ctx, "k", "a")
+	if err != nil || !ok || string(d.Data) != `{"n":1}` || d.UpdatedAt.IsZero() {
+		t.Fatalf("GetDocument: ok=%v err=%v doc=%+v", ok, err, d)
+	}
+	list, err := s.ListDocuments(ctx, "k")
+	if err != nil || len(list) != 2 || list[0].ID != "a" || list[1].ID != "b" {
+		t.Fatalf("ListDocuments: %+v err=%v", list, err)
+	}
+	if err := s.PutDocument(ctx, model.Document{Kind: "k", ID: "a", Data: json.RawMessage(`{"n":3}`)}); err != nil {
+		t.Fatal(err)
+	}
+	d, _, _ = s.GetDocument(ctx, "k", "a")
+	if string(d.Data) != `{"n":3}` {
+		t.Fatalf("expected replace, got %s", d.Data)
+	}
+	if err := s.DeleteDocument(ctx, "k", "a"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteDocument(ctx, "k", "a"); !errors.Is(err, store.ErrDocumentNotFound) {
+		t.Fatalf("expected ErrDocumentNotFound, got %v", err)
+	}
+	if list, _ := s.ListDocuments(ctx, "other"); len(list) != 0 {
+		t.Fatal("expected empty list for unknown kind")
 	}
 }

@@ -181,6 +181,21 @@ type Store interface {
 	// sighting is no longer useful. Returns ErrDiscoveredAssetNotFound if
 	// no such asset exists.
 	DeleteDiscoveredAsset(ctx context.Context, id string) error
+
+	// PutDocument creates or replaces the model.Document keyed by
+	// (Kind, ID) -- see model.Document for what belongs here and what
+	// doesn't. UpdatedAt is stamped by the store.
+	PutDocument(ctx context.Context, doc model.Document) error
+
+	// GetDocument returns the document keyed by (kind, id), if any.
+	GetDocument(ctx context.Context, kind, id string) (model.Document, bool, error)
+
+	// ListDocuments returns every document of one kind, sorted by ID.
+	ListDocuments(ctx context.Context, kind string) ([]model.Document, error)
+
+	// DeleteDocument removes one document. Returns ErrDocumentNotFound
+	// if there is no such (kind, id).
+	DeleteDocument(ctx context.Context, kind, id string) error
 }
 
 // ErrHostNotFound is returned by SetHostGroup/SetHostTags (and may be
@@ -212,3 +227,7 @@ var ErrEnrollmentNotFound = errors.New("store: enrollment not found")
 // ErrDiscoveredAssetNotFound is returned by DeleteDiscoveredAsset when
 // no discovered asset with the given id exists.
 var ErrDiscoveredAssetNotFound = errors.New("store: discovered asset not found")
+
+// ErrDocumentNotFound is returned by DeleteDocument when no document with
+// the given (kind, id) exists.
+var ErrDocumentNotFound = errors.New("store: document not found")

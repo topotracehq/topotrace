@@ -2,6 +2,7 @@ package pgstore
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"testing"
@@ -355,5 +356,36 @@ func TestListChangesRespectsLimit(t *testing.T) {
 	}
 	if len(changes) != 2 {
 		t.Fatalf("expected limit=2 to cap results at 2, got %d", len(changes))
+	}
+}
+
+func TestDocumentsRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	if _, ok, err := s.GetDocument(ctx, "k", "a"); err != nil || ok {
+		t.Fatalf("GetDocument on empty store: ok=%v err=%v", ok, err)
+	}
+	if err := s.PutDocument(ctx, model.Document{Kind: "k", ID: "b", Data: json.RawMessage(`{"n":2}`)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PutDocument(ctx, model.Document{Kind: "k", ID: "a", Data: json.RawMessage(`{"n":1}`)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PutDocument(ctx, model.Document{Kind: "k", ID: "a", Data: json.RawMessage(`{"n":3}`)}); err != nil {
+		t.Fatal(err)
+	}
+	d, ok, err := s.GetDocument(ctx, "k", "a")
+	if err != nil || !ok || string(d.Data) != `{"n": 3}` && string(d.Data) != `{"n":3}` {
+		t.Fatalf("GetDocument after replace: ok=%v err=%v data=%s", ok, err, d.Data)
+	}
+	list, err := s.ListDocuments(ctx, "k")
+	if err != nil || len(list) != 2 || list[0].ID != "a" || list[1].ID != "b" {
+		t.Fatalf("ListDocuments: %+v err=%v", list, err)
+	}
+	if err := s.DeleteDocument(ctx, "k", "a"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteDocument(ctx, "k", "a"); !errors.Is(err, store.ErrDocumentNotFound) {
+		t.Fatalf("expected ErrDocumentNotFound, got %v", err)
 	}
 }
