@@ -31,6 +31,19 @@ not alphabetically.
   by `internal/browserext` (riskiest first, with reasons), plus
   `reported` (false when the agent never sent the category), `total`
   and `risky` counts.
+- `GET /api/hosts/{host}/baseline` -- the host's golden baseline (if
+  any) compared against its facts right now: `has_baseline`, when and
+  by whom it was captured, and a `drift` list (category, field,
+  add/remove/update, old/new) with per-category counts. List-shaped
+  categories are diffed item by item (e.g. "vsftpd added"), not as one
+  stringified array.
+- `POST /api/hosts/{host}/baseline` -- capture the host's current facts
+  as its baseline, replacing any existing one. Body `{"note": "...",
+  "categories": [...]}`, both optional. `admin`, strictly checked;
+  audited as `baseline-captured`.
+- `DELETE /api/hosts/{host}/baseline` -- clear it. `admin`, strict.
+- `GET /api/drift` -- every baselined host's drift report, drifted
+  hosts first, with `baselined`/`drifted` counts.
 - `GET /api/hosts/{host}/risk` -- the host's blended 0-100 risk score
   (higher is riskier) with the factor breakdown that produced it:
   vulnerability severity, posture deficit, staleness, Shadow AI and

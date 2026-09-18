@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"muster/internal/baseline"
 	"muster/internal/compliance"
 	"muster/internal/history"
 	"muster/internal/model"
@@ -99,4 +100,48 @@ func clamp(v, lo, hi int) int {
 		return hi
 	}
 	return v
+}
+
+// seedBaselines captures a golden baseline for a few hosts and then
+// nudges one of them away from it, so the drift feature has something
+// to show on a fresh demo: web01.prod matches its baseline exactly;
+// api01.prod's baseline was taken when its firewall was on, vsftpd
+// wasn't installed, and curl was one release older -- exactly the kind
+// of "who changed this box" story config-drift detection exists for.
+func seedBaselines(ctx context.Context, st store.Store) (int, error) {
+	n := 0
+	if _, err := baseline.Capture(ctx, st, "web01.prod", "seed-tool", "golden image 2026-09 (web tier)", nil); err != nil {
+		return n, err
+	}
+	n++
+
+	// api01.prod: write the "golden" version of two categories first,
+	// capture, then restore the real (drifted) current facts.
+	cur, ok, err := st.GetFact(ctx, "api01.prod", "installed_software")
+	if err != nil || !ok {
+		return n, fmt.Errorf("api01.prod installed_software: ok=%v err=%v", ok, err)
+	}
+	curFW, _, _ := st.GetFact(ctx, "api01.prod", "firewall_av_status")
+	golden := sw(
+		[3]string{"curl", "7.68.0-1ubuntu2.20", "amd64"},
+		[3]string{"libcurl4", "7.68.0-1ubuntu2.20", "amd64"},
+		[3]string{"python3", "3.8.10-0ubuntu1.13", "amd64"},
+	)
+	if _, err := st.UpsertFact(ctx, model.Fact{Host: "api01.prod", Category: "installed_software", Data: golden, CookedAt: cur.CookedAt}); err != nil {
+		return n, err
+	}
+	if _, err := st.UpsertFact(ctx, model.Fact{Host: "api01.prod", Category: "firewall_av_status", Data: linuxFirewall("active"), CookedAt: cur.CookedAt}); err != nil {
+		return n, err
+	}
+	if _, err := baseline.Capture(ctx, st, "api01.prod", "seed-tool", "golden image 2026-09 (api tier)", nil); err != nil {
+		return n, err
+	}
+	n++
+	if _, err := st.UpsertFact(ctx, cur); err != nil {
+		return n, err
+	}
+	if _, err := st.UpsertFact(ctx, curFW); err != nil {
+		return n, err
+	}
+	return n, nil
 }

@@ -723,6 +723,28 @@ Fleet tab (`GET /api/summary`), and as their own Muster Baseline
 compliance check (`no-shadow-ai`, see "Compliance frameworks" in the
 in-app Docs tab).
 
+## Config drift & golden baselines
+
+```
+GET    /api/hosts/{host}/baseline   # readonly -- drift report
+POST   /api/hosts/{host}/baseline   # admin -- capture current facts as golden
+DELETE /api/hosts/{host}/baseline   # admin
+GET    /api/drift                   # readonly -- fleet rollup
+```
+
+Change history records every diff since the last report; policy and
+compliance judge a host against rules. Neither answers "how far is this
+box from the state we approved?" `internal/baseline` does: an operator
+captures a host's facts as its golden baseline when it's known-good,
+and from then on Muster reports drift against it -- packages added or
+removed, versions moved, services and ports changed, firewall flipped
+-- item by item for list-shaped categories, so "vsftpd added" is one
+line rather than a stringified array. Host page: capture/recapture/
+clear plus the drift list; Fleet tab: how many baselined hosts have
+drifted. The seed tool captures two baselines and drifts one of them.
+
+![Config drift](docs/screenshots/host-drift.png)
+
 ## Browser extension inventory
 
 ```

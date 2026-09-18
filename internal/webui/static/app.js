@@ -582,6 +582,73 @@
     return el("div", { class: "fact-card" }, el("h2", { text: "Compliance frameworks" }), ...blocks);
   }
 
+  // baselineCard is the host page's golden-baseline section: capture,
+  // recapture, clear, and the drift list (see internal/baseline).
+  function baselineCard(host, rep, reload) {
+    const msg = el("span", { class: "save-msg" });
+    const noteInput = el("input", { type: "text", placeholder: "note, e.g. golden image 2026-09" });
+    const captureBtn = el("button", { type: "button", text: rep.has_baseline ? "Recapture now" : "Capture baseline now" });
+    captureBtn.addEventListener("click", async () => {
+      msg.textContent = "Capturing…";
+      try { await api(`/api/hosts/${encodeURIComponent(host)}/baseline`, { method: "POST", body: { note: noteInput.value.trim() } }); msg.textContent = "Captured"; reload(); }
+      catch (err) { msg.textContent = `Error: ${err.message}`; }
+    });
+    const row = el("div", { class: "editor-row" }, noteInput, captureBtn);
+    if (rep.has_baseline) {
+      const clearBtn = el("button", { type: "button", class: "ghost", text: "Clear" });
+      clearBtn.addEventListener("click", async () => {
+        if (!confirm(`Clear the golden baseline for ${host}?`)) return;
+        try { await api(`/api/hosts/${encodeURIComponent(host)}/baseline`, { method: "DELETE" }); reload(); }
+        catch (err) { msg.textContent = `Error: ${err.message}`; }
+      });
+      row.appendChild(clearBtn);
+    }
+    row.appendChild(msg);
+
+    const body = [];
+    if (!rep.has_baseline) {
+      body.push(el("p", { text: "No golden baseline captured for this host. Capture one when the host is in a known-good state, and every later report is compared against it." }));
+    } else {
+      body.push(el("p", { class: "meta", text: `Captured ${timeAgo(rep.captured_at)} by ${rep.captured_by}${rep.note ? ` -- ${rep.note}` : ""} · ${rep.categories.length} categories` }));
+      if (!rep.drifted) {
+        body.push(el("p", { class: "posture-clean", text: "No drift -- the host matches its baseline." }));
+      } else {
+        const list = el("ul", { class: "changes-list" });
+        for (const d of rep.drift) {
+          let detail;
+          if (d.action === "add") detail = `${d.field} added${d.new_value ? ` (${d.new_value})` : ""}`;
+          else if (d.action === "remove") detail = `${d.field} removed${d.old_value ? ` (was ${d.old_value})` : ""}`;
+          else detail = `${d.field}: ${d.old_value} → ${d.new_value}`;
+          list.appendChild(el("li", { class: "change-row" },
+            el("span", { class: `change-action ${d.action}`, text: d.action }),
+            el("span", { class: "change-detail", text: `${detail} (${d.category.replace(/_/g, " ")})` })));
+        }
+        body.push(el("p", { class: "meta", text: `${rep.drift.length} difference(s) from baseline:` }), list);
+      }
+    }
+    return el("div", { class: "fact-card" },
+      el("h2", { text: rep.has_baseline ? (rep.drifted ? `Golden baseline -- DRIFTED (${rep.drift.length})` : "Golden baseline -- in sync") : "Golden baseline" }),
+      ...body, row);
+  }
+
+  // driftCard is the Fleet tab's config-drift rollup from GET /api/drift.
+  async function driftCard() {
+    const card = el("div", { class: "fact-card" }, el("h2", { text: "Config drift" }), el("p", { class: "meta", text: "Loading…" }));
+    try {
+      const d = await api("/api/drift");
+      const rows = d.hosts.map((h) => el("li", { class: "policy-row" },
+        el("a", { href: `#/host/${encodeURIComponent(h.host)}`, class: "policy-name", text: h.host }),
+        el("span", { class: `posture-badge ${h.drifted ? "posture-bad" : "posture-good"}`, text: h.drifted ? `${h.drift.length} drifted` : "in sync" }),
+        el("span", { class: "change-time", text: `baseline ${timeAgo(h.captured_at)}${h.note ? ` -- ${h.note}` : ""}` })));
+      card.replaceChildren(el("h2", { text: `Config drift (${d.drifted} of ${d.baselined} baselined hosts drifted)` }),
+        el("p", { class: "meta", text: "Hosts with a captured golden baseline, compared against their facts right now. Capture a baseline from a host's page." }),
+        rows.length ? el("ul", { class: "policy-list" }, ...rows) : el("p", { text: "No baselines captured yet." }));
+    } catch (err) {
+      card.replaceChildren(el("h2", { text: "Config drift" }), el("p", { text: `Couldn't load drift: ${err.message}` }));
+    }
+    return card;
+  }
+
   function shadowAICard(findings) {
     if (!findings.length) {
       return el(
@@ -648,6 +715,10 @@
     ];
 
     if (posture) nodes.push(postureCard(posture));
+    const baselineSlot = el("div", {});
+    nodes.push(baselineSlot);
+    const loadBaseline = () => api(`/api/hosts/${encodeURIComponent(name)}/baseline`).then((rep) => baselineSlot.replaceChildren(baselineCard(name, rep, loadBaseline))).catch(() => {});
+    loadBaseline();
     const frameworksSlot = el("div", {});
     nodes.push(frameworksSlot);
     api(`/api/hosts/${encodeURIComponent(name)}/compliance`).then((res) => frameworksSlot.replaceChildren(frameworksCard(Array.isArray(res) ? res : (res.frameworks || [])))).catch(() => {});
@@ -1347,8 +1418,10 @@
     riskCard().then((card) => riskSlot.replaceChildren(card));
     const benchSlot = el("div", {});
     benchmarkCard().then((card) => benchSlot.replaceChildren(card));
+    const driftSlot = el("div", {});
+    driftCard().then((card) => driftSlot.replaceChildren(card));
 
-    const nodes = [heading, stats, trendSlot, riskSlot, benchSlot, reportsCard(), platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
+    const nodes = [heading, stats, trendSlot, riskSlot, benchSlot, driftSlot, reportsCard(), platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
 
     if (audit) {
       const auditList = audit.length

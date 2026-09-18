@@ -76,14 +76,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("seed: wrote %d hosts, %d software rules, %d policy rules, %d discovered assets, %d score-history points (30 days)\n", n.hosts, n.softwareRules, n.policyRules, n.discoveredAssets, n.historyPoints)
+	fmt.Printf("seed: wrote %d hosts, %d software rules, %d policy rules, %d discovered assets, %d score-history points (30 days), %d golden baselines\n", n.hosts, n.softwareRules, n.policyRules, n.discoveredAssets, n.historyPoints, n.baselines)
 	if *postgresDSN == "" {
 		fmt.Println("seed: memstore backend -- (re)start cmd/muster against the same -data-dir to serve this data.")
 	}
 }
 
 type counts struct {
-	hosts, softwareRules, policyRules, discoveredAssets, historyPoints int
+	hosts, softwareRules, policyRules, discoveredAssets, historyPoints, baselines int
 }
 
 func seed(ctx context.Context, st store.Store) (counts, error) {
@@ -134,6 +134,9 @@ func seed(ctx context.Context, st store.Store) (counts, error) {
 		return n, fmt.Errorf("listing hosts for history: %w", err)
 	}
 	if n.historyPoints, err = seedHistory(ctx, st, hosts, now); err != nil {
+		return n, err
+	}
+	if n.baselines, err = seedBaselines(ctx, st); err != nil {
 		return n, err
 	}
 
