@@ -94,6 +94,31 @@ type Server struct {
 	// answers with a clear "not configured" error instead of ever
 	// calling out to the network with no key.
 	AIQuery aiquery.Config
+
+	// The remaining fields exist purely for GET /api/settings to report
+	// on -- cmd/muster wires each straight from the flag it already
+	// parses. None of them affect this Server's own behavior; they're
+	// plumbed through instead of re-parsed from os.Args so the settings
+	// endpoint can't drift from what the process actually started with.
+
+	// StorageBackend is "memstore" or "postgres" -- which store.Store
+	// implementation cmd/muster constructed, never the -postgres-dsn
+	// value itself.
+	StorageBackend string
+	// IngestAddr and APIAddr are the -ingest-addr/-api-addr the process
+	// was started with.
+	IngestAddr string
+	APIAddr    string
+	// EvaluatorInterval is -evaluator-interval.
+	EvaluatorInterval time.Duration
+	// VulnFeedInterval is -vuln-feed-interval -- meaningful only when
+	// VulnFeed is non-nil (-vuln-feed was set).
+	VulnFeedInterval time.Duration
+	// SIEMForwardingConfigured and SIEMBackend report on -siem-hec-*
+	// (see internal/siemforward) -- true/"splunk-hec" once both flags
+	// are set, false/"" otherwise. Never the HEC token itself.
+	SIEMForwardingConfigured bool
+	SIEMBackend              string
 }
 
 func (s *Server) log() *slog.Logger {
@@ -152,6 +177,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/auth/logout", s.handleAuthLogout)
 	mux.HandleFunc("GET /api/auth/me", s.handleAuthMe)
 	mux.HandleFunc("POST /api/ask", s.handleAsk)
+	mux.HandleFunc("GET /api/settings", s.handleSettings)
 }
 
 // Handler returns a standalone, logged handler for just the API -- used
@@ -188,6 +214,103 @@ func (s *Server) handleGetDoc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeError(w, http.StatusNotFound, "doc page not found")
+}
+
+// settingsAuth is the auth-related slice of GET /api/settings --
+// presence/mode only, never AuthToken or any OAuth secret.
+type settingsAuth struct {
+	BearerTokenConfigured bool     `json:"bearer_token_configured"`
+	OAuthConfigured       bool     `json:"oauth_configured"`
+	OAuthRoleMap          []string `json:"oauth_role_map,omitempty"`
+}
+
+// settingsVulnFeed is GET /api/settings's vuln-feed slice.
+type settingsVulnFeed struct {
+	Enabled  bool   `json:"enabled"`
+	Interval string `json:"interval,omitempty"`
+}
+
+// settingsAskMuster is GET /api/settings's Ask Muster (AI query) slice
+// -- never AIQuery.APIKey itself.
+type settingsAskMuster struct {
+	Configured bool   `json:"configured"`
+	Model      string `json:"model,omitempty"`
+}
+
+// settingsWebhooks is GET /api/settings's webhook slice -- a count,
+// never the URLs themselves.
+type settingsWebhooks struct {
+	Configured bool `json:"configured"`
+	Count      int  `json:"count"`
+}
+
+// settingsSIEM is GET /api/settings's SIEM-forwarding slice (see
+// internal/siemforward) -- never the HEC token itself.
+type settingsSIEM struct {
+	Configured bool   `json:"configured"`
+	Backend    string `json:"backend,omitempty"`
+}
+
+// settingsResponse is GET /api/settings's full shape -- see
+// handleSettings's doc comment for what this deliberately omits.
+type settingsResponse struct {
+	StorageBackend    string            `json:"storage_backend"`
+	IngestAddr        string            `json:"ingest_addr"`
+	APIAddr           string            `json:"api_addr"`
+	EvaluatorInterval string            `json:"evaluator_interval"`
+	Auth              settingsAuth      `json:"auth"`
+	VulnFeed          settingsVulnFeed  `json:"vuln_feed"`
+	AskMuster         settingsAskMuster `json:"ask_muster"`
+	Webhooks          settingsWebhooks  `json:"webhooks"`
+	SIEM              settingsSIEM      `json:"siem"`
+}
+
+// handleSettings is GET /api/settings, gated admin (same as managing
+// policies or API keys -- this is operator-facing server configuration,
+// not fleet data). It exists so "what is this server actually running
+// with" has one place to look instead of cross-referencing CLI flags,
+// env vars, and process arguments -- see cmd/muster's flag list, which
+// is where every value here ultimately comes from.
+//
+// Deliberately never returns MUSTER_AUTH_TOKEN, MUSTER_POSTGRES_DSN,
+// MUSTER_AI_API_KEY, the OAuth client secret, or any webhook/OAuth URL
+// -- only whether each is configured, and non-secret metadata (mode,
+// counts, intervals, model name, role-map policy) about it.
+func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireRole(w, r, "admin"); !ok {
+		return
+	}
+
+	resp := settingsResponse{
+		StorageBackend:    s.StorageBackend,
+		IngestAddr:        s.IngestAddr,
+		APIAddr:           s.APIAddr,
+		EvaluatorInterval: s.EvaluatorInterval.String(),
+		Auth: settingsAuth{
+			BearerTokenConfigured: s.AuthToken != "",
+			OAuthConfigured:       s.OAuth != nil && s.OAuth.Enabled,
+			OAuthRoleMap:          s.OAuth.RoleMapStrings(),
+		},
+		VulnFeed: settingsVulnFeed{
+			Enabled: s.VulnFeed != nil,
+		},
+		AskMuster: settingsAskMuster{
+			Configured: s.AIQuery.Enabled(),
+			Model:      s.AIQuery.Model,
+		},
+		Webhooks: settingsWebhooks{
+			Configured: s.Webhooks.Count() > 0,
+			Count:      s.Webhooks.Count(),
+		},
+		SIEM: settingsSIEM{
+			Configured: s.SIEMForwardingConfigured,
+			Backend:    s.SIEMBackend,
+		},
+	}
+	if s.VulnFeed != nil {
+		resp.VulnFeed.Interval = s.VulnFeedInterval.String()
+	}
+	s.writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, status int, v any) {
@@ -1485,8 +1608,9 @@ func (s *Server) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 // mobileReportRequest is the body of POST /api/mobile-report -- a
 // simpler, JSON-over-HTTP alternative to the TCP MUSTER1 protocol for
 // agents where a raw socket + tar.gz payload is the wrong shape: the
-// Android app (agent/android/) and the iOS Shortcuts-based flow
-// (agent/ios/README.md) both use this instead. Facts feed into the
+// Android app (agent/android/), the iOS Shortcuts-based flow
+// (agent/ios/README.md), and the ChromeOS extension (agent/chromeos/)
+// all use this instead. Facts feed into the
 // exact same UpsertHost/UpsertFact path every other agent's report goes
 // through, the same way internal/cook.Pipeline.Cook does for the raw
 // TCP agents -- change tracking, staleness, posture, and vulnerability
@@ -1494,7 +1618,7 @@ func (s *Server) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 // this handler.
 type mobileReportRequest struct {
 	Host     string                    `json:"host"`
-	Platform string                    `json:"platform"` // "android" or "ios"
+	Platform string                    `json:"platform"` // "android", "ios", or "chromeos"
 	Facts    map[string]map[string]any `json:"facts"`     // category -> field -> value, at least one category required
 }
 
@@ -1507,8 +1631,8 @@ func (s *Server) handleMobileReport(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.Host == "" || (req.Platform != "android" && req.Platform != "ios") {
-		s.writeError(w, http.StatusBadRequest, `host is required and platform must be "android" or "ios"`)
+	if req.Host == "" || (req.Platform != "android" && req.Platform != "ios" && req.Platform != "chromeos") {
+		s.writeError(w, http.StatusBadRequest, `host is required and platform must be "android", "ios", or "chromeos"`)
 		return
 	}
 	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")

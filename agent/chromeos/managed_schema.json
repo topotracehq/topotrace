@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "properties": {
+    "serverUrl": {
+      "title": "Muster server URL",
+      "type": "string",
+      "description": "Base origin of the Muster server, e.g. https://muster.example.com or http://192.168.1.20:8080. No trailing slash required -- background.js normalizes it."
+    },
+    "hostName": {
+      "title": "Host name",
+      "type": "string",
+      "description": "Exactly the host name this Chromebook was enrolled under in Muster's Agents tab (GET/POST /api/enrollments)."
+    },
+    "token": {
+      "title": "Enrollment token",
+      "type": "string",
+      "description": "The one-time enrollment token minted for this host in Muster's Agents tab. Scoped to this host only -- see model.Enrollment's doc comment on the server."
+    },
+    "reportIntervalMinutes": {
+      "title": "Report interval (minutes)",
+      "type": "integer",
+      "minimum": 30,
+      "maximum": 60,
+      "description": "How often to report, in minutes. Optional -- defaults to 30 if unset, clamped to 30-60 either way (chrome.alarms' own practical floor plus this task's 30-60 minute cadence)."
+    }
+  }
+}

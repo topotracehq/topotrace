@@ -28,6 +28,7 @@ import (
 	"muster/internal/evaluator"
 	"muster/internal/ingest"
 	"muster/internal/oauth"
+	"muster/internal/siemforward"
 	"muster/internal/store"
 	"muster/internal/store/memstore"
 	"muster/internal/store/pgstore"
@@ -65,6 +66,9 @@ func main() {
 
 		aiAPIKey = flag.String("ai-api-key", os.Getenv("MUSTER_AI_API_KEY"), "Anthropic API key for \"Ask Muster\" (POST /api/ask), a natural-language query surface over the fleet data with every question+answer recorded to the audit log. Empty disables the endpoint (it answers with a clear 'not configured' error). Also read from MUSTER_AI_API_KEY.")
 		aiModel  = flag.String("ai-model", os.Getenv("MUSTER_AI_MODEL"), "Anthropic model id Ask Muster calls (e.g. claude-opus-5). Empty uses internal/aiquery's built-in default. Also read from MUSTER_AI_MODEL.")
+
+		siemHECURL   = flag.String("siem-hec-url", os.Getenv("MUSTER_SIEM_HEC_URL"), "Splunk HTTP Event Collector base URL (e.g. https://splunk.example.com:8088) to forward every audit-log entry to, via internal/siemforward. Leave both -siem-hec-* flags empty to disable SIEM forwarding entirely. Also read from MUSTER_SIEM_HEC_URL.")
+		siemHECToken = flag.String("siem-hec-token", os.Getenv("MUSTER_SIEM_HEC_TOKEN"), "Splunk HEC token, sent as \"Authorization: Splunk <token>\". Required once -siem-hec-url is set. Also read from MUSTER_SIEM_HEC_TOKEN.")
 	)
 	flag.Parse()
 
@@ -82,6 +86,7 @@ func main() {
 	rawDir := *dataDir + "/raw"
 
 	var st store.Store
+	var storageBackend string
 	if *postgresDSN != "" {
 		pg, err := pgstore.New(ctx, *postgresDSN)
 		if err != nil {
@@ -90,6 +95,7 @@ func main() {
 		}
 		defer pg.Close()
 		st = pg
+		storageBackend = "postgres"
 		logger.Info("store backend: postgres")
 	} else {
 		mem, err := memstore.New(*dataDir + "/muster.json")
@@ -98,8 +104,26 @@ func main() {
 			os.Exit(1)
 		}
 		st = mem
+		storageBackend = "memstore"
 		logger.Info("store backend: memstore (in-memory, JSON snapshot)", "path", *dataDir+"/muster.json")
 	}
+
+	// SIEM forwarding (internal/siemforward) is opt-in and all-or-
+	// nothing, same pattern as -oauth-*: both -siem-hec-* flags empty
+	// means WrapStore returns st unchanged below, with zero overhead
+	// and no forwarder goroutine ever started.
+	var siemFwd siemforward.Forwarder
+	var siemBackend string
+	if *siemHECURL != "" || *siemHECToken != "" {
+		if *siemHECURL == "" || *siemHECToken == "" {
+			fmt.Fprintln(os.Stderr, "siem forwarding partially configured -- both -siem-hec-url and -siem-hec-token must be set together")
+			os.Exit(1)
+		}
+		siemFwd = siemforward.NewSplunkHEC(*siemHECURL, *siemHECToken)
+		siemBackend = "splunk-hec"
+		logger.Info("SIEM forwarding enabled", "backend", siemBackend, "url", *siemHECURL)
+	}
+	st = siemforward.WrapStore(st, siemFwd, logger.With("component", "siemforward"))
 
 	pipeline := &cook.Pipeline{RawBaseDir: rawDir, Store: st}
 
@@ -160,7 +184,18 @@ func main() {
 		}
 		logger.Info("Ask Muster (AI query) enabled", "model", model)
 	}
-	apiSrv := &api.Server{Store: st, Logger: logger.With("component", "api"), AuthToken: *authToken, Webhooks: hooks, VulnFeed: vulnFeed, Pipeline: pipeline, OAuth: oauthCfg, Sessions: sessions, AIQuery: aiquery.Config{APIKey: *aiAPIKey, Model: *aiModel}}
+	apiSrv := &api.Server{
+		Store: st, Logger: logger.With("component", "api"), AuthToken: *authToken,
+		Webhooks: hooks, VulnFeed: vulnFeed, Pipeline: pipeline, OAuth: oauthCfg, Sessions: sessions,
+		AIQuery:           aiquery.Config{APIKey: *aiAPIKey, Model: *aiModel},
+		StorageBackend:           storageBackend,
+		IngestAddr:               *ingestAddr,
+		APIAddr:                  *apiAddr,
+		EvaluatorInterval:        *evalInterval,
+		VulnFeedInterval:         *vulnFeedInterval,
+		SIEMForwardingConfigured: siemFwd != nil,
+		SIEMBackend:              siemBackend,
+	}
 	apiSrv.Register(mux)
 	mux.Handle("/", webHandler)
 

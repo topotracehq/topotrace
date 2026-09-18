@@ -818,14 +818,63 @@ go run ./cmd/muster -webhook-url "https://example.com/hooks/muster,https://examp
 # or: MUSTER_WEBHOOK_URLS=https://example.com/hooks/muster go run ./cmd/muster
 ```
 
-A minimal SIEM-style outbound notifier (`internal/webhook`): on a
+A minimal generic outbound notifier (`internal/webhook`): on a
 `policy_violation` or `remediation_executed` event, POST a small JSON
 payload (`{"type", "host", "detail", "timestamp"}`) to every configured
 URL. One attempt, one retry after a short delay, every failure logged --
 not a durable queue, not exactly-once delivery, just best effort, and
 loud about it when both attempts fail. A `Dispatcher` with no URLs
 configured (the default) is a safe no-op, so nothing has to branch on
-"are webhooks even on."
+"are webhooks even on." (For a real SIEM specifically, see "SIEM
+forwarding" below -- it forwards the full audit trail, not just these
+two event types, and speaks Splunk HEC's actual wire format rather than
+an ad hoc JSON shape.)
+
+## SIEM forwarding
+
+```
+go run ./cmd/muster -siem-hec-url https://splunk.example.com:8088 -siem-hec-token <hec-token>
+# or: MUSTER_SIEM_HEC_URL=... MUSTER_SIEM_HEC_TOKEN=... go run ./cmd/muster
+```
+
+Forwards Muster's entire audit trail (`internal/siemforward`) -- every
+`Store.RecordAudit` call, so every policy violation, remediation, Ask
+Muster query, enrollment/key management action, and OAuth login, the
+same events `GET /api/audit` shows -- to a real SIEM, fire-and-forget
+with a 5-second timeout so a slow or unreachable SIEM can never block or
+fail the request that triggered the event. Built on a small `Forwarder`
+interface (`Send(ctx, event) error`) so more backends can be added
+without touching any call site; the one real implementation this round
+is Splunk's HTTP Event Collector (a plain HTTPS `POST` to
+`<hec-url>/services/collector/event`, `Authorization: Splunk <token>`,
+`{"event": <audit entry>, "sourcetype": "muster", "time": <unix-ts>}`),
+hand-rolled against Splunk's published HEC docs, stdlib `net/http` only
+-- same "no SDK, no module proxy access" approach as every other
+outbound integration here. LogRhythm and Sumo Logic are documented as
+natural next backends (both accept similar HTTP-collector-style
+ingestion) but not implemented yet -- see `docs/siem-integration.md`.
+Payload construction is unit-tested against an `httptest.Server`
+(`internal/siemforward/splunk_test.go`); not verified against a live
+Splunk instance, since this dev environment has none to test against.
+
+## Server settings
+
+```
+GET /api/settings   # admin
+```
+
+A one-stop snapshot of what this server is actually running with --
+storage backend (memstore/postgres, never the DSN), listen addresses,
+evaluator interval, and whether auth/OAuth (plus its role-map)/the vuln
+feed/Ask Muster (plus its model)/webhooks (plus a count)/SIEM forwarding
+(plus which backend) are configured. Never a secret value itself --
+`MUSTER_AUTH_TOKEN`, `MUSTER_POSTGRES_DSN`, `MUSTER_AI_API_KEY`, the
+OAuth client secret, and the SIEM HEC token are all excluded by
+construction (see `internal/api/server.go`'s `handleSettings`), only
+presence/absence and non-secret metadata about each. Exists because
+today all of this lives in CLI flags/env vars with nothing surfaced in
+the dashboard -- there was no single place to see server-level config at
+a glance.
 
 ## Fleet dashboard
 
@@ -884,7 +933,7 @@ the same download the Agents tab's per-platform install snippet points
 at. It's intentionally unauthenticated: the script itself is not a
 secret, only the enrollment token pasted into the install command is.
 
-## Mobile reporting (Android & iOS)
+## Mobile & ChromeOS reporting (Android, iOS & ChromeOS)
 
 ```
 POST /api/mobile-report   # host-scoped enrollment token (or the master token/an admin key)
@@ -919,13 +968,28 @@ mobile-only code path past this one handler
   report on a schedule, plus the honest limitations of that approach
   (no true background execution, at most a few reports a day, no
   remediation).
+- **ChromeOS**: a Manifest V3 Chrome extension in `agent/chromeos/`
+  (`chrome.enterprise.deviceAttributes`/`networkingAttributes` for
+  device serial/asset ID/MAC, `chrome.system.cpu`/`memory`/`storage` for
+  hardware, `chrome.alarms` for a 30-60 minute reporting cadence,
+  `chrome.storage.managed` so config is pushed by IT via the Google
+  Admin console rather than typed in by a user). Built as its own
+  extension rather than reusing the Android agent via ARC++ --  ARC++
+  would report ChromeOS as "an Android app," not give it a distinct
+  identity, which defeats the point (see `agent/chromeos/README.md`'s
+  "Why an extension, not the Android agent via ARC++"). Unverified
+  against a real managed Chromebook -- see that same README's "What's
+  actually verified" section, the same "no real account to test
+  against" caveat the cloud agents (`agent/aws`, `agent/azure`,
+  `agent/gcp`) already carry.
 
-Both are new surface area added to the fixed platform-string convention
-`Host.Platform` already used ("linux", "windows", "darwin", ...) --
-`"android"`/`"ios"` need no special-casing anywhere else: posture
-scoring, policy evaluation, and vulnerability correlation all already
-treat an unrecognized category or platform as "no opinion," not an
-error (see `internal/policy/policy.go`'s `ComputePosture` doc comment).
+All three are new surface area added to the fixed platform-string
+convention `Host.Platform` already used ("linux", "windows", "darwin",
+...) -- `"android"`/`"ios"`/`"chromeos"` need no special-casing anywhere
+else: posture scoring, policy evaluation, and vulnerability correlation
+all already treat an unrecognized category or platform as "no opinion,"
+not an error (see `internal/policy/policy.go`'s `ComputePosture` doc
+comment).
 
 ## What each agent collects
 
@@ -1057,7 +1121,7 @@ tracked agent enrollment with revocable host-scoped tokens, a
 and a documented iOS Shortcuts-based reporting flow, a live OSV.dev
 vulnerability feed layered on top of the static dataset, and a
 standalone systemd deployment path alongside the Helm chart (see "Agent
-enrollment & the Agents tab", "Mobile reporting (Android & iOS)",
+enrollment & the Agents tab", "Mobile & ChromeOS reporting (Android, iOS & ChromeOS)",
 "Vulnerability correlation", and "Standalone (Linux VM / bare metal,
 systemd)" above), and a fourth phase, aimed at a first soft release:
 software allow/deny lists scored per host, framework-based compliance
@@ -1116,7 +1180,49 @@ this pass, so only its request/response shapes and the "not
 configured" error path are proven; see "Ask Muster"'s own unverified
 note above.
 
+And a sixth round: a fix for the Docs tab (a JSON key-casing mismatch
+between `docs.Index`'s untagged Go struct fields and `app.js`'s
+lowercase reads, so every doc page 404'd on `/api/docs/undefined` --
+see "Server settings" above's neighbor, and `docs/embed.go`'s `json`
+tags), the `GET /api/settings` server-configuration snapshot, SIEM
+forwarding to Splunk HEC (`internal/siemforward`, see "SIEM forwarding"
+above), and the ChromeOS extension (`agent/chromeos/`, see "Mobile &
+ChromeOS reporting" above). Verified live this round: the Docs-tab bug
+was root-caused by code review (not a browser repro) -- `curl`ing
+`/api/docs`/`/api/docs/getting-started` against the running server
+showed the backend was already fine, and `app.js`'s `showDocs()` was
+reading `p.name`/`p.title` against a response actually shaped
+`{"Name", "Title"}`, sending every doc-page fetch to
+`/api/docs/undefined` -- then the fix (`json` tags added to
+`docs.Index`) was confirmed live: rebuilt, redeployed, and re-curled,
+now returning lowercase keys. `GET /api/settings` was also curled
+against the running server post-deploy. `go build ./...`/`go vet
+./...`/`go test ./...` all passing
+including new `internal/siemforward` tests
+(`splunk_test.go` against a real `httptest.Server`, `store_test.go` for
+the audit-forwarding wrapper). Not verified: the Splunk HEC forwarder's
+actual delivery to a real Splunk instance (no instance to test against,
+same as every other outbound integration here), and the ChromeOS
+extension itself -- reviewed by hand against Chrome's published
+extension API docs, but never loaded on a real Chromebook or exercised
+against a real Google Workspace admin console, the same "no real
+account to test against" caveat the cloud agents already carry (see
+`agent/chromeos/README.md`'s "What's actually verified" section for the
+detailed breakdown).
+
 Deliberately not done yet, in rough priority order:
+- **Real-device/real-instance verification for the sixth phase** -- the
+  ChromeOS extension has never run on a real Chromebook or against a
+  real Google Workspace admin console (see `agent/chromeos/README.md`),
+  and the Splunk HEC forwarder has never delivered to a real Splunk
+  instance (payload construction is unit-tested against
+  `httptest.Server`, not a live HEC endpoint). Treat both as "should
+  work, reviewed and locally tested, not yet proven against the real
+  thing."
+- **LogRhythm and Sumo Logic SIEM backends** -- `internal/siemforward`'s
+  `Forwarder` interface is designed for this (see "SIEM forwarding"
+  above and `docs/siem-integration.md`), but only Splunk HEC is actually
+  implemented this round.
 - **A real compiled/run verification pass on the fourth phase** --
   see the paragraph just above. This is the single most important
   thing to do before trusting any of it: `go build ./...`, `go vet

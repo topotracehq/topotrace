@@ -187,6 +187,22 @@ func (c *Config) RoleFor(email string) string {
 	return ""
 }
 
+// RoleMapStrings reconstructs -oauth-role-map's "pattern=role" entries,
+// in the order they're checked, for the settings API to display --
+// none of this is secret (unlike ClientSecret), just the operator's own
+// access-control policy, so it's safe to return as-is. Safe on a nil
+// Config.
+func (c *Config) RoleMapStrings() []string {
+	if c == nil {
+		return nil
+	}
+	out := make([]string, len(c.roleMap))
+	for i, m := range c.roleMap {
+		out[i] = m.pattern + "=" + m.role
+	}
+	return out
+}
+
 // AuthCodeURL builds the identity provider's authorization-endpoint
 // URL for one fresh login attempt, using PKCE (RFC 7636, S256) rather
 // than relying on the client secret alone to protect the code exchange

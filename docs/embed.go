@@ -15,8 +15,8 @@ var Pages embed.FS
 // names but not a human title or an intentional order, so this is
 // maintained by hand alongside the .md files themselves.
 var Index = []struct {
-	Name  string // filename without extension, and the URL slug
-	Title string
+	Name  string `json:"name"` // filename without extension, and the URL slug
+	Title string `json:"title"`
 }{
 	{"getting-started", "Getting Started"},
 	{"agents", "Agents & Enrollment"},
@@ -24,4 +24,5 @@ var Index = []struct {
 	{"security-model", "Security Model"},
 	{"compliance", "Compliance & Software Lists"},
 	{"ask-muster", "Ask Muster"},
+	{"siem-integration", "SIEM Integration"},
 }

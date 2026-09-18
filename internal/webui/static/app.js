@@ -1012,8 +1012,9 @@
     macos: "macOS",
     android: "Android",
     ios: "iOS",
+    chromeos: "ChromeOS",
   };
-  const PLATFORM_ORDER = ["linux", "windows", "macos", "android", "ios"];
+  const PLATFORM_ORDER = ["linux", "windows", "macos", "android", "ios", "chromeos"];
 
   // HOST_NAME_RE mirrors the agent scripts' assert_safe_token charset and
   // the server's own validHostName check (internal/api/server.go): the
@@ -1044,7 +1045,7 @@
           `Invoke-WebRequest ${dlBase}/windows -OutFile muster-agent.ps1`,
           `.\\muster-agent.ps1 -MusterHost ${apiHost} -MusterPort 9090 -HostName ${enrollment.host} -Token ${token}`,
         ].join("\n");
-      default: // android / ios -- no TCP one-liner, these use POST /api/mobile-report instead
+      default: // android / ios / chromeos -- no TCP one-liner, these use POST /api/mobile-report instead
         return [
           `Server URL:  ${location.protocol}//${location.host}/api/mobile-report`,
           `Host name:   ${enrollment.host}`,
@@ -1052,6 +1053,8 @@
           "",
           enrollment.platform === "android"
             ? "Enter these three values in the Muster Android app's setup screen (agent/android/ -- build it in Android Studio first)."
+            : enrollment.platform === "chromeos"
+            ? "Push these three values as chrome.storage.managed policy (serverUrl/hostName/token) for the Muster extension via the Google Admin console -- see agent/chromeos/README.md."
             : "Enter these three values while building the Shortcuts automation in agent/ios/README.md.",
         ].join("\n");
     }
@@ -1189,6 +1192,7 @@
     }
     list.appendChild(el("li", {}, el("span", { text: "Android agent" }), el("span", { class: "change-time", text: "source in agent/android/ -- build with Android Studio" })));
     list.appendChild(el("li", {}, el("span", { text: "iOS" }), el("span", { class: "change-time", text: "no downloadable app -- see agent/ios/README.md for the Shortcuts-based setup" })));
+    list.appendChild(el("li", {}, el("span", { text: "ChromeOS extension" }), el("span", { class: "change-time", text: "source in agent/chromeos/ -- load unpacked or force-install via Google Admin console" })));
     return el("div", { class: "fact-card" }, el("h2", { text: "Download agents" }), list);
   }
 
@@ -1450,6 +1454,85 @@
     if (pages.length) loadPage(pages[0].name);
   }
 
+  function boolLabel(b) {
+    return b ? "Yes" : "No";
+  }
+
+  // settingsTable renders one GET /api/settings section as a fact-card,
+  // the same table/titleCase-free "hand-written label" shape
+  // showHostDetail's generic fact categories use (fact-table inside a
+  // fact-card), except here the row labels are written out rather than
+  // derived from a JSON key, since this is a small fixed set of fields
+  // a human reads directly, not an arbitrary fact category.
+  function settingsTable(title, rows) {
+    const table = el("table", { class: "fact-table" });
+    for (const [label, value] of rows) {
+      if (value == null) continue;
+      const tr = el("tr");
+      tr.appendChild(el("td", { text: label }));
+      tr.appendChild(el("td", { text: String(value) }));
+      table.appendChild(tr);
+    }
+    return el("div", { class: "fact-card" }, el("h2", { text: title }), table);
+  }
+
+  // showSettings is GET /api/settings, rendered read-only -- admin-gated
+  // server-side (internal/api's handleSettings), not hidden client-side:
+  // same "always show the tab, let a failed call explain why" pattern
+  // as Fleet's audit-log section and the Policies/Enrollments tabs, so
+  // a readonly/remediate credential (or demo mode with no auth at all)
+  // sees a clear "needs admin" message here instead of the tab just not
+  // existing.
+  async function showSettings() {
+    const heading = el("div", { class: "section-heading" }, el("h1", { text: "Settings" }));
+
+    let s;
+    try {
+      s = await api("/api/settings");
+    } catch (err) {
+      app.replaceChildren(
+        heading,
+        el("div", { class: "fact-card" }, el("p", { text: `Couldn't load settings: ${err.message} -- viewing server settings requires an admin API token (set one above) or an admin OAuth session.` }))
+      );
+      return;
+    }
+
+    const general = settingsTable("General", [
+      ["Storage backend", s.storage_backend],
+      ["Ingest address", s.ingest_addr],
+      ["API address", s.api_addr],
+      ["Evaluator interval", s.evaluator_interval],
+    ]);
+
+    const auth = settingsTable("Authentication", [
+      ["Bearer token configured", boolLabel(s.auth.bearer_token_configured)],
+      ["OAuth configured", boolLabel(s.auth.oauth_configured)],
+      ["OAuth role map", (s.auth.oauth_role_map || []).join(", ") || null],
+    ]);
+
+    const vulnFeed = settingsTable("Vulnerability feed", [
+      ["Enabled", boolLabel(s.vuln_feed.enabled)],
+      ["Interval", s.vuln_feed.interval || null],
+    ]);
+
+    const askMuster = settingsTable("Ask Muster", [
+      ["Configured", boolLabel(s.ask_muster.configured)],
+      ["Model", s.ask_muster.model || null],
+    ]);
+
+    const webhooks = settingsTable("Webhooks", [
+      ["Configured", boolLabel(s.webhooks.configured)],
+      ["Count", s.webhooks.count],
+    ]);
+
+    const siem = settingsTable("SIEM forwarding", [
+      ["Configured", boolLabel(s.siem.configured)],
+      ["Backend", s.siem.backend || null],
+    ]);
+
+    app.replaceChildren(heading, general, auth, vulnFeed, askMuster, webhooks, siem);
+  }
+
   function complianceScoreBadge(score) {
     const cls = score >= 90 ? "posture-good" : score >= 60 ? "posture-warn" : "posture-bad";
     return el("span", { class: `posture-badge ${cls}`, text: `${score}%` });
@@ -1634,6 +1717,8 @@
       showAskMuster();
     } else if (hash === "#/docs") {
       showDocs();
+    } else if (hash === "#/settings") {
+      showSettings();
     } else {
       showDashboard();
     }
@@ -1649,7 +1734,7 @@
 
   function updateNavUI() {
     const hash = location.hash || "#/";
-    const view = hash === "#/board" ? "board" : hash === "#/fleet" ? "fleet" : hash === "#/agents" ? "agents" : hash === "#/compliance" ? "compliance" : hash === "#/ask" ? "ask" : hash === "#/docs" ? "docs" : "hosts";
+    const view = hash === "#/board" ? "board" : hash === "#/fleet" ? "fleet" : hash === "#/agents" ? "agents" : hash === "#/compliance" ? "compliance" : hash === "#/ask" ? "ask" : hash === "#/docs" ? "docs" : hash === "#/settings" ? "settings" : "hosts";
     for (const a of document.querySelectorAll(".view-tabs a")) {
       a.classList.toggle("active", a.dataset.view === view);
     }
