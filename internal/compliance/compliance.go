@@ -14,6 +14,7 @@ package compliance
 
 import (
 	"fmt"
+	"strings"
 
 	"muster/internal/allowlist"
 	"muster/internal/browserext"
@@ -165,10 +166,20 @@ var Baseline = Framework{
 	},
 }
 
-// Frameworks lists every built-in framework -- just Baseline today.
-// Kept as a slice, not a single hardcoded value, so the API and
-// dashboard stay generic as more are added.
-var Frameworks = []Framework{Baseline}
+// Frameworks lists every built-in framework, Baseline first (it's the
+// one score history and the compliance summary default to). See
+// frameworks.go for the two illustrative standard mappings.
+var Frameworks = []Framework{Baseline, HIPAA, NIST80053}
+
+// ByID returns the framework with the given ID (case-insensitive).
+func ByID(id string) (Framework, bool) {
+	for _, f := range Frameworks {
+		if strings.EqualFold(f.ID, id) {
+			return f, true
+		}
+	}
+	return Framework{}, false
+}
 
 // EvaluateAll runs every Framework in Frameworks against in.
 func EvaluateAll(in Input) []Result {

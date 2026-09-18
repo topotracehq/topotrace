@@ -799,3 +799,6 @@ main#app {
 .bench-delta { font-size: 0.82rem; font-weight: 600; }
 .bench-better { color: #2e7d32; }
 .bench-worse { color: #c0392b; }
+.framework-block { padding: 8px 0; border-bottom: 1px solid var(--mu-border); }
+.framework-block:last-child { border-bottom: none; }
+.framework-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }

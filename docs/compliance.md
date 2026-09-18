@@ -90,6 +90,35 @@ illustration" spirit as the static vulnerability dataset. Treat it as
 the foundation a real control mapping could sit on, not a substitute
 for one.
 
+Two more frameworks ship alongside Baseline to prove the abstraction is
+pluggable rather than a single hardcoded checklist (`internal/
+compliance/frameworks.go`):
+
+- **HIPAA Security Rule (illustrative)** -- six checks named after the
+  safeguards they draw evidence from: 164.308(a)(1)(ii)(A) risk
+  analysis (not stale), 164.308(a)(5)(ii)(B) protection from malicious
+  software (no known vulns, no denied software), 164.308(a)(5)(ii)(A)
+  patching (no pending updates), 164.312(a)(1) access control (firewall
+  active), 164.312(b) audit controls (inventory present), 164.312(e)(1)
+  transmission security at the browser layer (no risky extensions, no
+  unsanctioned AI tools).
+- **NIST SP 800-53 (illustrative subset)** -- CM-8 system component
+  inventory, SI-2 flaw remediation, CM-7 least functionality, SC-7
+  boundary protection, CM-11 user-installed software, RA-5
+  vulnerability monitoring.
+
+Same caveat, stated again because the names carry weight: these map
+the handful of controls a fleet-inventory tool can actually observe
+evidence for, each check names the control it draws on so the stretch
+is visible, and none of it is a certified or complete mapping.
+
+`GET /api/hosts/{host}/compliance` evaluates every framework for one
+host; `GET /api/compliance/summary?framework=<id>` rolls one up
+fleet-wide (default `baseline`), including how many hosts fail each
+check; `GET /api/compliance/frameworks` lists them. The Compliance tab
+has a framework selector, and each host page shows all three side by
+side. Score history and time-to-remediate stay on Baseline.
+
 `GET /api/hosts/{host}/compliance` evaluates every framework for one
 host; `GET /api/compliance/summary` rolls Baseline up fleet-wide
 (average score, how many hosts pass every check outright).

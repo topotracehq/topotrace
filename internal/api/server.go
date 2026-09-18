@@ -172,6 +172,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/hosts/{host}/software-violations", s.handleGetSoftwareViolations)
 	mux.HandleFunc("GET /api/hosts/{host}/compliance", s.handleGetCompliance)
 	mux.HandleFunc("GET /api/compliance/summary", s.handleComplianceSummary)
+	mux.HandleFunc("GET /api/compliance/frameworks", s.handleListFrameworks)
 	mux.HandleFunc("GET /api/summary", s.handleSummary)
 	mux.HandleFunc("GET /api/history", s.handleFleetHistory)
 	mux.HandleFunc("GET /api/risk", s.handleFleetRisk)
@@ -1212,37 +1213,94 @@ func (s *Server) handleComplianceSummary(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// ?framework= selects which built-in framework to roll up (default
+	// Baseline) -- the same Input is scored by whichever one is asked
+	// for, which is the whole point of frameworks being pluggable.
+	framework := compliance.Baseline
+	if id := r.URL.Query().Get("framework"); id != "" {
+		f, ok := compliance.ByID(id)
+		if !ok {
+			s.writeError(w, http.StatusBadRequest, "unknown framework "+id+" (see GET /api/compliance/frameworks)")
+			return
+		}
+		framework = f
+	}
+
 	type hostScore struct {
 		Host  string `json:"host"`
 		Score int    `json:"score"`
 	}
+	type checkStat struct {
+		ID          string `json:"id"`
+		Description string `json:"description"`
+		Failing     int    `json:"failing"`
+	}
 	scores := make([]hostScore, 0, len(hosts))
 	scoreSum := 0
 	fullyCompliant := 0
+	failingByCheck := map[string]*checkStat{}
+	var checkOrder []string
 	for _, h := range hosts {
 		in, err := s.complianceInput(r.Context(), h, softwareRules)
 		if err != nil {
 			s.log().Error("compliance summary: gathering input", "host", h.Name, "err", err)
 			continue
 		}
-		result := compliance.Baseline.Evaluate(in)
+		result := framework.Evaluate(in)
 		scores = append(scores, hostScore{Host: h.Name, Score: result.Score})
 		scoreSum += result.Score
 		if result.Score == 100 {
 			fullyCompliant++
+		}
+		for _, c := range result.Checks {
+			st, ok := failingByCheck[c.ID]
+			if !ok {
+				st = &checkStat{ID: c.ID, Description: c.Description}
+				failingByCheck[c.ID] = st
+				checkOrder = append(checkOrder, c.ID)
+			}
+			if !c.Pass {
+				st.Failing++
+			}
 		}
 	}
 	avg := 0
 	if len(scores) > 0 {
 		avg = scoreSum / len(scores)
 	}
+	checks := make([]checkStat, 0, len(checkOrder))
+	for _, id := range checkOrder {
+		checks = append(checks, *failingByCheck[id])
+	}
 	s.writeJSON(w, http.StatusOK, map[string]any{
-		"framework":       compliance.Baseline.Name,
+		"framework":       framework.Name,
+		"framework_id":    framework.ID,
+		"description":     framework.Description,
 		"total_hosts":     len(hosts),
 		"average_score":   avg,
 		"fully_compliant": fullyCompliant,
 		"hosts":           scores,
+		"checks":          checks,
 	})
+}
+
+// handleListFrameworks is GET /api/compliance/frameworks -- the built-in
+// frameworks, so a client can offer a selector without hardcoding IDs.
+func (s *Server) handleListFrameworks(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireRole(w, r, "readonly"); !ok {
+		return
+	}
+	type fw struct {
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Checks      int    `json:"checks"`
+	}
+	out := make([]fw, 0, len(compliance.Frameworks))
+	for _, f := range compliance.Frameworks {
+		out = append(out, fw{ID: f.ID, Name: f.Name, Description: f.Description, Checks: len(f.Evaluate(compliance.Input{}).Checks)})
+	}
+	s.writeJSON(w, http.StatusOK, out)
 }
 
 // handleSummary is GET /api/summary -- a fleet-wide rollup, the

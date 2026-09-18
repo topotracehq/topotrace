@@ -567,6 +567,21 @@
       list);
   }
 
+  // frameworksCard shows every built-in compliance framework's verdict
+  // for one host -- score plus the failing checks by name, so the three
+  // mappings (Baseline, HIPAA, NIST) can be compared side by side.
+  function frameworksCard(results) {
+    const blocks = results.map((r) => {
+      const failed = (r.checks || []).filter((c) => !c.pass);
+      return el("div", { class: "framework-block" },
+        el("div", { class: "framework-head" }, complianceScoreBadge(r.score), el("strong", { text: r.framework })),
+        failed.length
+          ? el("ul", { class: "posture-findings" }, ...failed.map((c) => el("li", { text: `${c.id}: ${c.detail || c.description}` })))
+          : el("p", { class: "posture-clean", text: "All checks pass." }));
+    });
+    return el("div", { class: "fact-card" }, el("h2", { text: "Compliance frameworks" }), ...blocks);
+  }
+
   function shadowAICard(findings) {
     if (!findings.length) {
       return el(
@@ -633,6 +648,9 @@
     ];
 
     if (posture) nodes.push(postureCard(posture));
+    const frameworksSlot = el("div", {});
+    nodes.push(frameworksSlot);
+    api(`/api/hosts/${encodeURIComponent(name)}/compliance`).then((res) => frameworksSlot.replaceChildren(frameworksCard(Array.isArray(res) ? res : (res.frameworks || [])))).catch(() => {});
     const riskSlot = el("div", {});
     nodes.push(riskSlot);
     api(`/api/hosts/${encodeURIComponent(name)}/risk`).then((r) => riskSlot.replaceChildren(hostRiskCard(r))).catch(() => {});
@@ -2061,27 +2079,44 @@
     const rulesListSlot = el("div", {});
     app.replaceChildren(heading, summarySlot, rulesFormSlot, rulesListSlot);
 
-    try {
-      const summary = await api("/api/compliance/summary");
-      const stats = el(
-        "div", { class: "stat-grid" },
-        el("div", { class: "stat-card" }, el("div", { class: "stat-value", text: `${summary.average_score}%` }), el("div", { class: "stat-label", text: "Average score" })),
-        el("div", { class: "stat-card" }, el("div", { class: "stat-value", text: String(summary.fully_compliant) }), el("div", { class: "stat-label", text: "Fully compliant hosts" })),
-        el("div", { class: "stat-card" }, el("div", { class: "stat-value", text: String(summary.total_hosts) }), el("div", { class: "stat-label", text: "Total hosts" }))
-      );
-      const hostRows = (summary.hosts || []).map((h) =>
-        el("li", { class: "policy-row" },
-          el("a", { href: `#/host/${encodeURIComponent(h.host)}`, class: "policy-name", text: h.host }),
-          complianceScoreBadge(h.score)
-        )
-      );
-      summarySlot.replaceChildren(
-        el("div", { class: "fact-card" }, el("h2", { text: `${summary.framework} -- fleet summary` }), stats),
-        el("div", { class: "fact-card" }, el("h2", { text: "Per-host scores" }), hostRows.length ? el("ul", { class: "policy-list" }, ...hostRows) : el("p", { text: "No hosts yet." }))
-      );
-    } catch (err) {
-      summarySlot.replaceChildren(el("div", { class: "fact-card" }, el("p", { text: `Couldn't load compliance summary: ${err.message}` })));
+    // Framework selector: every built-in framework scores the same
+    // signals, so switching just re-asks the summary with ?framework=.
+    let frameworks = [];
+    try { frameworks = await api("/api/compliance/frameworks"); } catch (err) { /* selector simply won't render */ }
+    const select = el("select", {}, ...frameworks.map((f) => el("option", { value: f.id, text: `${f.name} (${f.checks} checks)` })));
+    const selectorRow = frameworks.length ? el("div", { class: "editor-row" }, el("label", { text: "Framework" }), select) : null;
+
+    async function renderSummary(frameworkID) {
+      try {
+        const summary = await api(`/api/compliance/summary${frameworkID ? `?framework=${encodeURIComponent(frameworkID)}` : ""}`);
+        const stats = el(
+          "div", { class: "stat-grid" },
+          el("div", { class: "stat-card" }, el("div", { class: "stat-value", text: `${summary.average_score}%` }), el("div", { class: "stat-label", text: "Average score" })),
+          el("div", { class: "stat-card" }, el("div", { class: "stat-value", text: String(summary.fully_compliant) }), el("div", { class: "stat-label", text: "Fully compliant hosts" })),
+          el("div", { class: "stat-card" }, el("div", { class: "stat-value", text: String(summary.total_hosts) }), el("div", { class: "stat-label", text: "Total hosts" }))
+        );
+        const checkRows = (summary.checks || []).map((c) =>
+          el("li", { class: "policy-row" },
+            el("span", { class: "policy-name", text: c.id }),
+            el("span", { class: "policy-condition", text: c.description }),
+            el("span", { class: `posture-badge ${c.failing === 0 ? "posture-good" : c.failing * 2 >= summary.total_hosts ? "posture-bad" : "posture-warn"}`, text: c.failing === 0 ? "all pass" : `${c.failing} failing` })));
+        const hostRows = (summary.hosts || []).map((h) =>
+          el("li", { class: "policy-row" },
+            el("a", { href: `#/host/${encodeURIComponent(h.host)}`, class: "policy-name", text: h.host }),
+            complianceScoreBadge(h.score)
+          )
+        );
+        summarySlot.replaceChildren(
+          el("div", { class: "fact-card" }, el("h2", { text: `${summary.framework} -- fleet summary` }), selectorRow, el("p", { class: "meta", text: summary.description || "" }), stats),
+          el("div", { class: "fact-card" }, el("h2", { text: "Checks" }), checkRows.length ? el("ul", { class: "policy-list" }, ...checkRows) : el("p", { text: "No checks." })),
+          el("div", { class: "fact-card" }, el("h2", { text: "Per-host scores" }), hostRows.length ? el("ul", { class: "policy-list" }, ...hostRows) : el("p", { text: "No hosts yet." }))
+        );
+      } catch (err) {
+        summarySlot.replaceChildren(el("div", { class: "fact-card" }, el("p", { text: `Couldn't load compliance summary: ${err.message}` })));
+      }
     }
+    select.addEventListener("change", () => renderSummary(select.value));
+    await renderSummary(frameworks.length ? frameworks[0].id : "");
 
     async function refreshRules() {
       try {

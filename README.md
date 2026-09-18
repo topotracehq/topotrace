@@ -633,6 +633,17 @@ A category that was never collected is never penalized -- "unknown" and
 `findings` list: a short, human-readable line per deduction, so a caller
 never has to reverse-engineer a bare number.
 
+
+Three frameworks ship today: **Muster Baseline** (six checks from
+Muster's own signals), plus illustrative mappings onto the **HIPAA
+Security Rule** and a **NIST SP 800-53** subset, each check named after
+the control it draws evidence from -- there to prove the framework
+abstraction is pluggable, not to claim a certified mapping. Pick one on
+the Compliance tab or with `?framework=` on the summary endpoint; see
+`docs/compliance.md`.
+
+![Compliance frameworks](docs/screenshots/compliance-hipaa.png)
+
 ## Vulnerability correlation
 
 ```

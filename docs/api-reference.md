@@ -47,7 +47,12 @@ not alphabetically.
   data, and the response's `baseline` field says so.
 - `GET /api/hosts/{host}/compliance` -- every built-in compliance
   framework's score for this host.
-- `GET /api/compliance/summary` -- fleet-wide compliance rollup.
+- `GET /api/compliance/summary?framework=<id>` -- fleet-wide compliance
+  rollup for one framework (default `baseline`; also `hipaa`,
+  `nist-800-53`): average score, fully-compliant count, per-host
+  scores, and how many hosts fail each check.
+- `GET /api/compliance/frameworks` -- the built-in frameworks (id,
+  name, description, check count).
 - `GET/POST /api/software-rules`, `DELETE /api/software-rules/{id}` --
   manage allow/deny software rules. Write requires `admin`.
 
