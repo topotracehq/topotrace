@@ -657,7 +657,9 @@ abstraction is pluggable, not to claim a certified mapping. Pick one on
 the Compliance tab or with `?framework=` on the summary endpoint; see
 `docs/compliance.md`.
 
-![Compliance frameworks](docs/screenshots/compliance-hipaa.png)
+![Framework selector](docs/screenshots/compliance-frameworks.png)
+
+![HIPAA mapping](docs/screenshots/compliance-hipaa.png)
 
 ## Vulnerability correlation
 
@@ -866,6 +868,8 @@ Four more answers from the inventory Muster already has:
   catalog; the seam a real license inventory plugs into. Compliance tab.
 
 ![OS lifecycle and certificates](docs/screenshots/host-lifecycle.png)
+
+![License and SaaS sprawl](docs/screenshots/compliance-sprawl.png)
 
 ## Config drift & golden baselines
 
@@ -1192,6 +1196,10 @@ chart with a hover crosshair:
 
 ![Fleet trends](docs/screenshots/fleet-trends.png)
 
+Each host page carries the same series as a sparkline:
+
+![Host score history](docs/screenshots/host-history.png)
+
 The same series is what makes **time to remediate** measurable: the
 rollup finds every span where a host's compliance dipped below 100% and
 later recovered, and reports mean/median hours over the window, how
@@ -1225,6 +1233,8 @@ carries its factor breakdown so it's never a black box; the Fleet tab
 ranks the riskiest hosts and the host page shows the factors.
 
 ![Risk and baseline](docs/screenshots/fleet-risk.png)
+
+![Per-host risk factors](docs/screenshots/host-risk.png)
 
 `internal/benchmark` puts the fleet's headline numbers next to a
 reference baseline and says, per metric, whether this fleet is better or
@@ -1268,6 +1278,8 @@ so the "it happened, it forwarded to Slack, it opened a ticket" moment
 can be shown on demand instead of waiting for a real host to misbehave.
 Every synthetic entry is marked `(simulated)`; nothing touches host
 facts or rules.
+
+![Demo simulator](docs/screenshots/settings-demo.png)
 
 ## Reports & exports
 
