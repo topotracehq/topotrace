@@ -922,6 +922,37 @@ own 30-day sparkline. `cmd/seed` backfills 30 days of synthetic history
 "fell out, then fixed" incidents) so a demo instance has a trend to
 show on day one.
 
+## Risk scoring & baseline comparison
+
+```
+GET /api/hosts/{host}/risk   # readonly
+GET /api/risk                # readonly
+GET /api/benchmark           # readonly
+```
+
+Posture, vulnerabilities, Shadow AI and software violations were each
+shown separately, which left the reader to work out that a critical CVE
+on an internet-facing database is a different problem from the same CVE
+on an internal build box. `internal/risk` blends them into one 0-100
+score per host (higher is riskier): vulnerability severity points
+(capped), posture deficit, staleness, Shadow AI and policy violations,
+then multiplied by two facts only an operator knows -- how critical the
+host is (`criticality:high` tag) and whether it's exposed
+(`exposure:internet` tag, or the plain `public` tag the seed data uses).
+Both come from the existing tag editor, no new schema. Every score
+carries its factor breakdown so it's never a black box; the Fleet tab
+ranks the riskiest hosts and the host page shows the factors.
+
+![Risk and baseline](docs/screenshots/fleet-risk.png)
+
+`internal/benchmark` puts the fleet's headline numbers next to a
+reference baseline and says, per metric, whether this fleet is better or
+worse. Stated plainly in the code, the API response, and the dashboard:
+the baseline is illustrative -- hand-authored, plausible values for an
+average mid-sized mixed fleet, not survey data and not a claim about any
+real industry. It's the seam a licensed or collected dataset would plug
+into.
+
 ## Fleet dashboard
 
 ```

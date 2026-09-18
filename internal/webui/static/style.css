@@ -786,3 +786,16 @@ main#app {
 .sparkline { width: 420px; max-width: 100%; height: auto; display: block; }
 .fact-card details summary { cursor: pointer; font-size: 0.85rem; color: var(--mu-text-muted); margin-top: 8px; }
 .spark-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+/* Blended risk (Fleet tab + host page) and baseline comparison */
+.risk-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.risk-row { display: grid; grid-template-columns: 160px 1fr 110px auto; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--mu-border); font-size: 0.9rem; }
+.risk-row:last-child { border-bottom: none; }
+.risk-bar-wrap { display: block; height: 10px; background: var(--mu-page-bg); border-radius: 5px; overflow: hidden; }
+.risk-bar { display: block; height: 100%; border-radius: 5px; background: var(--mu-yellow-dark); }
+.risk-bar.risk-high, .risk-bar.risk-critical { background: #c0392b; }
+.risk-bar.risk-low { background: #6b7278; }
+.bench-table th { text-align: left; font-size: 0.8rem; color: var(--mu-text-muted); padding: 6px; }
+.bench-delta { font-size: 0.82rem; font-weight: 600; }
+.bench-better { color: #2e7d32; }
+.bench-worse { color: #c0392b; }

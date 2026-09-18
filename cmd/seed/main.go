@@ -284,7 +284,7 @@ func demoHosts(now time.Time) []seedHost {
 			},
 		},
 		{
-			Name: "api01.prod", Platform: "linux", Group: "prod", Tags: []string{"internal"},
+			Name: "api01.prod", Platform: "linux", Group: "prod", Tags: []string{"internal", "criticality:high"},
 			LastCooked: now, age: 95 * day,
 			Facts: map[string]map[string]any{
 				"system_summary": linuxSummary("Ubuntu", "20.04.6 LTS", "5.4.0-190-generic", "Intel Xeon Platinum 8259CL", 4, 16384, "12 days, 0:41"),
@@ -310,7 +310,7 @@ func demoHosts(now time.Time) []seedHost {
 			},
 		},
 		{
-			Name: "db01.prod", Platform: "linux", Group: "prod", Tags: []string{"database", "pii"},
+			Name: "db01.prod", Platform: "linux", Group: "prod", Tags: []string{"database", "pii", "criticality:critical"},
 			LastCooked: now, age: 200 * day,
 			Facts: map[string]map[string]any{
 				"system_summary": linuxSummary("Ubuntu", "20.04.6 LTS", "5.4.0-190-generic", "Intel Xeon Gold 6252", 8, 32768, "3 days, 7:55"),

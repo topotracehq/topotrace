@@ -26,6 +26,20 @@ not alphabetically.
   installed software (`violations`), plus shadow AI detections
   (`shadow_ai`) against the built-in `internal/allowlist.ShadowAIPatterns`
   ruleset, per the software rules in scope for this host.
+- `GET /api/hosts/{host}/risk` -- the host's blended 0-100 risk score
+  (higher is riskier) with the factor breakdown that produced it:
+  vulnerability severity, posture deficit, staleness, Shadow AI and
+  software-policy violations, multiplied by the host's
+  `criticality:<low|medium|high|critical>` and `exposure:internet`
+  tags. See `internal/risk`.
+- `GET /api/risk` -- every host's risk score, riskiest first, plus the
+  count per level and the fleet average.
+- `GET /api/benchmark` -- the fleet's headline numbers (average
+  posture/compliance, % hosts with vulnerabilities / stale / with
+  Shadow AI, mean time to remediate when measurable) against
+  `internal/benchmark`'s reference baseline, with a better/worse verdict
+  per metric. The baseline is illustrative, hand-authored reference
+  data, and the response's `baseline` field says so.
 - `GET /api/hosts/{host}/compliance` -- every built-in compliance
   framework's score for this host.
 - `GET /api/compliance/summary` -- fleet-wide compliance rollup.

@@ -605,6 +605,9 @@
     ];
 
     if (posture) nodes.push(postureCard(posture));
+    const riskSlot = el("div", {});
+    nodes.push(riskSlot);
+    api(`/api/hosts/${encodeURIComponent(name)}/risk`).then((r) => riskSlot.replaceChildren(hostRiskCard(r))).catch(() => {});
     // 30-day sparkline, filled in asynchronously so a slow history load
     // never holds up the rest of the page.
     const historySlot = el("div", { class: "fact-card" }, el("h2", { text: "Score history (30 days)" }), el("p", { class: "meta", text: "Loading…" }));
@@ -1062,6 +1065,82 @@
     { key: "compliance", label: "Avg compliance", short: "Compliance", color: "#2f6fb3" },
   ];
 
+  // riskBadge colors a 0-100 risk score (higher = riskier) by level --
+  // the mirror image of postureBadge, where higher is better.
+  function riskBadge(score, level) {
+    const cls = level === "critical" || level === "high" ? "posture-bad" : level === "medium" ? "posture-warn" : "posture-good";
+    return el("span", { class: `posture-badge ${cls}`, title: `risk level: ${level}`, text: `${score} ${level}` });
+  }
+
+  // riskCard is the Fleet tab's blended-risk section: top hosts as
+  // horizontal bars (one hue, length = score, level in text next to it,
+  // never color alone) plus the level distribution.
+  async function riskCard() {
+    const card = el("div", { class: "fact-card" }, el("h2", { text: "Risk" }), el("p", { class: "meta", text: "Loading…" }));
+    try {
+      const r = await api("/api/risk");
+      const dist = el("div", { class: "stat-grid" },
+        statCard("Average risk", r.average_score),
+        statCard("Critical", r.by_level.critical, r.by_level.critical > 0 ? "stat-warn" : ""),
+        statCard("High", r.by_level.high, r.by_level.high > 0 ? "stat-warn" : ""),
+        statCard("Medium", r.by_level.medium),
+        statCard("Low", r.by_level.low));
+      const rows = el("ul", { class: "risk-list" });
+      for (const h of r.hosts.slice(0, 8)) {
+        const tags = [h.criticality !== "medium" ? `criticality ${h.criticality}` : null, h.exposure === "internet" ? "internet-facing" : null].filter(Boolean).join(", ");
+        rows.appendChild(el("li", { class: "risk-row" },
+          el("a", { href: `#/host/${encodeURIComponent(h.host)}`, class: "policy-name", text: h.host }),
+          el("span", { class: "risk-bar-wrap" }, el("span", { class: `risk-bar risk-${h.level}`, style: `width:${Math.max(2, h.score)}%` })),
+          riskBadge(h.score, h.level),
+          el("span", { class: "change-time", text: tags })));
+      }
+      card.replaceChildren(el("h2", { text: "Risk (blended, higher is riskier)" }), dist,
+        el("p", { class: "meta", text: "Vulnerability severity, posture, staleness, Shadow AI and software-policy violations, weighted by each host's criticality:<level> and exposure:internet tags. Set those from the tag editor on a host's page." }),
+        rows);
+    } catch (err) {
+      card.replaceChildren(el("h2", { text: "Risk" }), el("p", { text: `Couldn't load risk scores: ${err.message}` }));
+    }
+    return card;
+  }
+
+  // benchmarkCard is the Fleet tab's "vs. baseline" comparison. The
+  // baseline is illustrative and the card says so -- see internal/benchmark.
+  async function benchmarkCard() {
+    const card = el("div", { class: "fact-card" }, el("h2", { text: "Vs. baseline" }), el("p", { class: "meta", text: "Loading…" }));
+    try {
+      const b = await api("/api/benchmark");
+      const table = el("table", { class: "fact-table bench-table" });
+      table.appendChild(el("tr", {}, el("th", { text: "Metric" }), el("th", { text: "This fleet" }), el("th", { text: "Baseline" }), el("th", { text: "" })));
+      const fmt = (v, unit) => unit === "hours" ? hoursLabel(v) : unit === "percent" ? `${Math.round(v)}%` : String(Math.round(v));
+      for (const m of b.metrics) {
+        table.appendChild(el("tr", {},
+          el("td", { text: m.label }),
+          el("td", { text: fmt(m.fleet, m.unit) }),
+          el("td", { text: fmt(m.baseline, m.unit) }),
+          el("td", {}, el("span", { class: `bench-delta ${m.better ? "bench-better" : "bench-worse"}`, text: (m.better ? "▲ " : "▼ ") + m.summary }))));
+      }
+      card.replaceChildren(el("h2", { text: "Vs. baseline" }), table, el("p", { class: "meta", text: `Baseline: ${b.baseline}. Hand-authored reference values for an average mid-sized mixed fleet, not survey data -- the seam a real benchmark dataset would plug into.` }));
+    } catch (err) {
+      card.replaceChildren(el("h2", { text: "Vs. baseline" }), el("p", { text: `Couldn't load benchmark: ${err.message}` }));
+    }
+    return card;
+  }
+
+  // hostRiskCard is the host page's risk breakdown -- the score plus
+  // every factor that fed it, so the number is never a black box.
+  function hostRiskCard(r) {
+    const body = el("div", { class: "posture-body" }, riskBadge(r.score, r.level),
+      el("span", { class: "meta", text: ` criticality ${r.criticality}, ${r.exposure === "internet" ? "internet-facing" : "internal"} (×${r.multiplier.toFixed(2)})` }));
+    if (r.factors && r.factors.length) {
+      const list = el("ul", { class: "posture-findings" });
+      for (const f of r.factors) list.appendChild(el("li", { text: `${f.name}: +${f.points.toFixed(0)} -- ${f.detail}` }));
+      body.appendChild(list);
+    } else {
+      body.appendChild(el("p", { class: "posture-clean", text: "No risk factors observed." }));
+    }
+    return el("div", { class: "fact-card" }, el("h2", { text: "Risk score" }), body);
+  }
+
   async function showFleet() {
     let summary;
     try {
@@ -1165,8 +1244,12 @@
 
     const trendSlot = el("div", {});
     trendCard(30).then((card) => trendSlot.replaceChildren(card));
+    const riskSlot = el("div", {});
+    riskCard().then((card) => riskSlot.replaceChildren(card));
+    const benchSlot = el("div", {});
+    benchmarkCard().then((card) => benchSlot.replaceChildren(card));
 
-    const nodes = [heading, stats, trendSlot, platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
+    const nodes = [heading, stats, trendSlot, riskSlot, benchSlot, platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
 
     if (audit) {
       const auditList = audit.length
