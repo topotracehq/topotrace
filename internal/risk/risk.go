@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 
+	"muster/internal/browserext"
 	"muster/internal/compliance"
 )
 
@@ -109,6 +110,13 @@ func Compute(in compliance.Input) Result {
 			pts = 15
 		}
 		factors = append(factors, Factor{Name: "shadow-ai", Points: pts, Detail: fmt.Sprintf("%d unsanctioned AI tool(s)", n)})
+	}
+	if n := len(browserext.Risky(in.BrowserExtensions)); n > 0 {
+		pts := float64(n) * 5
+		if pts > 15 {
+			pts = 15
+		}
+		factors = append(factors, Factor{Name: "browser-extensions", Points: pts, Detail: fmt.Sprintf("%d risky browser extension(s)", n)})
 	}
 	if n := len(in.SoftwareViolations); n > 0 {
 		pts := float64(n) * 5

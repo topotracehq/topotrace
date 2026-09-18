@@ -539,6 +539,34 @@
   // ShadowAIPatterns: a built-in, pre-seeded ruleset flagging known AI
   // desktop apps, CLI tools, and browser extensions, distinct from the
   // operator-configured allow/deny rules softwareViolationsCard shows.
+  // browserExtensionsCard lists every extension the agent found on the
+  // host, riskiest first, with the reasons internal/browserext gave --
+  // never a level without a why.
+  function browserExtensionsCard(data) {
+    if (!data || !data.reported) {
+      return el("div", { class: "fact-card" }, el("h2", { text: "Browser extensions" }),
+        el("p", { class: "meta", text: "Not reported -- this host's agent predates browser-extension collection, or no Chromium-family browser profile was found." }));
+    }
+    if (!data.extensions.length) {
+      return el("div", { class: "fact-card" }, el("h2", { text: "Browser extensions" }), el("p", { text: "No browser extensions installed." }));
+    }
+    const list = el("ul", { class: "vuln-list" });
+    for (const e of data.extensions) {
+      const pillCls = e.level === "high" ? "severity-critical" : e.level === "medium" ? "severity-medium" : "severity-low";
+      const li = el("li", { class: "vuln-row" },
+        el("span", { class: `severity-pill ${pillCls}`, text: e.level }),
+        el("span", { class: "vuln-detail" },
+          el("strong", { text: `${e.name} ${e.version || ""}` }),
+          ` — ${e.browser}, profile ${e.profile}${e.from_web_store ? "" : ", sideloaded"}`,
+          e.reasons && e.reasons.length ? el("ul", { class: "posture-findings" }, ...e.reasons.map((r) => el("li", { text: r }))) : null));
+      list.appendChild(li);
+    }
+    return el("div", { class: "fact-card" },
+      el("h2", { text: `Browser extensions (${data.total}, ${data.risky} risky)` }),
+      el("p", { class: "meta", text: "Scored on broad site access, sensitive permissions (request interception, cookies, native messaging, clipboard, debugger), sideloading, deprecated manifest version, and a curated deny-list; a curated trusted list keeps ad blockers and password managers from scoring high for permissions they need. See internal/browserext." }),
+      list);
+  }
+
   function shadowAICard(findings) {
     if (!findings.length) {
       return el(
@@ -627,6 +655,9 @@
     nodes.push(vulnerabilitiesCard(findings || []));
     nodes.push(softwareViolationsCard((softwareViolations && softwareViolations.violations) || []));
     nodes.push(shadowAICard((softwareViolations && softwareViolations.shadow_ai) || []));
+    const extSlot = el("div", {});
+    nodes.push(extSlot);
+    api(`/api/hosts/${encodeURIComponent(name)}/browser-extensions`).then((d) => extSlot.replaceChildren(browserExtensionsCard(d))).catch(() => extSlot.replaceChildren(browserExtensionsCard(null)));
 
     if (!facts || facts.length === 0) {
       nodes.push(el("p", { text: "No facts recorded for this host yet." }));
@@ -1227,7 +1258,8 @@
       ),
       statCard("Hosts w/ vulnerabilities", summary.hosts_with_vulnerabilities, summary.hosts_with_vulnerabilities > 0 ? "stat-warn" : ""),
       statCard("Total findings", summary.total_vulnerability_findings, summary.total_vulnerability_findings > 0 ? "stat-warn" : ""),
-      statCard("Shadow AI detections", summary.total_shadow_ai_findings, summary.total_shadow_ai_findings > 0 ? "stat-warn" : "")
+      statCard("Shadow AI detections", summary.total_shadow_ai_findings, summary.total_shadow_ai_findings > 0 ? "stat-warn" : ""),
+      statCard("Risky browser extensions", summary.total_risky_extensions || 0, summary.total_risky_extensions > 0 ? "stat-warn" : "")
     );
 
     const platformList = el("ul", { class: "platform-breakdown" });

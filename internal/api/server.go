@@ -28,6 +28,7 @@ import (
 	"muster/docs"
 	"muster/internal/aiquery"
 	"muster/internal/allowlist"
+	"muster/internal/browserext"
 	"muster/internal/compliance"
 	"muster/internal/cook"
 	"muster/internal/ingest"
@@ -175,6 +176,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/history", s.handleFleetHistory)
 	mux.HandleFunc("GET /api/risk", s.handleFleetRisk)
 	mux.HandleFunc("GET /api/hosts/{host}/risk", s.handleHostRisk)
+	mux.HandleFunc("GET /api/hosts/{host}/browser-extensions", s.handleHostBrowserExtensions)
 	mux.HandleFunc("GET /api/benchmark", s.handleBenchmark)
 	mux.HandleFunc("GET /api/reports/executive", s.handleReportHTML)
 	mux.HandleFunc("GET /api/reports/{name}", s.handleReportCSV)
@@ -1271,6 +1273,8 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 	totalFindings := 0
 	shadowAIHosts := 0
 	totalShadowAI := 0
+	riskyExtHosts := 0
+	totalRiskyExt := 0
 
 	for _, h := range hosts {
 		byPlatform[h.Platform]++
@@ -1300,6 +1304,12 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 				totalFindings += len(findings)
 			}
 		}
+		if ext, ok := byCategory["browser_extensions"]; ok {
+			if risky := browserext.Risky(browserext.Evaluate(browserext.FromFact(ext.Data["items"]))); len(risky) > 0 {
+				riskyExtHosts++
+				totalRiskyExt += len(risky)
+			}
+		}
 	}
 
 	avgScore := 0
@@ -1315,6 +1325,8 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		"total_vulnerability_findings": totalFindings,
 		"hosts_with_shadow_ai":         shadowAIHosts,
 		"total_shadow_ai_findings":     totalShadowAI,
+		"hosts_with_risky_extensions":  riskyExtHosts,
+		"total_risky_extensions":       totalRiskyExt,
 	})
 }
 

@@ -127,10 +127,47 @@ echo "Collecting system info into $OUT_DIR ..."
     echo "Uptime: $(uptime 2>/dev/null || echo "")"
 } > "$OUT_DIR/system.txt"
 
+# --- browser extensions ------------------------------------------------
+# Same line format as the Linux agent (see agent/ubuntu/muster-agent.sh):
+# browser, user/profile, id, version, base64 manifest.json, base64
+# English messages.json. macOS keeps Chromium-family profiles under
+# ~/Library/Application Support.
+capture_files=(system.txt)
+ext_out="$OUT_DIR/browser_extensions.txt"
+: > "$ext_out"
+for home in /Users/*; do
+    [[ -d "$home" && -r "$home" ]] || continue
+    for spec in "chrome:Library/Application Support/Google/Chrome" "chromium:Library/Application Support/Chromium" "brave:Library/Application Support/BraveSoftware/Brave-Browser" "edge:Library/Application Support/Microsoft Edge"; do
+        browser="${spec%%:*}"
+        dir="$home/${spec#*:}"
+        [[ -d "$dir" ]] || continue
+        for manifest in "$dir"/*/Extensions/*/*/manifest.json; do
+            [[ -f "$manifest" ]] || continue
+            verdir="${manifest%/manifest.json}"
+            iddir="${verdir%/*}"
+            profdir="${iddir%/Extensions/*}"
+            msgs=""
+            for loc in en en_US en_GB; do
+                if [[ -f "$verdir/_locales/$loc/messages.json" ]]; then
+                    msgs="$(base64 < "$verdir/_locales/$loc/messages.json" | tr -d '\n')"
+                    break
+                fi
+            done
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$browser" "$(basename "$home")/$(basename "$profdir")" \
+                "$(basename "$iddir")" "$(basename "$verdir")" "$(base64 < "$manifest" | tr -d '\n')" "$msgs" >> "$ext_out" 2>/dev/null || true
+        done
+    done
+done
+if [[ -s "$ext_out" ]]; then
+    capture_files+=(browser_extensions.txt)
+else
+    rm -f "$ext_out"
+fi
+
 # --- package -------------------------------------------------------------
 archive="$OUT_DIR/payload.tar.gz"
-echo "Packaging capture files: system.txt"
-tar -czf "$archive" -C "$OUT_DIR" system.txt
+echo "Packaging capture files: ${capture_files[*]}"
+tar -czf "$archive" -C "$OUT_DIR" "${capture_files[@]}"
 
 payload_size="$(wc -c < "$archive" | tr -d '[:space:]')"
 echo "Packaged $payload_size bytes."

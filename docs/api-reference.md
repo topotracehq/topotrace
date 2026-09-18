@@ -26,6 +26,11 @@ not alphabetically.
   installed software (`violations`), plus shadow AI detections
   (`shadow_ai`) against the built-in `internal/allowlist.ShadowAIPatterns`
   ruleset, per the software rules in scope for this host.
+- `GET /api/hosts/{host}/browser-extensions` -- every extension the
+  host's agent found in its Chromium-family browser profiles, scored
+  by `internal/browserext` (riskiest first, with reasons), plus
+  `reported` (false when the agent never sent the category), `total`
+  and `risky` counts.
 - `GET /api/hosts/{host}/risk` -- the host's blended 0-100 risk score
   (higher is riskier) with the factor breakdown that produced it:
   vulnerability severity, posture deficit, staleness, Shadow AI and

@@ -181,6 +181,25 @@ func winSW(rows ...[2]string) map[string]any {
 	return map[string]any{"count": len(items), "items": items}
 }
 
+// ext builds one browser_extensions item the way
+// internal/cook.parseBrowserExtensions produces it.
+func ext(browser, profile, id, name, version string, mv int, perms, hosts []string, store bool) map[string]any {
+	if perms == nil {
+		perms = []string{}
+	}
+	if hosts == nil {
+		hosts = []string{}
+	}
+	return map[string]any{
+		"browser": browser, "profile": profile, "id": id, "name": name, "version": version,
+		"manifest_version": mv, "permissions": perms, "host_permissions": hosts, "from_web_store": store,
+	}
+}
+
+func exts(items ...map[string]any) map[string]any {
+	return map[string]any{"count": len(items), "items": items}
+}
+
 func disks(rows ...[4]any) map[string]any {
 	items := make([]map[string]any, 0, len(rows))
 	for _, r := range rows {
@@ -447,6 +466,12 @@ func demoHosts(now time.Time) []seedHost {
 				),
 				"disk_usage":         winDisks([3]any{"C:", 1024000, 402100}),
 				"firewall_av_status": winFirewall(true, true, true),
+				"browser_extensions": exts(
+					ext("chrome", "jsmith/Default", "cjpalhdlnbpafiamejdnhcphjbkeiagm", "uBlock Origin", "1.58.0", 3, []string{"storage", "tabs", "webNavigation", "webRequest"}, []string{"<all_urls>"}, true),
+					ext("chrome", "jsmith/Default", "bmnlcjabgnpnenekpadlanbbkooimhnj", "Honey: Automatic Coupons", "16.4.2", 3, []string{"tabs", "cookies", "webRequest", "storage"}, []string{"<all_urls>"}, true),
+					ext("chrome", "jsmith/Default", "dbepggeogbaibhgnhhndojpepiihcmeb", "Vimium", "2.1.2", 3, []string{"tabs", "storage"}, []string{"<all_urls>"}, true),
+					ext("edge", "jsmith/Default", "nkbihfbeogaeaoehlefnkodbefgpgknn", "Crypto Wallet Helper", "0.9.1", 2, []string{"tabs", "clipboardRead", "nativeMessaging"}, []string{"<all_urls>"}, false),
+				),
 			},
 		},
 		{
@@ -459,6 +484,10 @@ func demoHosts(now time.Time) []seedHost {
 				),
 				"disk_usage":         winDisks([3]any{"C:", 256000, 61200}),
 				"firewall_av_status": winFirewall(false, true, true),
+				"browser_extensions": exts(
+					ext("chrome", "hr-desk/Default", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "PDF Converter Pro", "3.0.4", 2, []string{"tabs", "webRequest", "webRequestBlocking", "history"}, []string{"<all_urls>"}, true),
+					ext("chrome", "hr-desk/Default", "ghbmnnjooekpmoecnnnilnnbdlolhkhi", "Google Docs Offline", "1.80.1", 3, []string{"storage", "alarms"}, []string{"https://docs.google.com/*"}, true),
+				),
 			},
 		},
 		{
@@ -480,6 +509,11 @@ func demoHosts(now time.Time) []seedHost {
 			LastCooked: now, age: 30 * day,
 			Facts: map[string]map[string]any{
 				"system_summary": darwinSummary("macOS", "14.5", "23.5.0", "Apple M3 Max", 16, 36864, "0 days, 6:50"),
+				"browser_extensions": exts(
+					ext("chrome", "aparker/Default", "gfbliohnnapiefjpjlpjnehglfpaknnc", "ColorZilla", "4.0", 3, []string{"storage", "activeTab"}, nil, true),
+					ext("chrome", "aparker/Default", "hoklmmgfnpapgjgcpechhaamimifchmp", "WhatFont", "2.1.4", 3, []string{"activeTab"}, nil, true),
+					ext("brave", "aparker/Default", "ohmgcmklopdilgcfglpbkbamjlbfmfnh", "Grammarly-style Writing Aid", "14.1", 3, []string{"tabs", "scripting", "storage"}, []string{"<all_urls>"}, true),
+				),
 			},
 		},
 	}

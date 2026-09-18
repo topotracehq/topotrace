@@ -61,5 +61,10 @@ func CookDarwinCategories(rawDir string) (map[string]map[string]any, error) {
 	if len(summary) > 0 {
 		out["system_summary"] = summary
 	}
+	if ext, ok, err := parseBrowserExtensions(rawDir); err != nil {
+		return nil, err
+	} else if ok && len(ext) > 0 {
+		out["browser_extensions"] = ext
+	}
 	return out, nil
 }

@@ -114,6 +114,11 @@ func CookWindowsCategories(rawDir string) (map[string]map[string]any, error) {
 	} else if data != nil {
 		out["firewall_av_status"] = data
 	}
+	if data, ok, err := parseBrowserExtensions(rawDir); err != nil {
+		return nil, err
+	} else if ok && len(data) > 0 {
+		out["browser_extensions"] = data
+	}
 
 	return out, nil
 }

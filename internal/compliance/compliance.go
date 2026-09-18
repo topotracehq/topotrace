@@ -16,6 +16,7 @@ import (
 	"fmt"
 
 	"muster/internal/allowlist"
+	"muster/internal/browserext"
 	"muster/internal/model"
 	"muster/internal/policy"
 	"muster/internal/vuln"
@@ -50,6 +51,9 @@ type Input struct {
 	VulnFindings       []vuln.Finding
 	SoftwareViolations []allowlist.Violation
 	ShadowAIViolations []allowlist.Violation
+	// BrowserExtensions is every installed extension the agent found,
+	// already evaluated -- checks look at browserext.Risky(...).
+	BrowserExtensions []browserext.Finding
 }
 
 // check is one named, described test against an Input -- a small,
@@ -134,6 +138,16 @@ var Baseline = Framework{
 			evaluate: func(in Input) (bool, string) {
 				if len(in.SoftwareViolations) > 0 {
 					return false, fmt.Sprintf("%d software violation(s)", len(in.SoftwareViolations))
+				}
+				return true, ""
+			},
+		},
+		{
+			id:          "no-risky-browser-extensions",
+			description: "No browser extensions with broad site access plus sensitive permissions, sideloaded, or on the deny-list",
+			evaluate: func(in Input) (bool, string) {
+				if n := len(browserext.Risky(in.BrowserExtensions)); n > 0 {
+					return false, fmt.Sprintf("%d risky browser extension(s)", n)
 				}
 				return true, ""
 			},

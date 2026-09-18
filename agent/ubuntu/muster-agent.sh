@@ -296,6 +296,46 @@ if command -v ufw >/dev/null 2>&1; then
     collected+=("firewall.txt")
 fi
 
+# --- browser extensions ------------------------------------------------
+# Every Chromium-family browser profile under every local home dir:
+# Chrome, Chromium, Brave, Edge all keep installed extensions at
+# <profile>/Extensions/<id>/<version>/manifest.json. Each line of
+# browser_extensions.txt is browser, user/profile, id, version, then the
+# manifest.json and (if present) the English _locales messages.json,
+# both base64 so the server parses real JSON instead of this script
+# guessing at it with grep. Read-only, best-effort: a permission-denied
+# home dir is skipped, and no extension means no file at all.
+ext_out="$OUT_DIR/browser_extensions.txt"
+: > "$ext_out"
+for home in /home/* /root; do
+    [[ -d "$home" && -r "$home" ]] || continue
+    for spec in "chrome:.config/google-chrome" "chromium:.config/chromium" "brave:.config/BraveSoftware/Brave-Browser" "edge:.config/microsoft-edge"; do
+        browser="${spec%%:*}"
+        dir="$home/${spec#*:}"
+        [[ -d "$dir" ]] || continue
+        for manifest in "$dir"/*/Extensions/*/*/manifest.json; do
+            [[ -f "$manifest" ]] || continue
+            verdir="${manifest%/manifest.json}"
+            iddir="${verdir%/*}"
+            profdir="${iddir%/Extensions/*}"
+            msgs=""
+            for loc in en en_US en_GB; do
+                if [[ -f "$verdir/_locales/$loc/messages.json" ]]; then
+                    msgs="$(base64 < "$verdir/_locales/$loc/messages.json" | tr -d '\n')"
+                    break
+                fi
+            done
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$browser" "$(basename "$home")/$(basename "$profdir")" \
+                "$(basename "$iddir")" "$(basename "$verdir")" "$(base64 < "$manifest" | tr -d '\n')" "$msgs" >> "$ext_out" 2>/dev/null || true
+        done
+    done
+done
+if [[ -s "$ext_out" ]]; then
+    collected+=("browser_extensions.txt")
+else
+    rm -f "$ext_out"
+fi
+
 if [[ ${#collected[@]} -eq 0 ]]; then
     echo "Error: nothing could be collected -- nothing to send." >&2
     exit 1

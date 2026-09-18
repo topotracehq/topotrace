@@ -43,13 +43,45 @@ detail page, as a `hosts_with_shadow_ai`/`total_shadow_ai_findings`
 pair on `GET /api/summary` and the Fleet tab, and as their own Muster
 Baseline compliance check (`no-shadow-ai`).
 
+## Browser extension inventory
+
+The Linux, macOS and Windows agents now enumerate every installed
+extension in every Chromium-family browser profile on the host (Chrome,
+Chromium, Brave, Edge -- each keeps `<profile>/Extensions/<id>/<version>/manifest.json`)
+and ship the raw `manifest.json` (plus the English `messages.json`, for
+localized names) base64-encoded in one `browser_extensions.txt` capture
+file. The server parses the manifests as real JSON
+(`internal/cook.parseBrowserExtensions`) into a `browser_extensions`
+fact: browser, user/profile, id, name, version, manifest version,
+permissions, host permissions, and whether it came from an official web
+store.
+
+`internal/browserext` then scores each one, riskiest first, with the
+reasons stated: broad host access (`<all_urls>` and friends), sensitive
+permissions (request interception, cookies, native messaging, clipboard,
+debugger, proxy, history, ...), broad access *combined with*
+request/cookie/script access, sideloading, a deprecated manifest v2,
+and a small curated deny-list. A small curated trusted list (ad
+blockers, password managers, Google Docs Offline) keeps extensions
+whose broad permissions are the whole point from drowning out a
+sideloaded wallet helper on the same host. Both lists are illustrative
+and small, like the vulnerability dataset; the real version is an
+operator-maintained sanctioned-extensions list synced from a feed.
+
+Findings surface at `GET /api/hosts/{host}/browser-extensions`, as a
+card on the host page, as `hosts_with_risky_extensions` /
+`total_risky_extensions` on `GET /api/summary` and a Fleet tile, as a
+factor in the blended risk score, and as the Muster Baseline check
+`no-risky-browser-extensions`.
+
 ## Compliance frameworks
 
 A `compliance.Framework` is a small, fixed set of named checks scored
 as a percentage. **Muster Baseline**, the one built in today, checks:
 reporting recently (not stale), a posture score of at least 70, no
-known-vulnerable packages, no denied/unauthorized software, and no
-unauthorized AI tools detected (shadow AI, see above).
+known-vulnerable packages, no denied/unauthorized software, no risky
+browser extensions (see above), and no unauthorized AI tools detected
+(shadow AI, see above).
 
 This is explicitly **not** a certified mapping to CIS Benchmarks,
 SOC 2, PCI DSS, or any other real standard -- it's built entirely from

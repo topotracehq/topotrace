@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"muster/internal/allowlist"
+	"muster/internal/browserext"
 	"muster/internal/compliance"
 	"muster/internal/model"
 	"muster/internal/policy"
@@ -61,6 +62,9 @@ func FromFacts(host model.Host, byCategory map[string]model.Fact, softwareRules 
 		in.VulnFindings = vuln.CheckWithFeed(sw.Data["items"], feed)
 		in.SoftwareViolations = allowlist.Evaluate(sw.Data["items"], inScope)
 		in.ShadowAIViolations = allowlist.EvaluateShadowAI(sw.Data["items"], inScope)
+	}
+	if ext, ok := byCategory["browser_extensions"]; ok {
+		in.BrowserExtensions = browserext.Evaluate(browserext.FromFact(ext.Data["items"]))
 	}
 	return in
 }

@@ -712,6 +712,28 @@ Fleet tab (`GET /api/summary`), and as their own Muster Baseline
 compliance check (`no-shadow-ai`, see "Compliance frameworks" in the
 in-app Docs tab).
 
+## Browser extension inventory
+
+```
+GET /api/hosts/{host}/browser-extensions   # readonly
+```
+
+The browser is where most of an endpoint's sensitive work happens now,
+and an extension with `<all_urls>` plus `webRequest`/`cookies` can read
+every page and credential that passes through it. The Linux, macOS and
+Windows agents enumerate every extension in every Chrome/Chromium/
+Brave/Edge profile on the host and ship the raw `manifest.json` (base64,
+parsed as real JSON server-side, localized names resolved) into a
+`browser_extensions` fact. `internal/browserext` scores each one with
+its reasons -- broad host access, sensitive permissions, the two
+combined, sideloading, manifest v2, a curated deny-list -- and a curated
+trusted list keeps ad blockers and password managers from scoring high
+for permissions they legitimately need. Shows up on the host page, as a
+Fleet tile, as a risk-score factor, and as the `no-risky-browser-
+extensions` compliance check. See `docs/compliance.md`.
+
+![Browser extensions](docs/screenshots/host-browser-extensions.png)
+
 ## Ask Muster
 
 ```
@@ -1111,6 +1133,7 @@ category is absent from a given cook run, not a failed run.
 | `scheduled_tasks` | the agent's own `crontab -l` | `Get-ScheduledTask` |
 | `patch_update_status` | `apt list --upgradable` (pending) | `Get-HotFix` (**installed**, not pending) |
 | `firewall_av_status` | `ufw status` | `Get-NetFirewallProfile` |
+| `browser_extensions` | every Chrome/Chromium/Brave/Edge profile's `Extensions/*/*/manifest.json` (also macOS) | same, under `AppData\Local\...\User Data` |
 
 Two honest asymmetries, stated rather than papered over: `patch_update_
 status` answers "what's outstanding" on Linux (apt already knows what's
@@ -1130,10 +1153,18 @@ not single-record ones -- see `internal/cook/windows_extra.go`. Linux
 captures stay plain command output, parsed the same line-oriented way as
 `system_summary`'s -- see `internal/cook/linux_extra.go`.
 
-The web dashboard's card view still only has bespoke layout for
-`system_summary`; the other eight categories are fully collected, stored,
-diffed, and queryable today, just not yet given their own dashboard
-treatment -- a real follow-up, not silently dropped scope.
+`browser_extensions` is the one category with the same capture format
+on every platform: tab-separated browser, user/profile, id, version,
+base64 `manifest.json`, base64 English `messages.json`, parsed once by
+`internal/cook/browserext.go` for all three. It is the only category
+the macOS agent collects beyond `system_summary`. The Linux collection
+was exercised for real against a fake Chrome profile in this
+environment; the Windows and macOS blocks are reviewed but unverified
+on a real machine, the same class of caveat as the rest of those agents.
+
+List-shaped categories (including this one) render as sub-tables on
+the host page; `browser_extensions` additionally gets its own scored
+card (see "Browser extension inventory").
 
 ## Metrics
 

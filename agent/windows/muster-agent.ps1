@@ -335,6 +335,48 @@ Export-MusterExtra -Name "firewall.txt" -Collect {
     Get-NetFirewallProfile -ErrorAction SilentlyContinue | Select-Object Name, Enabled
 }
 
+# --- browser extensions ------------------------------------------------
+# Same tab-separated line format as the Linux/macOS agents (see
+# agent/ubuntu/muster-agent.sh): browser, user/profile, id, version,
+# base64 manifest.json, base64 English messages.json. Chrome, Edge and
+# Brave all keep per-profile extensions under
+# <User Data>\<profile>\Extensions\<id>\<version>\manifest.json.
+# Best-effort: an unreadable profile is skipped; no extensions means the
+# file isn't written at all.
+try {
+    $extLines = New-Object System.Collections.Generic.List[string]
+    $browserDirs = @(
+        @{ Name = "chrome"; Path = "AppData\Local\Google\Chrome\User Data" },
+        @{ Name = "edge";   Path = "AppData\Local\Microsoft\Edge\User Data" },
+        @{ Name = "brave";  Path = "AppData\Local\BraveSoftware\Brave-Browser\User Data" }
+    )
+    foreach ($userDir in Get-ChildItem -Path (Join-Path $env:SystemDrive "Users") -Directory -ErrorAction SilentlyContinue) {
+        foreach ($b in $browserDirs) {
+            $root = Join-Path $userDir.FullName $b.Path
+            if (-not (Test-Path $root)) { continue }
+            foreach ($manifest in Get-ChildItem -Path $root -Filter manifest.json -Recurse -Depth 4 -ErrorAction SilentlyContinue) {
+                $verDir = $manifest.Directory
+                if ($verDir.Parent.Parent.Name -ne "Extensions") { continue }
+                $idDir = $verDir.Parent
+                $profileDir = $idDir.Parent.Parent
+                $msgs = ""
+                foreach ($loc in @("en", "en_US", "en_GB")) {
+                    $m = Join-Path $verDir.FullName ("_locales\" + $loc + "\messages.json")
+                    if (Test-Path $m) { $msgs = [Convert]::ToBase64String([IO.File]::ReadAllBytes($m)); break }
+                }
+                $man = [Convert]::ToBase64String([IO.File]::ReadAllBytes($manifest.FullName))
+                $extLines.Add(($b.Name, ($userDir.Name + "/" + $profileDir.Name), $idDir.Name, $verDir.Name, $man, $msgs) -join "`t")
+            }
+        }
+    }
+    if ($extLines.Count -gt 0) {
+        [IO.File]::WriteAllLines((Join-Path $OutDir "browser_extensions.txt"), $extLines)
+        $extraFiles += "browser_extensions.txt"
+    }
+} catch {
+    Write-Host "  (skipping browser_extensions.txt -- $($_.Exception.Message))"
+}
+
 # --- package -------------------------------------------------------------
 $archivePath = Join-Path $OutDir "payload.tar.gz"
 Write-Host "Packaging capture files with tar.exe ..."
