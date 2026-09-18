@@ -1476,6 +1476,121 @@
     return el("div", { class: "fact-card" }, el("h2", { text: title }), table);
   }
 
+  // settingsCardWithForm renders a settingsTable's rows plus an editor
+  // form beneath them, in one fact-card -- same shape settingsTable
+  // itself produces, just with a form appended, so the SIEM Forwarding
+  // and Ask Muster sections read the same as the other four (General,
+  // Authentication, Vulnerability feed, Webhooks) but are actually
+  // editable.
+  function settingsCardWithForm(title, rows, form) {
+    const table = el("table", { class: "fact-table" });
+    for (const [label, value] of rows) {
+      if (value == null) continue;
+      const tr = el("tr");
+      tr.appendChild(el("td", { text: label }));
+      tr.appendChild(el("td", { text: String(value) }));
+      table.appendChild(tr);
+    }
+    return el("div", { class: "fact-card" }, el("h2", { text: title }), table, form);
+  }
+
+  // siemForwardingEditor is the SIEM Forwarding card's edit form --
+  // PATCH /api/settings, live (no restart) via internal/siemforward.Dynamic,
+  // persisted via internal/settingsstore when the server was started
+  // with a data dir. GET /api/settings never returns the HEC URL or
+  // token (see settingsSIEM), so unlike groupEditor/tagEditor this
+  // can't prefill from the current value -- changing anything means
+  // retyping both fields, same "all-or-nothing pair" the -siem-hec-*
+  // flags themselves enforce.
+  function siemForwardingEditor(s) {
+    const urlInput = el("input", { type: "text", placeholder: "https://splunk.example.com:8088" });
+    const tokenInput = el("input", { type: "password", placeholder: "HEC token" });
+    const disableBox = el("input", { type: "checkbox" });
+    const msg = el("span", { class: "save-msg" });
+    const form = el(
+      "form",
+      { class: "editor-row" },
+      el("label", { text: "HEC URL" }), urlInput,
+      el("label", { text: "HEC token" }), tokenInput,
+      el("label", { text: "Disable" }), disableBox,
+      el("button", { type: "submit", text: "Save" }),
+      msg
+    );
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = {};
+      if (disableBox.checked) {
+        if (!s.siem.configured) { msg.textContent = "Nothing to save"; return; }
+        body.siem_disable = true;
+      } else {
+        const url = urlInput.value.trim();
+        const token = tokenInput.value.trim();
+        if (!url && !token) { msg.textContent = "Nothing to save"; return; }
+        if (!url || !token) { msg.textContent = "Error: HEC URL and token must both be set together"; return; }
+        body.siem_hec_url = url;
+        body.siem_hec_token = token;
+      }
+      msg.textContent = "Saving…";
+      try {
+        await api("/api/settings", { method: "PATCH", body });
+        msg.textContent = "Saved";
+        setTimeout(showSettings, 800);
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    return form;
+  }
+
+  // askMusterEditor is the Ask Muster card's edit form -- PATCH
+  // /api/settings, live (no restart) via internal/aiquery.ConfigStore,
+  // persisted via internal/settingsstore when the server was started
+  // with a data dir. Unlike the SIEM form, the model field is
+  // pre-filled from the current snapshot (the model name isn't a
+  // secret) so changing just the model doesn't require retyping the
+  // API key -- the server keeps the existing key when ai_api_key is
+  // omitted from the request.
+  function askMusterEditor(s) {
+    const modelInput = el("input", { type: "text", placeholder: "claude-opus-5 (default)", value: s.ask_muster.model || "" });
+    const keyInput = el("input", { type: "password", placeholder: s.ask_muster.configured ? "leave blank to keep current key" : "sk-ant-..." });
+    const disableBox = el("input", { type: "checkbox" });
+    const msg = el("span", { class: "save-msg" });
+    const form = el(
+      "form",
+      { class: "editor-row" },
+      el("label", { text: "Model" }), modelInput,
+      el("label", { text: "API key" }), keyInput,
+      el("label", { text: "Disable" }), disableBox,
+      el("button", { type: "submit", text: "Save" }),
+      msg
+    );
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = {};
+      if (disableBox.checked) {
+        if (!s.ask_muster.configured) { msg.textContent = "Nothing to save"; return; }
+        body.ai_disable = true;
+      } else {
+        const key = keyInput.value.trim();
+        const model = modelInput.value.trim();
+        if (!key && !s.ask_muster.configured) { msg.textContent = "Error: an API key is required to enable Ask Muster"; return; }
+        if (key) body.ai_api_key = key;
+        body.ai_model = model;
+        if (Object.keys(body).length === 0) { msg.textContent = "Nothing to save"; return; }
+      }
+      msg.textContent = "Saving…";
+      try {
+        await api("/api/settings", { method: "PATCH", body });
+        msg.textContent = "Saved";
+        setTimeout(showSettings, 800);
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    return form;
+  }
+
+
   // showSettings is GET /api/settings, rendered read-only -- admin-gated
   // server-side (internal/api's handleSettings), not hidden client-side:
   // same "always show the tab, let a failed call explain why" pattern
@@ -1515,20 +1630,20 @@
       ["Interval", s.vuln_feed.interval || null],
     ]);
 
-    const askMuster = settingsTable("Ask Muster", [
+    const askMuster = settingsCardWithForm("Ask Muster", [
       ["Configured", boolLabel(s.ask_muster.configured)],
       ["Model", s.ask_muster.model || null],
-    ]);
+    ], askMusterEditor(s));
 
     const webhooks = settingsTable("Webhooks", [
       ["Configured", boolLabel(s.webhooks.configured)],
       ["Count", s.webhooks.count],
     ]);
 
-    const siem = settingsTable("SIEM forwarding", [
+    const siem = settingsCardWithForm("SIEM forwarding", [
       ["Configured", boolLabel(s.siem.configured)],
       ["Backend", s.siem.backend || null],
-    ]);
+    ], siemForwardingEditor(s));
 
     app.replaceChildren(heading, general, auth, vulnFeed, askMuster, webhooks, siem);
   }

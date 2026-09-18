@@ -860,21 +860,38 @@ Splunk instance, since this dev environment has none to test against.
 ## Server settings
 
 ```
-GET /api/settings   # admin
+GET /api/settings     # admin
+PATCH /api/settings   # admin, checked strictly
 ```
 
-A one-stop snapshot of what this server is actually running with --
-storage backend (memstore/postgres, never the DSN), listen addresses,
-evaluator interval, and whether auth/OAuth (plus its role-map)/the vuln
-feed/Ask Muster (plus its model)/webhooks (plus a count)/SIEM forwarding
-(plus which backend) are configured. Never a secret value itself --
-`MUSTER_AUTH_TOKEN`, `MUSTER_POSTGRES_DSN`, `MUSTER_AI_API_KEY`, the
-OAuth client secret, and the SIEM HEC token are all excluded by
-construction (see `internal/api/server.go`'s `handleSettings`), only
-presence/absence and non-secret metadata about each. Exists because
-today all of this lives in CLI flags/env vars with nothing surfaced in
-the dashboard -- there was no single place to see server-level config at
-a glance.
+`GET` is a one-stop snapshot of what this server is actually running
+with -- storage backend (memstore/postgres, never the DSN), listen
+addresses, evaluator interval, and whether auth/OAuth (plus its
+role-map)/the vuln feed/Ask Muster (plus its model)/webhooks (plus a
+count)/SIEM forwarding (plus which backend) are configured. Never a
+secret value itself -- `MUSTER_AUTH_TOKEN`, `MUSTER_POSTGRES_DSN`,
+`MUSTER_AI_API_KEY`, the OAuth client secret, and the SIEM HEC token are
+all excluded by construction (see `internal/api/server.go`'s
+`handleSettings`), only presence/absence and non-secret metadata about
+each. Exists because today all of this lives in CLI flags/env vars with
+nothing surfaced in the dashboard -- there was no single place to see
+server-level config at a glance.
+
+`PATCH` lets an admin credential turn SIEM forwarding and Ask Muster on,
+off, or reconfigure them from the Settings tab, with no restart:
+`internal/siemforward.Dynamic` and `internal/aiquery.ConfigStore` are
+swappable at runtime, and cmd/muster always wires both in (even when
+starting with neither configured) so a later PATCH can enable them. The
+change is also persisted to `<data-dir>/settings-overrides.json` (mode
+0600) so it survives a restart -- unless the process was started with
+the matching `-siem-hec-*`/`-ai-api-key` flag or env var already set,
+which always wins over a saved override, so a value pinned at deploy
+time can't be quietly overridden by something saved from the dashboard
+in an earlier run. Every other setting (storage backend, listen
+addresses, the auth token itself, OAuth, webhooks, the vuln feed) stays
+flag/env-only by design -- see `docs/api-reference.md` for the full
+field list. Everything else about this endpoint's response shape is
+identical to `GET`'s.
 
 ## Fleet dashboard
 

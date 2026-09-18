@@ -1,0 +1,76 @@
+package siemforward
+
+import (
+	"context"
+	"sync"
+)
+
+// Dynamic is a Forwarder whose backend can be swapped at runtime, so
+// PATCH /api/settings can turn SIEM forwarding on, reconfigure it, or
+// turn it off on a running server -- no restart, and no re-wrapping of
+// the Store. A plain Forwarder built once at startup (SplunkHEC) has no
+// way to do this; cmd/muster constructs exactly one Dynamic and always
+// passes it to WrapStore, even when starting with neither -siem-hec-*
+// flag set, so forwarding can be enabled later purely by calling
+// SetSplunkHEC. Send is a safe no-op whenever no backend is configured,
+// which is what lets cmd/muster always wrap the Store instead of only
+// wrapping it once a forwarder already exists (WrapStore's own
+// nil-Forwarder short-circuit still exists and is unrelated to this --
+// it's for callers who never want the wrapping overhead at all).
+type Dynamic struct {
+	mu      sync.RWMutex
+	backend Forwarder
+	name    string // e.g. "splunk-hec"; "" when unconfigured
+}
+
+// NewDynamic returns an unconfigured Dynamic -- Send is a no-op until
+// SetSplunkHEC is called.
+func NewDynamic() *Dynamic {
+	return &Dynamic{}
+}
+
+// SetSplunkHEC configures (or reconfigures) d to forward to a Splunk
+// HEC endpoint. Safe to call at any time, including while forwarding
+// is already active with a different URL or token.
+func (d *Dynamic) SetSplunkHEC(url, token string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.backend = NewSplunkHEC(url, token)
+	d.name = "splunk-hec"
+}
+
+// Disable turns off forwarding -- Send becomes a no-op again, same as
+// a Dynamic that was never configured.
+func (d *Dynamic) Disable() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.backend = nil
+	d.name = ""
+}
+
+// Configured reports whether a backend is currently set.
+func (d *Dynamic) Configured() bool {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.backend != nil
+}
+
+// Backend names the active backend ("splunk-hec"), or "" when
+// unconfigured.
+func (d *Dynamic) Backend() string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.name
+}
+
+// Send forwards to the currently configured backend, or no-ops (nil
+// error) when none is set -- see the Dynamic doc comment.
+func (d *Dynamic) Send(ctx context.Context, event SIEMEvent) error {
+	d.mu.RLock()
+	backend := d.backend
+	d.mu.RUnlock()
+	if backend == nil {
+		return nil
+	}
+	return backend.Send(ctx, event)
+}

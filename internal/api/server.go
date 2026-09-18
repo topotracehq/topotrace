@@ -35,6 +35,8 @@ import (
 	"muster/internal/oauth"
 	"muster/internal/policy"
 	"muster/internal/remediate"
+	"muster/internal/settingsstore"
+	"muster/internal/siemforward"
 	"muster/internal/store"
 	"muster/internal/vuln"
 	"muster/internal/webhook"
@@ -89,11 +91,16 @@ type Server struct {
 	Sessions *oauth.SessionStore
 
 	// AIQuery is "Ask Muster"'s Anthropic credential/model (see
-	// -ai-api-key/-ai-model). A zero-value Config (Enabled() == false,
-	// the default when neither flag/env var is set) means handleAsk
-	// answers with a clear "not configured" error instead of ever
-	// calling out to the network with no key.
-	AIQuery aiquery.Config
+	// -ai-api-key/-ai-model), held in a mutable ConfigStore so
+	// PATCH /api/settings can reconfigure or disable it on a running
+	// server with no restart -- handleAsk calls AIQuery.Get() on every
+	// request rather than reading a value captured once at startup. A
+	// nil AIQuery (as in tests that don't set one) or a zero-value
+	// Config within it (Enabled() == false, the default when neither
+	// flag/env var is set) means handleAsk answers with a clear "not
+	// configured" error instead of ever calling out to the network
+	// with no key.
+	AIQuery *aiquery.ConfigStore
 
 	// The remaining fields exist purely for GET /api/settings to report
 	// on -- cmd/muster wires each straight from the flag it already
@@ -114,11 +121,25 @@ type Server struct {
 	// VulnFeedInterval is -vuln-feed-interval -- meaningful only when
 	// VulnFeed is non-nil (-vuln-feed was set).
 	VulnFeedInterval time.Duration
-	// SIEMForwardingConfigured and SIEMBackend report on -siem-hec-*
-	// (see internal/siemforward) -- true/"splunk-hec" once both flags
-	// are set, false/"" otherwise. Never the HEC token itself.
-	SIEMForwardingConfigured bool
-	SIEMBackend              string
+	// SIEMForwarder reports on, and (via PATCH /api/settings) lets an
+	// admin live-reconfigure, SIEM forwarding (see internal/siemforward
+	// -- Configured()/Backend() report "splunk-hec"/true once
+	// SetSplunkHEC has been called, false/"" otherwise; never the HEC
+	// token itself). cmd/muster always constructs a non-nil
+	// *siemforward.Dynamic and always wraps the Store with it (even
+	// when starting with neither -siem-hec-* flag set), so forwarding
+	// can be turned on later with no restart. A nil SIEMForwarder (as
+	// in tests that don't set one) makes PATCH /api/settings refuse
+	// SIEM changes with a clear "not available" error.
+	SIEMForwarder *siemforward.Dynamic
+
+	// SettingsOverridePath, when non-empty, is where PATCH
+	// /api/settings persists the live edits it accepts (SIEM HEC
+	// URL/token, Ask Muster API key/model) via internal/settingsstore,
+	// so they survive a process restart. Left empty (e.g. in tests),
+	// PATCH /api/settings still updates the live in-memory state, it
+	// just won't be there after a restart.
+	SettingsOverridePath string
 }
 
 func (s *Server) log() *slog.Logger {
@@ -178,6 +199,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/auth/me", s.handleAuthMe)
 	mux.HandleFunc("POST /api/ask", s.handleAsk)
 	mux.HandleFunc("GET /api/settings", s.handleSettings)
+	mux.HandleFunc("PATCH /api/settings", s.handlePatchSettings)
 }
 
 // Handler returns a standalone, logged handler for just the API -- used
@@ -280,7 +302,15 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireRole(w, r, "admin"); !ok {
 		return
 	}
+	s.writeJSON(w, http.StatusOK, s.settingsSnapshot())
+}
 
+// settingsSnapshot builds GET /api/settings's response from the
+// server's current live state -- shared by handleSettings and
+// handlePatchSettings (whose response reflects whatever it just
+// changed) so there's exactly one place that decides what this
+// endpoint reports.
+func (s *Server) settingsSnapshot() settingsResponse {
 	resp := settingsResponse{
 		StorageBackend:    s.StorageBackend,
 		IngestAddr:        s.IngestAddr,
@@ -294,23 +324,181 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		VulnFeed: settingsVulnFeed{
 			Enabled: s.VulnFeed != nil,
 		},
-		AskMuster: settingsAskMuster{
-			Configured: s.AIQuery.Enabled(),
-			Model:      s.AIQuery.Model,
-		},
 		Webhooks: settingsWebhooks{
 			Configured: s.Webhooks.Count() > 0,
 			Count:      s.Webhooks.Count(),
-		},
-		SIEM: settingsSIEM{
-			Configured: s.SIEMForwardingConfigured,
-			Backend:    s.SIEMBackend,
 		},
 	}
 	if s.VulnFeed != nil {
 		resp.VulnFeed.Interval = s.VulnFeedInterval.String()
 	}
-	s.writeJSON(w, http.StatusOK, resp)
+	if s.AIQuery != nil {
+		cfg := s.AIQuery.Get()
+		resp.AskMuster = settingsAskMuster{
+			Configured: cfg.Enabled(),
+			Model:      cfg.Model,
+		}
+	}
+	if s.SIEMForwarder != nil {
+		resp.SIEM = settingsSIEM{
+			Configured: s.SIEMForwarder.Configured(),
+			Backend:    s.SIEMForwarder.Backend(),
+		}
+	}
+	return resp
+}
+
+// settingsPatchRequest is PATCH /api/settings's body -- pointer fields
+// so "field omitted" (leave alone) is distinguishable from "field set
+// to empty string" (which, for these two integrations, isn't a valid
+// state on its own -- use the matching *_disable bool instead). Every
+// field here is optional; a request must set at least one recognized
+// field or it's rejected as a no-op.
+//
+// SIEM forwarding's URL and token must be provided together (same
+// all-or-nothing pairing cmd/muster's own -siem-hec-* flags already
+// enforce) since internal/siemforward.Dynamic doesn't expose its
+// current URL/token to merge a partial update against -- deliberately,
+// since that value is a live secret this endpoint otherwise never
+// hands back. Ask Muster's two fields can be set independently: the
+// model alone (keeping the existing key) is a common edit, and
+// internal/aiquery.ConfigStore's current Config is readable
+// server-side for exactly that merge.
+type settingsPatchRequest struct {
+	SIEMHECURL   *string `json:"siem_hec_url,omitempty"`
+	SIEMHECToken *string `json:"siem_hec_token,omitempty"`
+	SIEMDisable  bool    `json:"siem_disable,omitempty"`
+
+	AIAPIKey  *string `json:"ai_api_key,omitempty"`
+	AIModel   *string `json:"ai_model,omitempty"`
+	AIDisable bool    `json:"ai_disable,omitempty"`
+}
+
+func strPtrVal(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+// handlePatchSettings is PATCH /api/settings, gated admin -- and
+// requireRoleStrict, not the softer requireRole, since (unlike
+// GET /api/settings, which only ever reads) this endpoint accepts and
+// persists real secrets (a SIEM HEC token, an Anthropic API key) and
+// must never run with auth wide open just because -auth-token wasn't
+// set. It live-reconfigures internal/siemforward.Dynamic and/or
+// internal/aiquery.ConfigStore in memory -- taking effect immediately,
+// no restart -- and, when SettingsOverridePath is set, persists the
+// change to internal/settingsstore so it survives one. Every accepted
+// edit is recorded to the audit trail via Store.RecordAudit (and, if
+// SIEM forwarding is itself configured, forwarded from there like any
+// other audit entry) -- the detail string never includes a secret
+// value, only what changed.
+func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.requireRoleStrict(w, r, "admin")
+	if !ok {
+		return
+	}
+	var req settingsPatchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	var overrides settingsstore.Overrides
+	if s.SettingsOverridePath != "" {
+		loaded, err := settingsstore.Load(s.SettingsOverridePath)
+		if err != nil {
+			s.log().Error("loading settings overrides before patch", "err", err)
+		} else {
+			overrides = loaded
+		}
+	}
+
+	var actions []string
+
+	switch {
+	case req.SIEMDisable:
+		if s.SIEMForwarder == nil {
+			s.writeError(w, http.StatusServiceUnavailable, "SIEM forwarding is not available on this server")
+			return
+		}
+		s.SIEMForwarder.Disable()
+		overrides.SIEMHECURL = ""
+		overrides.SIEMHECToken = ""
+		actions = append(actions, "siem forwarding disabled")
+	case req.SIEMHECURL != nil || req.SIEMHECToken != nil:
+		if s.SIEMForwarder == nil {
+			s.writeError(w, http.StatusServiceUnavailable, "SIEM forwarding is not available on this server")
+			return
+		}
+		hecURL := strings.TrimSpace(strPtrVal(req.SIEMHECURL))
+		hecToken := strings.TrimSpace(strPtrVal(req.SIEMHECToken))
+		if hecURL == "" || hecToken == "" {
+			s.writeError(w, http.StatusBadRequest, "siem_hec_url and siem_hec_token must both be provided together (or set siem_disable instead)")
+			return
+		}
+		if !strings.HasPrefix(hecURL, "http://") && !strings.HasPrefix(hecURL, "https://") {
+			s.writeError(w, http.StatusBadRequest, "siem_hec_url must start with http:// or https://")
+			return
+		}
+		s.SIEMForwarder.SetSplunkHEC(hecURL, hecToken)
+		overrides.SIEMHECURL = hecURL
+		overrides.SIEMHECToken = hecToken
+		actions = append(actions, "siem forwarding configured (splunk-hec)")
+	}
+
+	switch {
+	case req.AIDisable:
+		if s.AIQuery == nil {
+			s.writeError(w, http.StatusServiceUnavailable, "Ask Muster is not available on this server")
+			return
+		}
+		s.AIQuery.Set(aiquery.Config{})
+		overrides.AIAPIKey = ""
+		overrides.AIModel = ""
+		actions = append(actions, "ask muster disabled")
+	case req.AIAPIKey != nil || req.AIModel != nil:
+		if s.AIQuery == nil {
+			s.writeError(w, http.StatusServiceUnavailable, "Ask Muster is not available on this server")
+			return
+		}
+		cur := s.AIQuery.Get()
+		key := cur.APIKey
+		if req.AIAPIKey != nil {
+			key = strings.TrimSpace(*req.AIAPIKey)
+		}
+		newModel := cur.Model
+		if req.AIModel != nil {
+			newModel = strings.TrimSpace(*req.AIModel)
+		}
+		if key == "" {
+			s.writeError(w, http.StatusBadRequest, "ai_api_key is required to enable Ask Muster (or set ai_disable to turn it off)")
+			return
+		}
+		s.AIQuery.Set(aiquery.Config{APIKey: key, Model: newModel})
+		overrides.AIAPIKey = key
+		overrides.AIModel = newModel
+		actions = append(actions, "ask muster configured")
+	}
+
+	if len(actions) == 0 {
+		s.writeError(w, http.StatusBadRequest, "no recognized settings fields in request")
+		return
+	}
+
+	if s.SettingsOverridePath != "" {
+		if err := settingsstore.Save(s.SettingsOverridePath, overrides); err != nil {
+			s.log().Error("saving settings overrides", "err", err)
+		}
+	}
+
+	detail := strings.Join(actions, "; ")
+	if _, err := s.Store.RecordAudit(r.Context(), actor, "settings_updated", "server", detail); err != nil {
+		s.log().Error("recording settings-update audit entry", "err", err)
+	}
+
+	s.writeJSON(w, http.StatusOK, s.settingsSnapshot())
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, status int, v any) {
@@ -1280,7 +1468,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !s.AIQuery.Enabled() {
+	if s.AIQuery == nil || !s.AIQuery.Get().Enabled() {
 		s.writeError(w, http.StatusServiceUnavailable, aiquery.ErrNotConfigured.Error())
 		return
 	}
@@ -1302,7 +1490,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	answer, err := aiquery.Ask(r.Context(), s.AIQuery, req.Question, fleetCtx)
+	answer, err := aiquery.Ask(r.Context(), s.AIQuery.Get(), req.Question, fleetCtx)
 	if err != nil {
 		s.log().Error("ask muster", "err", err)
 		if errors.Is(err, aiquery.ErrNotConfigured) {

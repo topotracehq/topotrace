@@ -28,6 +28,7 @@ import (
 	"muster/internal/evaluator"
 	"muster/internal/ingest"
 	"muster/internal/oauth"
+	"muster/internal/settingsstore"
 	"muster/internal/siemforward"
 	"muster/internal/store"
 	"muster/internal/store/memstore"
@@ -47,7 +48,7 @@ func main() {
 	var (
 		ingestAddr  = flag.String("ingest-addr", ":9090", "address for the TCP ingest daemon")
 		apiAddr     = flag.String("api-addr", ":8080", "address for the HTTP reporting API")
-		dataDir     = flag.String("data-dir", "./data", "base directory for raw packets and the memstore snapshot (ignored when -postgres-dsn is set)")
+		dataDir     = flag.String("data-dir", "./data", "base directory for raw packets, the memstore snapshot (ignored when -postgres-dsn is set), and settings-overrides.json (PATCH /api/settings's persisted live edits -- used regardless of storage backend)")
 		postgresDSN = flag.String("postgres-dsn", os.Getenv("MUSTER_POSTGRES_DSN"), "Postgres connection string (e.g. postgres://user:pass@host:5432/muster?sslmode=disable); if set, facts are stored in Postgres instead of the in-memory/JSON-snapshot store. Also read from MUSTER_POSTGRES_DSN.")
 		authToken   = flag.String("auth-token", os.Getenv("MUSTER_AUTH_TOKEN"), "shared secret required from agents (MUSTER1/MUSTER1-RESULT) and for API writes (PATCH /api/hosts, POST .../actions). Letters, digits, '.', '_', '-' only, 1-128 chars. Empty disables auth entirely and leaves remediation actions unavailable. Also read from MUSTER_AUTH_TOKEN. This token always resolves to the 'admin' role, so it can bootstrap named API keys (see -h for the /api/keys endpoints).")
 		webhookURLs = flag.String("webhook-url", os.Getenv("MUSTER_WEBHOOK_URLS"), "comma-separated URLs to POST a small JSON event to on policy violations and remediation (host_new/host_stale/policy_violation/remediation_executed). Empty disables webhooks. Also read from MUSTER_WEBHOOK_URLS.")
@@ -85,6 +86,20 @@ func main() {
 
 	rawDir := *dataDir + "/raw"
 
+	// overridesPath is where PATCH /api/settings persists live edits to
+	// SIEM forwarding and Ask Muster (see internal/settingsstore) so
+	// they survive a restart. Loaded here, once, before either
+	// integration is wired up below -- an override only fills in a
+	// value whose flag/env var was left empty; an explicit -siem-hec-*
+	// / -ai-api-key (or its env var) always wins, so a value pinned at
+	// the process level can't be silently overridden by something
+	// saved from the dashboard in an earlier run.
+	overridesPath := *dataDir + "/settings-overrides.json"
+	overrides, err := settingsstore.Load(overridesPath)
+	if err != nil {
+		logger.Warn("loading settings overrides, starting with none", "path", overridesPath, "err", err)
+	}
+
 	var st store.Store
 	var storageBackend string
 	if *postgresDSN != "" {
@@ -109,21 +124,29 @@ func main() {
 	}
 
 	// SIEM forwarding (internal/siemforward) is opt-in and all-or-
-	// nothing, same pattern as -oauth-*: both -siem-hec-* flags empty
-	// means WrapStore returns st unchanged below, with zero overhead
-	// and no forwarder goroutine ever started.
-	var siemFwd siemforward.Forwarder
-	var siemBackend string
-	if *siemHECURL != "" || *siemHECToken != "" {
-		if *siemHECURL == "" || *siemHECToken == "" {
+	// nothing for the flags/env vars (both -siem-hec-* set, or
+	// neither); a value saved later from the dashboard can still turn
+	// it on with no restart, which is why siemDynamic is always
+	// constructed and always wrapped around st below, even when
+	// starting disabled -- see internal/siemforward.Dynamic's doc
+	// comment.
+	resolvedSIEMURL, resolvedSIEMToken := *siemHECURL, *siemHECToken
+	if resolvedSIEMURL == "" && resolvedSIEMToken == "" && overrides.SIEMHECURL != "" {
+		resolvedSIEMURL, resolvedSIEMToken = overrides.SIEMHECURL, overrides.SIEMHECToken
+		logger.Info("SIEM forwarding: using settings saved from the dashboard (no -siem-hec-* flag set)")
+	}
+	if resolvedSIEMURL != "" || resolvedSIEMToken != "" {
+		if resolvedSIEMURL == "" || resolvedSIEMToken == "" {
 			fmt.Fprintln(os.Stderr, "siem forwarding partially configured -- both -siem-hec-url and -siem-hec-token must be set together")
 			os.Exit(1)
 		}
-		siemFwd = siemforward.NewSplunkHEC(*siemHECURL, *siemHECToken)
-		siemBackend = "splunk-hec"
-		logger.Info("SIEM forwarding enabled", "backend", siemBackend, "url", *siemHECURL)
 	}
-	st = siemforward.WrapStore(st, siemFwd, logger.With("component", "siemforward"))
+	siemDynamic := siemforward.NewDynamic()
+	if resolvedSIEMURL != "" {
+		siemDynamic.SetSplunkHEC(resolvedSIEMURL, resolvedSIEMToken)
+		logger.Info("SIEM forwarding enabled", "backend", siemDynamic.Backend(), "url", resolvedSIEMURL)
+	}
+	st = siemforward.WrapStore(st, siemDynamic, logger.With("component", "siemforward"))
 
 	pipeline := &cook.Pipeline{RawBaseDir: rawDir, Store: st}
 
@@ -177,8 +200,21 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	if *aiAPIKey != "" {
-		model := *aiModel
+
+	// Ask Muster (internal/aiquery), like SIEM forwarding above, is
+	// opt-in via flag/env var but resolves against a saved dashboard
+	// override when the flag was left empty -- see the SIEM block's
+	// comment for why flag/env always wins. Held in a ConfigStore (not
+	// a plain Config) so PATCH /api/settings can change or disable it
+	// on a running server with no restart.
+	resolvedAIKey, resolvedAIModel := *aiAPIKey, *aiModel
+	if resolvedAIKey == "" && overrides.AIAPIKey != "" {
+		resolvedAIKey, resolvedAIModel = overrides.AIAPIKey, overrides.AIModel
+		logger.Info("Ask Muster: using settings saved from the dashboard (no -ai-api-key flag set)")
+	}
+	aiCfgStore := aiquery.NewConfigStore(aiquery.Config{APIKey: resolvedAIKey, Model: resolvedAIModel})
+	if resolvedAIKey != "" {
+		model := resolvedAIModel
 		if model == "" {
 			model = "(default)"
 		}
@@ -187,14 +223,14 @@ func main() {
 	apiSrv := &api.Server{
 		Store: st, Logger: logger.With("component", "api"), AuthToken: *authToken,
 		Webhooks: hooks, VulnFeed: vulnFeed, Pipeline: pipeline, OAuth: oauthCfg, Sessions: sessions,
-		AIQuery:           aiquery.Config{APIKey: *aiAPIKey, Model: *aiModel},
-		StorageBackend:           storageBackend,
-		IngestAddr:               *ingestAddr,
-		APIAddr:                  *apiAddr,
-		EvaluatorInterval:        *evalInterval,
-		VulnFeedInterval:         *vulnFeedInterval,
-		SIEMForwardingConfigured: siemFwd != nil,
-		SIEMBackend:              siemBackend,
+		AIQuery:              aiCfgStore,
+		StorageBackend:       storageBackend,
+		IngestAddr:           *ingestAddr,
+		APIAddr:              *apiAddr,
+		EvaluatorInterval:    *evalInterval,
+		VulnFeedInterval:     *vulnFeedInterval,
+		SIEMForwarder:        siemDynamic,
+		SettingsOverridePath: overridesPath,
 	}
 	apiSrv.Register(mux)
 	mux.Handle("/", webHandler)

@@ -82,6 +82,30 @@ not alphabetically.
   configured, with non-secret metadata (mode, counts, intervals, model
   name, OAuth role-map) for each -- never a token, DSN, API key, or
   webhook/OAuth URL itself.
+- `PATCH /api/settings` -- live-reconfigure SIEM forwarding and/or Ask
+  Muster (`admin`, always checked strictly -- this endpoint refuses to
+  run with no `-auth-token` set, unlike the `GET`). Takes effect
+  immediately, no restart: SIEM forwarding is backed by a
+  `siemforward.Dynamic` and Ask Muster by an `aiquery.ConfigStore`,
+  both swappable at runtime. Also persisted to
+  `<data-dir>/settings-overrides.json` (0600) so the change survives a
+  restart, unless the process was started with a `-siem-hec-*` /
+  `-ai-api-key` flag or env var already set, which always takes
+  precedence over a saved override. Body fields (all optional, but at
+  least one required):
+  - `siem_hec_url`, `siem_hec_token` -- must be provided together to
+    configure or change Splunk HEC forwarding (the current URL/token
+    are never readable back, so changing either means resending both).
+  - `siem_disable` -- `true` turns SIEM forwarding off.
+  - `ai_api_key` -- sets/changes the Anthropic API key. Omit to keep
+    the current key while changing only `ai_model`.
+  - `ai_model` -- sets/changes the model id. Sending `""` resets to
+    the built-in default.
+  - `ai_disable` -- `true` turns Ask Muster off.
+
+  Returns the same shape as `GET /api/settings`, reflecting the change.
+  Every accepted edit is written to the audit trail (`settings_updated`),
+  detail text only, never a secret value.
 
 ## Everything else
 

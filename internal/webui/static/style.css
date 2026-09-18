@@ -412,13 +412,14 @@ main#app {
   margin: 10px 0 20px;
 }
 .editor-row label { font-size: 0.8rem; color: var(--mu-text-muted); font-weight: 600; }
-.editor-row select, .editor-row input[type="text"] {
+.editor-row select, .editor-row input[type="text"], .editor-row input[type="password"] {
   padding: 6px 8px;
   border-radius: 6px;
   border: 1px solid var(--mu-border);
   font-size: 0.85rem;
 }
-.editor-row input[type="text"] { min-width: 140px; }
+.editor-row input[type="text"], .editor-row input[type="password"] { min-width: 140px; }
+.editor-row input[type="checkbox"] { width: 16px; height: 16px; }
 .editor-row button {
   padding: 6px 10px;
   border-radius: 6px;

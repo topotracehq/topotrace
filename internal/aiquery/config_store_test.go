@@ -1,0 +1,31 @@
+package aiquery
+
+import "testing"
+
+func TestConfigStoreGetSet(t *testing.T) {
+	s := NewConfigStore(Config{})
+	if s.Get().Enabled() {
+		t.Error("expected a zero-value initial Config to be disabled")
+	}
+
+	s.Set(Config{APIKey: "sk-ant-test", Model: "claude-opus-5"})
+	got := s.Get()
+	if !got.Enabled() {
+		t.Error("expected Enabled() true after Set with a non-empty APIKey")
+	}
+	if got.Model != "claude-opus-5" {
+		t.Errorf("got model %q, want claude-opus-5", got.Model)
+	}
+
+	s.Set(Config{})
+	if s.Get().Enabled() {
+		t.Error("expected Enabled() false after Set back to the zero value")
+	}
+}
+
+func TestNewConfigStoreHoldsInitialValue(t *testing.T) {
+	s := NewConfigStore(Config{APIKey: "sk-ant-initial"})
+	if !s.Get().Enabled() {
+		t.Error("expected the initial Config passed to NewConfigStore to be preserved")
+	}
+}
