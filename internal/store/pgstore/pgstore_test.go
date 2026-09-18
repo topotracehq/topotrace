@@ -25,7 +25,7 @@ func testDSN(t *testing.T) string {
 }
 
 // newTestStore opens a Store against a clean slate: it drops and
-// recreates the three tables so every test starts from an empty database,
+// recreates the whole schema so every test starts from an empty database,
 // then closes the connection pool on test cleanup.
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
@@ -36,7 +36,14 @@ func newTestStore(t *testing.T) *Store {
 	if err != nil {
 		t.Fatalf("New (prep): %v", err)
 	}
-	if _, err := prep.db.ExecContext(ctx, `DROP TABLE IF EXISTS changes, facts, hosts CASCADE`); err != nil {
+	// Drop the whole public schema, not just the three original tables:
+	// New() records applied migrations in schema_migrations, so dropping
+	// only hosts/facts/changes and re-running New() would leave those
+	// migrations marked as applied and never recreate the tables. (This
+	// was a latent bug for as long as these tests only ever skipped for
+	// lack of MUSTER_TEST_POSTGRES_DSN -- caught the first time they ran
+	// against a real scratch Postgres.)
+	if _, err := prep.db.ExecContext(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
 		prep.Close()
 		t.Fatalf("resetting schema: %v", err)
 	}
