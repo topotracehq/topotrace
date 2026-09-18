@@ -42,6 +42,8 @@ type Overrides struct {
 	SIEMHECToken string `json:"siem_hec_token,omitempty"`
 	AIAPIKey     string `json:"ai_api_key,omitempty"`
 	AIModel      string `json:"ai_model,omitempty"`
+	AIBackend    string `json:"ai_backend,omitempty"`  // "anthropic" (default) or "openai-compatible"
+	AIBaseURL    string `json:"ai_base_url,omitempty"` // OpenAI-compatible server root, e.g. https://router.huggingface.co/v1
 }
 
 // Load reads path and decodes it as Overrides. A missing file is not

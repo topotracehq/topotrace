@@ -79,8 +79,10 @@ func main() {
 		oauthScopes       = flag.String("oauth-scopes", os.Getenv("MUSTER_OAUTH_SCOPES"), "space-separated OAuth2 scopes to request. Defaults to \"openid email profile\" when empty. Also read from MUSTER_OAUTH_SCOPES.")
 		oauthRoleMap      = flag.String("oauth-role-map", os.Getenv("MUSTER_OAUTH_ROLE_MAP"), "comma-separated email/domain-to-role mappings, checked in order, e.g. \"admin@example.com=admin,*@example.com=readonly\". Required (and the whole -oauth-* group required) once any -oauth-* flag is set. Also read from MUSTER_OAUTH_ROLE_MAP.")
 
-		aiAPIKey = flag.String("ai-api-key", os.Getenv("MUSTER_AI_API_KEY"), "Anthropic API key for \"Ask Muster\" (POST /api/ask), a natural-language query surface over the fleet data with every question+answer recorded to the audit log. Empty disables the endpoint (it answers with a clear 'not configured' error). Also read from MUSTER_AI_API_KEY.")
-		aiModel  = flag.String("ai-model", os.Getenv("MUSTER_AI_MODEL"), "Anthropic model id Ask Muster calls (e.g. claude-opus-5). Empty uses internal/aiquery's built-in default. Also read from MUSTER_AI_MODEL.")
+		aiAPIKey  = flag.String("ai-api-key", os.Getenv("MUSTER_AI_API_KEY"), "Anthropic API key for \"Ask Muster\" (POST /api/ask), a natural-language query surface over the fleet data with every question+answer recorded to the audit log. Empty disables the endpoint (it answers with a clear 'not configured' error). Also read from MUSTER_AI_API_KEY.")
+		aiModel   = flag.String("ai-model", os.Getenv("MUSTER_AI_MODEL"), "Model id Ask Muster calls. For the anthropic backend, e.g. claude-opus-5; empty uses internal/aiquery's built-in default. For the openai-compatible backend this is required and has no default, since what is served depends on the server (e.g. a Hugging Face model id, or the name your local Ollama reports). Also read from MUSTER_AI_MODEL.")
+		aiBackend = flag.String("ai-backend", os.Getenv("MUSTER_AI_BACKEND"), "Which model API Ask Muster speaks: \"anthropic\" (default) or \"openai-compatible\". The latter reaches Hugging Face's Inference Providers router and any self-hosted server that speaks OpenAI chat-completions (LM Studio, Ollama, vLLM, TGI) -- see -ai-base-url. Also read from MUSTER_AI_BACKEND.")
+		aiBaseURL = flag.String("ai-base-url", os.Getenv("MUSTER_AI_BASE_URL"), "Root URL of an OpenAI-compatible server, required by -ai-backend openai-compatible. Either the /v1 root or the full /v1/chat/completions URL works, e.g. https://router.huggingface.co/v1 or http://10.0.0.50:11434/v1. Also read from MUSTER_AI_BASE_URL.")
 
 		slackWebhookURL = flag.String("slack-webhook-url", os.Getenv("MUSTER_SLACK_WEBHOOK_URL"), "Slack incoming-webhook URL to post every notable event to (policy/software violations, remediations, resolutions). Also read from MUSTER_SLACK_WEBHOOK_URL.")
 		teamsWebhookURL = flag.String("teams-webhook-url", os.Getenv("MUSTER_TEAMS_WEBHOOK_URL"), "Microsoft Teams incoming-webhook / Workflows URL to post every notable event to as an Adaptive Card. Also read from MUSTER_TEAMS_WEBHOOK_URL.")
@@ -267,18 +269,29 @@ func main() {
 	// comment for why flag/env always wins. Held in a ConfigStore (not
 	// a plain Config) so PATCH /api/settings can change or disable it
 	// on a running server with no restart.
-	resolvedAIKey, resolvedAIModel := *aiAPIKey, *aiModel
-	if resolvedAIKey == "" && overrides.AIAPIKey != "" {
-		resolvedAIKey, resolvedAIModel = overrides.AIAPIKey, overrides.AIModel
-		logger.Info("Ask Muster: using settings saved from the dashboard (no -ai-api-key flag set)")
+	//
+	// "Was it configured by flag?" is now a question about the whole
+	// config rather than just the key: the openai-compatible backend is
+	// configured by URL and often carries no credential at all (a local
+	// Ollama or LM Studio is typically unauthenticated), so testing the
+	// key alone would wrongly fall through to the saved override.
+	aiCfg := aiquery.Config{APIKey: *aiAPIKey, Model: *aiModel, Backend: *aiBackend, BaseURL: *aiBaseURL}
+	if !aiCfg.Enabled() && (overrides.AIAPIKey != "" || overrides.AIBaseURL != "") {
+		aiCfg = aiquery.Config{APIKey: overrides.AIAPIKey, Model: overrides.AIModel,
+			Backend: overrides.AIBackend, BaseURL: overrides.AIBaseURL}
+		logger.Info("Ask Muster: using settings saved from the dashboard (no -ai-api-key / -ai-base-url flag set)")
 	}
-	aiCfgStore := aiquery.NewConfigStore(aiquery.Config{APIKey: resolvedAIKey, Model: resolvedAIModel})
-	if resolvedAIKey != "" {
-		model := resolvedAIModel
+	aiCfgStore := aiquery.NewConfigStore(aiCfg)
+	if aiCfg.Enabled() {
+		model := aiCfg.Model
 		if model == "" {
 			model = "(default)"
 		}
-		logger.Info("Ask Muster (AI query) enabled", "model", model)
+		args := []any{"backend", aiCfg.Normalized().Backend, "model", model}
+		if aiCfg.BaseURL != "" {
+			args = append(args, "base_url", aiCfg.BaseURL)
+		}
+		logger.Info("Ask Muster (AI query) enabled", args...)
 	}
 	apiSrv := &api.Server{
 		Store: st, Logger: logger.With("component", "api"), AuthToken: *authToken,

@@ -2467,14 +2467,43 @@
   // API key -- the server keeps the existing key when ai_api_key is
   // omitted from the request.
   function askMusterEditor(s) {
-    const modelInput = el("input", { type: "text", placeholder: "claude-opus-5 (default)", value: s.ask_muster.model || "" });
-    const keyInput = el("input", { type: "password", placeholder: s.ask_muster.configured ? "leave blank to keep current key" : "sk-ant-..." });
+    const backends = s.ask_muster.backends || ["anthropic", "openai-compatible"];
+    const current = s.ask_muster.backend || "anthropic";
+    const backendSelect = el("select", {}, ...backends.map((b) => el("option", { value: b, text: b })));
+    backendSelect.value = current;
+    const modelInput = el("input", { type: "text", value: s.ask_muster.model || "" });
+    const baseInput = el("input", { type: "text", class: "wide", placeholder: "https://router.huggingface.co/v1", value: "" });
+    const keyInput = el("input", { type: "password" });
     const disableBox = el("input", { type: "checkbox" });
     const msg = el("span", { class: "save-msg" });
+    const baseLabel = el("label", { text: "Base URL" });
+    const hint = el("p", { class: "meta" });
+
+    // The two backends need genuinely different things, so the form
+    // says which: Anthropic takes a key and has a default model, while
+    // an OpenAI-compatible server takes a URL, needs an explicit model
+    // name, and often needs no credential at all.
+    function syncBackend() {
+      const openai = backendSelect.value === "openai-compatible";
+      baseLabel.hidden = !openai;
+      baseInput.hidden = !openai;
+      modelInput.placeholder = openai ? "e.g. qwen3:30b-a3b or a Hugging Face model id" : "claude-opus-5 (default)";
+      keyInput.placeholder = s.ask_muster.configured && current === backendSelect.value
+        ? "leave blank to keep current key"
+        : (openai ? "optional: HF token, or blank for a local server" : "sk-ant-...");
+      hint.textContent = openai
+        ? "Any server speaking OpenAI chat-completions: Hugging Face's router, or LM Studio, Ollama, vLLM or TGI on your own hardware. A model you host keeps fleet data on your network, which is the point for this kind of tool."
+        : "Anthropic's Messages API. Fleet context leaves your network with every question.";
+    }
+    backendSelect.addEventListener("change", syncBackend);
+    syncBackend();
+
     const form = el(
       "form",
       { class: "editor-row" },
+      el("label", { text: "Backend" }), backendSelect,
       el("label", { text: "Model" }), modelInput,
+      baseLabel, baseInput,
       el("label", { text: "API key" }), keyInput,
       el("label", { text: "Disable" }), disableBox,
       el("button", { type: "submit", text: "Save" }),
@@ -2489,10 +2518,23 @@
       } else {
         const key = keyInput.value.trim();
         const model = modelInput.value.trim();
-        if (!key && !s.ask_muster.configured) { msg.textContent = "Error: an API key is required to enable Ask Muster"; return; }
+        const backend = backendSelect.value;
+        const baseURL = baseInput.value.trim();
+        const switching = backend !== current;
+        if (backend === "openai-compatible") {
+          if (!baseURL && (switching || !s.ask_muster.base_url)) {
+            msg.textContent = "Error: a base URL is required, e.g. http://your-host:11434/v1";
+            return;
+          }
+          if (!model) { msg.textContent = "Error: a model name is required for this backend"; return; }
+        } else if (!key && (switching || !s.ask_muster.configured)) {
+          msg.textContent = "Error: an API key is required to enable Ask Muster";
+          return;
+        }
         if (key) body.ai_api_key = key;
         body.ai_model = model;
-        if (Object.keys(body).length === 0) { msg.textContent = "Nothing to save"; return; }
+        body.ai_backend = backend;
+        if (baseURL) body.ai_base_url = baseURL;
       }
       msg.textContent = "Saving…";
       try {
@@ -2503,7 +2545,7 @@
         msg.textContent = `Error: ${err.message}`;
       }
     });
-    return form;
+    return el("div", {}, form, hint);
   }
 
 
@@ -2548,7 +2590,9 @@
 
     const askMuster = settingsCardWithForm("Ask Muster", [
       ["Configured", boolLabel(s.ask_muster.configured)],
+      ["Backend", s.ask_muster.backend || null],
       ["Model", s.ask_muster.model || null],
+      ["Base URL", s.ask_muster.base_url || null],
     ], askMusterEditor(s));
 
     const webhooks = settingsCardWithForm("Notifications", [

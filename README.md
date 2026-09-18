@@ -918,7 +918,9 @@ extensions` compliance check. See `docs/compliance.md`.
 ## Ask Muster
 
 ```
-go run ./cmd/muster -ai-api-key "sk-ant-..."   # or MUSTER_AI_API_KEY
+go run ./cmd/muster -ai-api-key "sk-ant-..."                     # Anthropic
+go run ./cmd/muster -ai-backend openai-compatible \
+  -ai-base-url http://your-host:11434/v1 -ai-model qwen3:30b-a3b # a model you host
 POST /api/ask   {"question": "which prod hosts have known vulnerabilities?"}
 ```
 
@@ -933,6 +935,26 @@ write or a policy change is). `POST /api/ask` is gated at `readonly`
 configured"` error rather than ever making an outbound request with no
 credential.
 
+**The model backend is pluggable**, the same seam as SIEM forwarding.
+`anthropic` speaks the Messages API; `openai-compatible` speaks the
+chat-completions shape, which reaches Hugging Face's Inference
+Providers router and equally an LM Studio, Ollama, vLLM or
+text-generation-inference server on your own hardware, changing only
+`-ai-base-url`. Either is switchable live from the Settings page with
+no restart.
+
+That second option is the one that matters here. Ask Muster sends real
+fleet context with every question: host names, addresses, installed
+software, CVE findings, policy rules. Handing that to a third-party API
+is precisely the objection a security-conscious buyer raises, and it is
+a fair one. A model running on hardware the operator controls means the
+inventory never leaves their network. The tradeoff is real too: a small
+self-hosted model is worse at this than a frontier model, particularly
+at drafting a valid policy rule, which is why `Validate` exists and why
+both extra features fall back to non-AI paths.
+
+![Ask Muster backend selection](docs/screenshots/settings-ai-backend.png)
+
 `internal/aiquery` builds a compact JSON snapshot straight from the
 Store -- fleet summary, every host's posture score/findings, known
 vulnerabilities, software-allowlist and shadow-AI violations,
@@ -940,7 +962,7 @@ compliance score, plus the configured policy rules, software rules,
 and discovered-but-unmanaged assets, reusing the exact same
 `complianceInput` computation the Compliance tab already uses so Ask
 Muster's answers are grounded in the same numbers the rest of the
-dashboard shows -- then calls the Anthropic Messages API (stdlib
+dashboard shows -- then calls the configured backend (stdlib
 `net/http` only, no SDK, same integration style as `internal/vuln`'s
 OSV.dev client and `internal/oauth`'s token exchange) with that
 context plus the question, instructing the model to answer only from

@@ -7,17 +7,83 @@ Muster gave, is recorded to the same audit log every other privileged
 action in this project already goes through
 (`Store.RecordAudit`, `GET /api/audit`).
 
-## Turning it on
+## Choosing a model backend
+
+Ask Muster speaks two API shapes, selected with `-ai-backend`
+(`MUSTER_AI_BACKEND`):
+
+| Backend | Reaches | Needs |
+| --- | --- | --- |
+| `anthropic` (default) | Anthropic's Messages API | `-ai-api-key`; `-ai-model` optional, defaults to `internal/aiquery`'s built-in |
+| `openai-compatible` | Hugging Face's Inference Providers router, and any server speaking OpenAI chat-completions: LM Studio, Ollama, vLLM, text-generation-inference | `-ai-base-url` and `-ai-model`; `-ai-api-key` optional |
+
+Two implementations cover that much ground because the OpenAI
+chat-completions shape has become the lingua franca of model serving.
+Only the base URL changes between a hosted Hugging Face model and one
+running on your own hardware.
+
+### Anthropic
 
 ```
 go run ./cmd/muster -ai-api-key "sk-ant-..."
 # or: MUSTER_AI_API_KEY=sk-ant-... go run ./cmd/muster
 ```
 
-Left unset, `POST /api/ask` answers with a clear `503 "not configured"`
-error instead of ever making an outbound request with no credential.
-`-ai-model`/`MUSTER_AI_MODEL` optionally overrides the model id
-(`internal/aiquery`'s built-in default otherwise).
+### Hugging Face
+
+```
+go run ./cmd/muster \
+  -ai-backend openai-compatible \
+  -ai-base-url https://router.huggingface.co/v1 \
+  -ai-model "Qwen/Qwen3-30B-A3B-Instruct-2507" \
+  -ai-api-key "hf_..."
+```
+
+The token is a fine-grained Hugging Face token with the
+"Make calls to Inference Providers" permission.
+
+### A model you host
+
+```
+go run ./cmd/muster \
+  -ai-backend openai-compatible \
+  -ai-base-url http://your-host:11434/v1 \
+  -ai-model "qwen3:30b-a3b"
+```
+
+Ollama listens on 11434 and LM Studio on 1234, both at `/v1`. Either
+the bare `/v1` root or the full `/v1/chat/completions` URL works. No
+API key is needed for a local server, and none is sent: an empty
+`-ai-api-key` means the `Authorization` header is omitted entirely
+rather than sent empty, which some servers reject.
+
+**This is the option worth taking seriously for this product.** Ask
+Muster sends real fleet context with every question: host names,
+addresses, installed software, CVE findings, policy rules. Sending that
+to a third-party API is exactly the objection a security-conscious
+buyer raises, and it is a fair objection. A model running on hardware
+the operator controls means the inventory never leaves their network,
+and the feature stops being a reason to fail a review.
+
+The honest tradeoff is quality. A small self-hosted model is
+noticeably worse than a frontier model at this, particularly at the
+policy drafting below, which has to emit a valid rule. `Validate`
+catches malformed drafts and both extra features fall back to
+non-AI paths, so the floor is safe; the ceiling is lower.
+
+### Switching without a restart
+
+All of the above can also be set from the Settings page's Ask Muster
+card, or with `PATCH /api/settings` (`ai_backend`, `ai_base_url`,
+`ai_model`, `ai_api_key`, `ai_disable`), and takes effect immediately.
+Values saved that way persist to `<data-dir>/settings-overrides.json`
+at mode 0600. As everywhere else in Muster, an explicit flag or env var
+beats a saved override, so a value pinned at deploy time cannot be
+changed from the dashboard.
+
+Left unconfigured entirely, `POST /api/ask` answers with a clear
+"not configured" error rather than ever making an outbound request
+with no credential.
 
 ## How it works
 

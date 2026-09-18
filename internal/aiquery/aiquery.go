@@ -52,15 +52,63 @@ const anthropicVersion = "2023-06-01"
 type Config struct {
 	APIKey string
 	Model  string // defaults to defaultModel when empty
+	// Backend names which API shape to speak: "" or BackendAnthropic
+	// for the Anthropic Messages API, BackendOpenAI for anything that
+	// speaks OpenAI chat-completions. See Backends.
+	Backend string
+	// BaseURL is where an OpenAI-compatible server lives, e.g.
+	// https://router.huggingface.co/v1 for Hugging Face's router, or
+	// http://10.0.0.188:11434/v1 for a local Ollama. Ignored by the
+	// Anthropic backend, whose endpoint is fixed. Either the bare /v1
+	// root or the full /v1/chat/completions URL works.
+	BaseURL string
 }
 
-// Enabled reports whether cfg carries a usable API key.
-func (c Config) Enabled() bool { return c.APIKey != "" }
+// Backend names, in the order the Settings page lists them.
+const (
+	BackendAnthropic = "anthropic"
+	BackendOpenAI    = "openai-compatible"
+)
 
-// ErrNotConfigured is returned by Ask when cfg.APIKey is empty -- the
+// Backends is every model backend Complete knows how to speak to.
+//
+// Two implementations cover a surprising amount of ground, because
+// OpenAI's chat-completions shape has become the lingua franca: the
+// same backend reaches Hugging Face's Inference Providers router,
+// a local LM Studio or Ollama, and a self-hosted vLLM or TGI, by
+// changing only BaseURL. That matters for this product specifically --
+// Ask Muster sends real fleet context (host names, addresses,
+// installed software, CVEs) with every question, and plenty of
+// operators will not send that to anyone else's API. A model they host
+// themselves is not a lesser option here, it is the point.
+var Backends = []string{BackendAnthropic, BackendOpenAI}
+
+// Normalized returns cfg with its backend defaulted, so callers never
+// have to special-case the empty string.
+func (c Config) Normalized() Config {
+	if c.Backend == "" {
+		c.Backend = BackendAnthropic
+	}
+	return c
+}
+
+// Enabled reports whether cfg is usable. What that takes depends on the
+// backend: Anthropic needs an API key, while an OpenAI-compatible
+// server needs a base URL and may well need no credential at all (a
+// local Ollama or LM Studio is typically unauthenticated).
+func (c Config) Enabled() bool {
+	switch c.Normalized().Backend {
+	case BackendOpenAI:
+		return c.BaseURL != ""
+	default:
+		return c.APIKey != ""
+	}
+}
+
+// ErrNotConfigured is returned when cfg cannot reach a model -- the
 // caller should surface this as a clear "not configured" error, not a
 // generic 500.
-var ErrNotConfigured = errors.New("aiquery: no Anthropic API key configured (set -ai-api-key or MUSTER_AI_API_KEY)")
+var ErrNotConfigured = errors.New("aiquery: no model backend configured (set -ai-api-key for Anthropic, or -ai-backend openai-compatible with -ai-base-url)")
 
 // systemPrompt frames the model's role and, critically, tells it to
 // answer only from the supplied fleet context -- the "governed" half of
@@ -92,6 +140,14 @@ func Complete(ctx context.Context, cfg Config, system, user string, maxTokens in
 	if !cfg.Enabled() {
 		return "", ErrNotConfigured
 	}
+	if cfg.Normalized().Backend == BackendOpenAI {
+		return completeOpenAI(ctx, cfg, system, user, maxTokens)
+	}
+	return completeAnthropic(ctx, cfg, system, user, maxTokens)
+}
+
+// completeAnthropic speaks the Anthropic Messages API.
+func completeAnthropic(ctx context.Context, cfg Config, system, user string, maxTokens int) (string, error) {
 	model := cfg.Model
 	if model == "" {
 		model = defaultModel

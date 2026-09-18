@@ -30,8 +30,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -325,8 +327,29 @@ type settingsVulnFeed struct {
 // settingsAskMuster is GET /api/settings's Ask Muster (AI query) slice
 // -- never AIQuery.APIKey itself.
 type settingsAskMuster struct {
-	Configured bool   `json:"configured"`
-	Model      string `json:"model,omitempty"`
+	Configured bool     `json:"configured"`
+	Model      string   `json:"model,omitempty"`
+	Backend    string   `json:"backend,omitempty"`
+	Backends   []string `json:"backends,omitempty"`
+	// BaseURL is redacted to scheme and host. A model endpoint is not
+	// usually a secret the way a Sumo Logic collector URL is, but some
+	// people do put a key in a query string, and the host alone is
+	// enough for an operator to confirm which server is configured.
+	BaseURL string `json:"base_url,omitempty"`
+}
+
+// redactURL keeps scheme and host and drops everything after, so a
+// settings response can say which server is configured without echoing
+// anything embedded in a path or query string.
+func redactURL(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return "(set)"
+	}
+	return u.Scheme + "://" + u.Host
 }
 
 // settingsWebhooks is GET /api/settings's notification slice -- the
@@ -410,6 +433,16 @@ func (s *Server) settingsSnapshot() settingsResponse {
 		resp.AskMuster = settingsAskMuster{
 			Configured: cfg.Enabled(),
 			Model:      cfg.Model,
+			Backend:    cfg.Normalized().Backend,
+			Backends:   aiquery.Backends,
+		}
+		// Only report the base URL when the selected backend actually
+		// uses it. The value is kept across a switch to Anthropic so
+		// switching back does not mean retyping it, but showing it
+		// while Anthropic is selected reads as "this is in use," which
+		// it is not.
+		if cfg.Normalized().Backend == aiquery.BackendOpenAI {
+			resp.AskMuster.BaseURL = redactURL(cfg.BaseURL)
 		}
 	}
 	if s.SIEMForwarder != nil {
@@ -446,6 +479,8 @@ type settingsPatchRequest struct {
 
 	AIAPIKey  *string `json:"ai_api_key,omitempty"`
 	AIModel   *string `json:"ai_model,omitempty"`
+	AIBackend *string `json:"ai_backend,omitempty"`  // "anthropic" or "openai-compatible"
+	AIBaseURL *string `json:"ai_base_url,omitempty"` // required by openai-compatible
 	AIDisable bool    `json:"ai_disable,omitempty"`
 }
 
@@ -541,8 +576,10 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 		s.AIQuery.Set(aiquery.Config{})
 		overrides.AIAPIKey = ""
 		overrides.AIModel = ""
+		overrides.AIBackend = ""
+		overrides.AIBaseURL = ""
 		actions = append(actions, "ask muster disabled")
-	case req.AIAPIKey != nil || req.AIModel != nil:
+	case req.AIAPIKey != nil || req.AIModel != nil || req.AIBackend != nil || req.AIBaseURL != nil:
 		if s.AIQuery == nil {
 			s.writeError(w, http.StatusServiceUnavailable, "Ask Muster is not available on this server")
 			return
@@ -556,14 +593,40 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 		if req.AIModel != nil {
 			newModel = strings.TrimSpace(*req.AIModel)
 		}
-		if key == "" {
+		backend := cur.Normalized().Backend
+		if req.AIBackend != nil {
+			backend = strings.ToLower(strings.TrimSpace(*req.AIBackend))
+		}
+		baseURL := cur.BaseURL
+		if req.AIBaseURL != nil {
+			baseURL = strings.TrimSpace(*req.AIBaseURL)
+		}
+		if !slices.Contains(aiquery.Backends, backend) {
+			s.writeError(w, http.StatusBadRequest, "ai_backend must be one of: "+strings.Join(aiquery.Backends, ", "))
+			return
+		}
+		// What it takes to be usable depends on the backend: Anthropic
+		// needs a key, while a local OpenAI-compatible server needs a
+		// URL and often no credential at all.
+		next := aiquery.Config{APIKey: key, Model: newModel, Backend: backend, BaseURL: baseURL}
+		if !next.Enabled() {
+			if backend == aiquery.BackendOpenAI {
+				s.writeError(w, http.StatusBadRequest, "ai_base_url is required for the openai-compatible backend (e.g. https://router.huggingface.co/v1, or http://your-host:11434/v1 for a local Ollama)")
+				return
+			}
 			s.writeError(w, http.StatusBadRequest, "ai_api_key is required to enable Ask Muster (or set ai_disable to turn it off)")
 			return
 		}
-		s.AIQuery.Set(aiquery.Config{APIKey: key, Model: newModel})
+		if backend == aiquery.BackendOpenAI && newModel == "" {
+			s.writeError(w, http.StatusBadRequest, "ai_model is required for the openai-compatible backend: there is no default, since what is served depends on the server")
+			return
+		}
+		s.AIQuery.Set(next)
 		overrides.AIAPIKey = key
 		overrides.AIModel = newModel
-		actions = append(actions, "ask muster configured")
+		overrides.AIBackend = backend
+		overrides.AIBaseURL = baseURL
+		actions = append(actions, "ask muster configured ("+backend+")")
 	}
 
 	if len(actions) == 0 {

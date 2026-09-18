@@ -280,7 +280,18 @@ not alphabetically.
   - `ai_api_key` -- sets/changes the Anthropic API key. Omit to keep
     the current key while changing only `ai_model`.
   - `ai_model` -- sets/changes the model id. Sending `""` resets to
-    the built-in default.
+    the built-in default on the `anthropic` backend; on
+    `openai-compatible` a model name is required, since what is served
+    depends on the server.
+  - `ai_backend` -- which model API to speak: `anthropic` (default) or
+    `openai-compatible`. The accepted names come back in
+    `GET /api/settings` under `ask_muster.backends`.
+  - `ai_base_url` -- the root of an OpenAI-compatible server, required
+    by that backend, e.g. `https://router.huggingface.co/v1` or
+    `http://your-host:11434/v1` for a local Ollama. Either the `/v1`
+    root or the full `/v1/chat/completions` URL is accepted. Reported
+    back redacted to scheme and host, and only while that backend is
+    selected. See the Ask Muster doc page.
   - `ai_disable` -- `true` turns Ask Muster off.
 
   Returns the same shape as `GET /api/settings`, reflecting the change.
