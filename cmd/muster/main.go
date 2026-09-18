@@ -37,6 +37,7 @@ import (
 
 	"muster/internal/aiquery"
 	"muster/internal/api"
+	"muster/internal/breach"
 	"muster/internal/cook"
 	"muster/internal/evaluator"
 	"muster/internal/ingest"
@@ -91,6 +92,8 @@ func main() {
 		snowURL         = flag.String("servicenow-url", os.Getenv("MUSTER_SERVICENOW_URL"), "ServiceNow instance URL (e.g. https://dev12345.service-now.com) to open one incident per policy/software violation or proposed remediation in. Requires -servicenow-user and -servicenow-password. Also read from MUSTER_SERVICENOW_URL.")
 		snowUser        = flag.String("servicenow-user", os.Getenv("MUSTER_SERVICENOW_USER"), "ServiceNow basic-auth user for -servicenow-url. Also read from MUSTER_SERVICENOW_USER.")
 		snowPassword    = flag.String("servicenow-password", os.Getenv("MUSTER_SERVICENOW_PASSWORD"), "ServiceNow basic-auth password for -servicenow-url. Also read from MUSTER_SERVICENOW_PASSWORD.")
+
+		hibpAPIKey = flag.String("hibp-api-key", os.Getenv("MUSTER_HIBP_API_KEY"), "Have I Been Pwned API key for account-level breach exposure lookups (GET /api/breaches?domain=). Without it, only the public breaches-of-a-domain lookup works. Also read from MUSTER_HIBP_API_KEY.")
 
 		siemHECURL   = flag.String("siem-hec-url", os.Getenv("MUSTER_SIEM_HEC_URL"), "Splunk HTTP Event Collector base URL (e.g. https://splunk.example.com:8088) to forward every audit-log entry to, via internal/siemforward. Leave both -siem-hec-* flags empty to disable SIEM forwarding entirely. Also read from MUSTER_SIEM_HEC_URL.")
 		siemHECToken = flag.String("siem-hec-token", os.Getenv("MUSTER_SIEM_HEC_TOKEN"), "Splunk HEC token, sent as \"Authorization: Splunk <token>\". Required once -siem-hec-url is set. Also read from MUSTER_SIEM_HEC_TOKEN.")
@@ -280,6 +283,7 @@ func main() {
 		VulnFeedInterval:     *vulnFeedInterval,
 		SIEMForwarder:        siemDynamic,
 		SettingsOverridePath: overridesPath,
+		Breach:               breach.New(*hibpAPIKey),
 	}
 	apiSrv.Register(mux)
 	mux.Handle("/", webHandler)

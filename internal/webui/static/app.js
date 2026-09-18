@@ -1328,7 +1328,10 @@
   // hostRiskCard is the host page's risk breakdown -- the score plus
   // every factor that fed it, so the number is never a black box.
   function hostRiskCard(r) {
+    const trustScore = 100 - r.score;
+    const trustLevel = trustScore >= 75 ? "trusted" : trustScore >= 50 ? "conditional" : "untrusted";
     const body = el("div", { class: "posture-body" }, riskBadge(r.score, r.level),
+      el("span", { class: `posture-badge ${trustLevel === "trusted" ? "posture-good" : trustLevel === "conditional" ? "posture-warn" : "posture-bad"}`, title: "device trust, as GET /api/trust/{host} reports it to an access gate", text: `trust ${trustScore} ${trustLevel}` }),
       el("span", { class: "meta", text: ` criticality ${r.criticality}, ${r.exposure === "internet" ? "internet-facing" : "internal"} (×${r.multiplier.toFixed(2)})` }));
     if (r.factors && r.factors.length) {
       const list = el("ul", { class: "posture-findings" });
@@ -1458,6 +1461,59 @@
     return card;
   }
 
+  // signalsCard is the Fleet tab's behavioral-signals section (UEBA-lite
+  // over the audit trail, see internal/ueba). Admin-only server-side;
+  // a readonly credential sees the explanation, not an error page.
+  async function signalsCard() {
+    const card = el("div", { class: "fact-card" }, el("h2", { text: "Behavioral signals" }), el("p", { class: "meta", text: "Loading…" }));
+    try {
+      const d = await api("/api/signals?days=7");
+      const rows = d.signals.map((sg) => el("li", { class: "vuln-row" },
+        el("span", { class: `severity-pill ${sg.severity === "high" ? "severity-critical" : sg.severity === "medium" ? "severity-medium" : "severity-low"}`, text: sg.severity }),
+        el("span", { class: "vuln-detail" }, el("strong", { text: `${sg.kind} — ${sg.actor}` }), ` ${sg.detail}`, el("div", { class: "meta", text: `${timeAgo(sg.at)}${sg.examples && sg.examples.length ? ` · audit ${sg.examples.join(", ")}` : ""}` }))));
+      card.replaceChildren(el("h2", { text: `Behavioral signals (${d.signals.length}, last ${d.window_days} days)` }),
+        el("p", { class: "meta", text: d.note + ` Scanned ${d.entries_scanned} audit entries.` }),
+        rows.length ? el("ul", { class: "vuln-list" }, ...rows) : el("p", { text: "Nothing unusual in operator activity." }));
+    } catch (err) {
+      card.replaceChildren(el("h2", { text: "Behavioral signals" }), el("p", { text: `Couldn't load signals: ${err.message} -- requires an admin credential.` }));
+    }
+    return card;
+  }
+
+  // breachCard is the Compliance tab's Have I Been Pwned lookup.
+  function breachCard() {
+    const input = el("input", { type: "text", placeholder: "your-company.com" });
+    const btn = el("button", { type: "submit", text: "Check" });
+    const msg = el("span", { class: "save-msg" });
+    const results = el("div", {});
+    const form = el("form", { class: "editor-row" }, el("label", { text: "Domain" }), input, btn, msg);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const domain = input.value.trim();
+      if (!domain) return;
+      msg.textContent = "Checking…";
+      try {
+        const d = await api(`/api/breaches?domain=${encodeURIComponent(domain)}`);
+        msg.textContent = "";
+        const parts = [el("p", { class: "meta", text: d.mode })];
+        if (d.account_lookup_configured) {
+          const aliases = Object.entries(d.exposed_aliases || {});
+          parts.push(el("p", { text: `${d.exposed_count} account(s) on ${domain} appear in known breaches.` }));
+          if (aliases.length) parts.push(el("ul", { class: "posture-findings" }, ...aliases.slice(0, 50).map(([a, bs]) => el("li", { text: `${a}@${domain}: ${bs.join(", ")}` }))));
+        }
+        const bs = d.breaches_of_domain || [];
+        parts.push(el("p", { text: bs.length ? `${bs.length} known breach(es) of ${domain} itself:` : `No known breaches of ${domain} itself.` }));
+        if (bs.length) parts.push(el("ul", { class: "posture-findings" }, ...bs.map((b) => el("li", { text: `${b.Title} (${b.BreachDate}): ${b.PwnCount.toLocaleString()} accounts, ${(b.DataClasses || []).slice(0, 4).join(", ")}` }))));
+        results.replaceChildren(...parts);
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    return el("div", { class: "fact-card" }, el("h2", { text: "Breach exposure (Have I Been Pwned)" }),
+      el("p", { class: "meta", text: "With an HIBP API key (-hibp-api-key), lists every account on your domain found in a known breach; without one, the public list of breaches of the domain itself. Admin only." }),
+      form, results);
+  }
+
   async function showFleet() {
     let summary;
     try {
@@ -1574,8 +1630,10 @@
     approvalsCard().then((card) => approvalsSlot.replaceChildren(card));
     const alertsSlot = el("div", {});
     alertsCard().then((card) => alertsSlot.replaceChildren(card));
+    const signalsSlot = el("div", {});
+    signalsCard().then((card) => signalsSlot.replaceChildren(card));
 
-    const nodes = [heading, stats, approvalsSlot, alertsSlot, trendSlot, riskSlot, benchSlot, driftSlot, reportsCard(), platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
+    const nodes = [heading, stats, approvalsSlot, alertsSlot, signalsSlot, trendSlot, riskSlot, benchSlot, driftSlot, reportsCard(), platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
 
     if (audit) {
       const auditList = audit.length
@@ -2330,7 +2388,7 @@
     const rulesFormSlot = el("div", {});
     const rulesListSlot = el("div", {});
     const sprawlSlot = el("div", {});
-    app.replaceChildren(heading, summarySlot, rulesFormSlot, rulesListSlot, sprawlSlot);
+    app.replaceChildren(heading, summarySlot, rulesFormSlot, rulesListSlot, sprawlSlot, breachCard());
     sprawlCard().then((card) => sprawlSlot.replaceChildren(card));
 
     // Framework selector: every built-in framework scores the same

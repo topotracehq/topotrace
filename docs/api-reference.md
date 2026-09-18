@@ -154,6 +154,23 @@ not alphabetically.
 - `GET /api/auth/login`, `GET /api/auth/callback`, `POST /api/auth/logout`
   -- OAuth2/OIDC login for the web dashboard, if configured. See the
   Security Model page.
+- `GET /api/trust/{host}?min=N` -- the device-trust verdict for an
+  external access gate (`readonly`, so a gate can hold a key scoped to
+  nothing else): `score` (100 minus the blended risk score), `level`
+  (`trusted` >= 75, `conditional` >= 50, else `untrusted`; a stale host
+  is never `trusted`), `allow` (score >= `min`, default 50), the
+  reasons, and the thresholds. An unenrolled host gets an `untrusted`
+  verdict rather than a 404. Denied decisions are audited as
+  `trust-denied`. See the README's zero-trust section for an
+  `auth_request` example.
+- `GET /api/signals?days=N` -- `internal/ueba`'s behavioral findings
+  over the audit trail (`admin`): off-hours writes, bursts, mass
+  deletes, remediation runs, new admin keys, settings changes,
+  first-seen actors -- each with the rule, actor, count and audit IDs.
+- `GET /api/breaches?domain=example.com` -- Have I Been Pwned lookup
+  (`admin`, audited): with `-hibp-api-key`, every alias on the domain
+  found in a breach; always, the public list of breaches of the domain
+  itself, and a `mode` string saying which you got.
 - `GET /api/notifications/queue` -- the outbound delivery queue
   (`admin`): configured sinks (generic webhook URLs redacted to their
   host), pending deliveries with attempts/next attempt/last error, and

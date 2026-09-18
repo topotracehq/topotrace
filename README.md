@@ -723,6 +723,56 @@ Fleet tab (`GET /api/summary`), and as their own Muster Baseline
 compliance check (`no-shadow-ai`, see "Compliance frameworks" in the
 in-app Docs tab).
 
+## Device trust for zero-trust access, behavioral signals, breach exposure
+
+```
+GET /api/trust/{host}?min=60     # readonly -- for a gateway, browser, or SSO policy
+GET /api/signals?days=7          # admin -- UEBA-lite over the audit trail
+GET /api/breaches?domain=x.com   # admin -- Have I Been Pwned
+```
+
+**Device trust.** Everything above reports on posture; this is the
+endpoint that lets something else act on it. `internal/trust` turns the
+blended risk score into a verdict a ZTNA gateway, an enterprise browser,
+a VPN or an SSO conditional-access policy can ask for before granting a
+device access: `score` (100 minus risk), `level`, `allow` against the
+caller's own bar, the reasons, and the thresholds -- so the gate and the
+person reading the audit trail see the same rule. A stale host is never
+"trusted"; an unenrolled host is "untrusted," not a 404. Denied
+decisions are audited. As an nginx `auth_request` it's roughly:
+
+```nginx
+location = /_muster_trust {
+    internal;
+    proxy_pass http://muster:8080/api/trust/$http_x_device_name?min=60;
+    proxy_set_header Authorization "Bearer <readonly-key>";
+}
+# ... and a small script/Lua block turning {"allow": false} into a 403.
+```
+
+**Behavioral signals.** `internal/ueba` runs explainable heuristics over
+Muster's own audit trail -- the one dataset it already has about its
+operators: writes outside business hours or on weekends, a burst of
+writes, a run of remediations, mass deletes, a new admin-role API key,
+a settings change, an actor nobody's seen before. Each signal names
+the rule, the actor, the count and the audit entries. It's the UEBA
+idea applied to Muster's own users, and the doc comment says what a
+real product adds on top (per-user baselines, peer groups, a scoring
+model). Fleet tab, admin only.
+
+**Breach exposure.** `internal/breach` asks Have I Been Pwned whether
+an organization's domain shows up in known credential breaches. With
+an HIBP API key (`-hibp-api-key`, paid, requires verifying the domain)
+it lists every account on the domain found in a breach -- the signal
+that matters for a fleet. Without one, it still returns the public list
+of breaches of the domain itself and says plainly that's what it is.
+The public lookup was exercised for real from this environment
+(adobe.com, 152M accounts, 2013); the keyed lookup is unit-tested
+against the documented response shape but not against a live key.
+Compliance tab, admin only.
+
+![Breach exposure](docs/screenshots/compliance-breach.png)
+
 ## OS lifecycle, certificate expiry, SBOMs & license sprawl
 
 ```

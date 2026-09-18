@@ -41,6 +41,7 @@ import (
 	"muster/docs"
 	"muster/internal/aiquery"
 	"muster/internal/allowlist"
+	"muster/internal/breach"
 	"muster/internal/browserext"
 	"muster/internal/certs"
 	"muster/internal/compliance"
@@ -157,6 +158,10 @@ type Server struct {
 	// PATCH /api/settings still updates the live in-memory state, it
 	// just won't be there after a restart.
 	SettingsOverridePath string
+
+	// Breach is the Have I Been Pwned client (see internal/breach);
+	// nil means public lookups only, same as a client with no key.
+	Breach *breach.Client
 }
 
 func (s *Server) log() *slog.Logger {
@@ -202,6 +207,9 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/drift", s.handleFleetDrift)
 	mux.HandleFunc("GET /api/notifications/queue", s.handleNotifyQueue)
 	mux.HandleFunc("POST /api/notifications/test", s.handleNotifyTest)
+	mux.HandleFunc("GET /api/trust/{host}", s.handleTrust)
+	mux.HandleFunc("GET /api/signals", s.handleSignals)
+	mux.HandleFunc("GET /api/breaches", s.handleBreaches)
 	mux.HandleFunc("GET /api/alerts", s.handleListAlerts)
 	mux.HandleFunc("POST /api/alerts/snooze", s.handleSnoozeAlert)
 	mux.HandleFunc("GET /api/approvals", s.handleListApprovals)
