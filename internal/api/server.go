@@ -37,6 +37,7 @@ import (
 	"muster/internal/remediate"
 	"muster/internal/settingsstore"
 	"muster/internal/siemforward"
+	"muster/internal/signals"
 	"muster/internal/store"
 	"muster/internal/vuln"
 	"muster/internal/webhook"
@@ -171,6 +172,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/hosts/{host}/compliance", s.handleGetCompliance)
 	mux.HandleFunc("GET /api/compliance/summary", s.handleComplianceSummary)
 	mux.HandleFunc("GET /api/summary", s.handleSummary)
+	mux.HandleFunc("GET /api/history", s.handleFleetHistory)
+	mux.HandleFunc("GET /api/hosts/{host}/history", s.handleHostHistory)
 	mux.HandleFunc("GET /api/audit", s.handleListAudit)
 	mux.HandleFunc("GET /api/policies", s.handleListPolicies)
 	mux.HandleFunc("POST /api/policies", s.handleCreatePolicy)
@@ -1147,35 +1150,7 @@ func (s *Server) handleGetSoftwareViolations(w http.ResponseWriter, r *http.Requ
 // once here so handleGetCompliance and handleComplianceSummary don't
 // each repeat it by hand.
 func (s *Server) complianceInput(ctx context.Context, host model.Host, softwareRules []model.SoftwareRule) (compliance.Input, error) {
-	byCategory, err := s.factsByCategory(ctx, host.Name)
-	if err != nil {
-		return compliance.Input{}, err
-	}
-	stale := policy.IsStale(host.LastCooked, time.Now().UTC())
-	posture := policy.ComputePosture(host.Platform, byCategory, stale)
-
-	var vulnFindings []vuln.Finding
-	if sw, ok := byCategory["installed_software"]; ok {
-		vulnFindings = vuln.CheckWithFeed(sw.Data["items"], s.VulnFeed)
-	}
-
-	var inScope []model.SoftwareRule
-	for _, rule := range softwareRules {
-		if rule.Group == "" || rule.Group == host.Group {
-			inScope = append(inScope, rule)
-		}
-	}
-	var violations []allowlist.Violation
-	var shadowAI []allowlist.Violation
-	if sw, ok := byCategory["installed_software"]; ok {
-		violations = allowlist.Evaluate(sw.Data["items"], inScope)
-		shadowAI = allowlist.EvaluateShadowAI(sw.Data["items"], inScope)
-	}
-
-	return compliance.Input{
-		Host: host, Facts: byCategory, Stale: stale, Posture: posture,
-		VulnFindings: vulnFindings, SoftwareViolations: violations, ShadowAIViolations: shadowAI,
-	}, nil
+	return signals.Gather(ctx, s.Store, host, softwareRules, s.VulnFeed)
 }
 
 // handleGetCompliance is GET /api/hosts/{host}/compliance -- evaluates

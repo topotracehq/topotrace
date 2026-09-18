@@ -70,6 +70,17 @@ not alphabetically.
 
 - `GET /api/summary` -- fleet rollup (counts, average posture, hosts
   with shadow AI detections, etc).
+- `GET /api/history?days=N` -- fleet-wide score trend (default 30
+  days, max 365): one bucket per day (per hour when `days<=2`) with
+  average posture, average compliance, hosts with vulnerabilities and
+  stale hosts, plus a `mttr` rollup -- mean/median time to remediate
+  over spans that closed in the window, how many hosts are still
+  non-compliant, and the oldest open span. Built from the per-host
+  series the background evaluator records once per run (see the
+  Fleet dashboard page); empty buckets on a brand-new server.
+- `GET /api/hosts/{host}/history?days=N` -- one host's raw recorded
+  points (posture, compliance, vulnerability count, stale) inside the
+  window, oldest first.
 - `GET /api/audit` -- audit trail (`admin`).
 - `GET/POST /api/keys`, `DELETE /api/keys/{id}` -- named API keys
   (`admin`).

@@ -76,14 +76,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("seed: wrote %d hosts, %d software rules, %d policy rules, %d discovered assets\n", n.hosts, n.softwareRules, n.policyRules, n.discoveredAssets)
+	fmt.Printf("seed: wrote %d hosts, %d software rules, %d policy rules, %d discovered assets, %d score-history points (30 days)\n", n.hosts, n.softwareRules, n.policyRules, n.discoveredAssets, n.historyPoints)
 	if *postgresDSN == "" {
 		fmt.Println("seed: memstore backend -- (re)start cmd/muster against the same -data-dir to serve this data.")
 	}
 }
 
 type counts struct {
-	hosts, softwareRules, policyRules, discoveredAssets int
+	hosts, softwareRules, policyRules, discoveredAssets, historyPoints int
 }
 
 func seed(ctx context.Context, st store.Store) (counts, error) {
@@ -127,6 +127,14 @@ func seed(ctx context.Context, st store.Store) (counts, error) {
 			return n, fmt.Errorf("recording discovered asset %s: %w", a.Address, err)
 		}
 		n.discoveredAssets++
+	}
+
+	hosts, err := st.ListHosts(ctx)
+	if err != nil {
+		return n, fmt.Errorf("listing hosts for history: %w", err)
+	}
+	if n.historyPoints, err = seedHistory(ctx, st, hosts, now); err != nil {
+		return n, err
 	}
 
 	if _, err := st.RecordAudit(ctx, "seed-tool", "seed-demo-data", "", fmt.Sprintf("%d hosts, %d software rules, %d policy rules, %d discovered assets", n.hosts, n.softwareRules, n.policyRules, n.discoveredAssets)); err != nil {

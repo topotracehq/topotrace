@@ -605,6 +605,22 @@
     ];
 
     if (posture) nodes.push(postureCard(posture));
+    // 30-day sparkline, filled in asynchronously so a slow history load
+    // never holds up the rest of the page.
+    const historySlot = el("div", { class: "fact-card" }, el("h2", { text: "Score history (30 days)" }), el("p", { class: "meta", text: "Loading…" }));
+    nodes.push(historySlot);
+    api(`/api/hosts/${encodeURIComponent(name)}/history?days=30`).then((h) => {
+      if (!h.points || h.points.length < 2) {
+        historySlot.replaceChildren(el("h2", { text: "Score history (30 days)" }), el("p", { class: "meta", text: "Not enough history recorded yet -- the evaluator adds a point every run." }));
+        return;
+      }
+      const first = h.points[0], last = h.points[h.points.length - 1];
+      historySlot.replaceChildren(
+        el("h2", { text: "Score history (30 days)" }),
+        el("div", { class: "spark-row" }, sparkline(h.points, HOST_TREND_SERIES),
+          el("span", { class: "meta", text: `posture ${first.posture} → ${last.posture}, compliance ${first.compliance} → ${last.compliance}, ${h.points.length} points` }))
+      );
+    }).catch((err) => historySlot.replaceChildren(el("h2", { text: "Score history" }), el("p", { class: "meta", text: `Couldn't load: ${err.message}` })));
     nodes.push(vulnerabilitiesCard(findings || []));
     nodes.push(softwareViolationsCard((softwareViolations && softwareViolations.violations) || []));
     nodes.push(shadowAICard((softwareViolations && softwareViolations.shadow_ai) || []));
@@ -879,6 +895,173 @@
     return el("div", { class: `stat-card ${extraClass || ""}` }, el("div", { class: "stat-value", text: String(value) }), el("div", { class: "stat-label", text: label }));
   }
 
+  // svgEl is el() for the SVG namespace -- createElement("svg") would
+  // make an HTML element that renders nothing.
+  function svgEl(tag, attrs, ...children) {
+    const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (k === "text") node.textContent = v;
+      else node.setAttribute(k, v);
+    }
+    for (const child of children) if (child != null) node.appendChild(child);
+    return node;
+  }
+
+  // TREND_SERIES is the fixed color order for the score-trend chart:
+  // posture always gold, compliance always blue, regardless of which is
+  // shown -- color follows the series, never its position.
+  const TREND_SERIES = [
+    { key: "avg_posture", label: "Avg posture", short: "Posture", color: "#d9a70f" },
+    { key: "avg_compliance", label: "Avg compliance", short: "Compliance", color: "#2f6fb3" },
+  ];
+
+  // trendChart draws buckets (from GET /api/history) as thin lines on a
+  // single 0-100 axis, with a recessive grid, direct end labels, and a
+  // hover crosshair + tooltip. Hand-rolled SVG, same no-dependency
+  // stance as the rest of this UI.
+  function trendChart(buckets, series, opts) {
+    const W = (opts && opts.width) || 720, H = (opts && opts.height) || 200;
+    const padL = 34, padR = 96, padT = 12, padB = 26;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "trend-chart", role: "img", "aria-label": "Score trend" });
+    if (!buckets.length) return svg;
+    const x = (i) => padL + (buckets.length === 1 ? plotW / 2 : (i / (buckets.length - 1)) * plotW);
+    const y = (v) => padT + plotH - (Math.max(0, Math.min(100, v)) / 100) * plotH;
+
+    for (const g of [0, 25, 50, 75, 100]) {
+      svg.appendChild(svgEl("line", { x1: padL, x2: padL + plotW, y1: y(g), y2: y(g), class: "trend-grid" }));
+      svg.appendChild(svgEl("text", { x: padL - 6, y: y(g) + 4, class: "trend-axis", "text-anchor": "end", text: String(g) }));
+    }
+    const fmtDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const tickEvery = Math.max(1, Math.ceil(buckets.length / 6));
+    buckets.forEach((b, i) => {
+      if (i % tickEvery === 0 || i === buckets.length - 1) {
+        svg.appendChild(svgEl("text", { x: x(i), y: H - 8, class: "trend-axis", "text-anchor": "middle", text: fmtDate(b.at) }));
+      }
+    });
+
+    const last = buckets[buckets.length - 1];
+    // direct end labels, nudged apart when two series end within 14px of
+    // each other so neither overprints the other
+    const labelYs = series.map((s) => y(last[s.key]));
+    const order = labelYs.map((v, i) => i).sort((a, b) => labelYs[a] - labelYs[b]);
+    for (let k = 1; k < order.length; k++) {
+      const prev = order[k - 1], cur = order[k];
+      if (labelYs[cur] - labelYs[prev] < 14) labelYs[cur] = labelYs[prev] + 14;
+    }
+    series.forEach((s, si) => {
+      const d = buckets.map((b, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(b[s.key]).toFixed(1)}`).join(" ");
+      svg.appendChild(svgEl("path", { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+      svg.appendChild(svgEl("circle", { cx: x(buckets.length - 1), cy: y(last[s.key]), r: 4, fill: s.color, stroke: "#fff", "stroke-width": 2 }));
+      svg.appendChild(svgEl("text", { x: padL + plotW + 10, y: labelYs[si] + 4, class: "trend-label", text: `${s.short || s.label} ${last[s.key]}` }));
+    });
+
+    // hover layer: crosshair + tooltip, hit target is the whole plot
+    const cross = svgEl("line", { class: "trend-cross", y1: padT, y2: padT + plotH, style: "display:none" });
+    const tip = svgEl("g", { class: "trend-tip", style: "display:none" });
+    const tipBg = svgEl("rect", { rx: 4, ry: 4, class: "trend-tip-bg" });
+    const tipText = svgEl("text", { class: "trend-tip-text" });
+    tip.append(tipBg, tipText);
+    const hit = svgEl("rect", { x: padL, y: padT, width: plotW, height: plotH, fill: "transparent" });
+    hit.addEventListener("mousemove", (e) => {
+      const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+      const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+      const i = Math.round(((loc.x - padL) / plotW) * (buckets.length - 1));
+      const b = buckets[Math.max(0, Math.min(buckets.length - 1, i))];
+      cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.style.display = "";
+      tipText.replaceChildren();
+      const lines = [fmtDate(b.at), ...series.map((s) => `${s.label}: ${b[s.key]}`), `${b.hosts} hosts, ${b.stale_hosts} stale, ${b.hosts_with_vulns} w/ vulns`];
+      lines.forEach((t, li) => tipText.appendChild(svgEl("tspan", { x: 0, dy: li === 0 ? 0 : 14, text: t })));
+      const tw = Math.max(...lines.map((t) => t.length)) * 6.2 + 12, th = lines.length * 14 + 8;
+      const tx = Math.min(x(i) + 10, W - tw - 4), ty = padT + 4;
+      tip.setAttribute("transform", `translate(${tx},${ty})`);
+      tipBg.setAttribute("width", tw); tipBg.setAttribute("height", th);
+      tipText.setAttribute("transform", "translate(6,15)");
+      tip.style.display = "";
+    });
+    hit.addEventListener("mouseleave", () => { cross.style.display = "none"; tip.style.display = "none"; });
+    svg.append(cross, tip, hit);
+    return svg;
+  }
+
+  function trendLegend(series) {
+    return el("div", { class: "trend-legend" }, ...series.map((s) =>
+      el("span", {}, el("span", { class: "trend-swatch", style: `background:${s.color}` }), s.label)));
+  }
+
+  function hoursLabel(h) {
+    if (!h) return "n/a";
+    if (h < 48) return `${Math.round(h)}h`;
+    return `${(h / 24).toFixed(1)}d`;
+  }
+
+  // trendCard is the Fleet tab's "Trends" section: the 30-day score
+  // chart plus the time-to-remediate rollup next to it, both from
+  // GET /api/history. A server with no history yet says so instead of
+  // drawing an empty chart.
+  async function trendCard(days) {
+    const card = el("div", { class: "fact-card" }, el("h2", { text: `Trends (last ${days} days)` }), el("p", { class: "meta", text: "Loading…" }));
+    try {
+      const h = await api(`/api/history?days=${days}`);
+      card.replaceChildren(el("h2", { text: `Trends (last ${h.window_days} days)` }));
+      if (!h.buckets.length) {
+        card.appendChild(el("p", { text: "No score history recorded yet -- the background evaluator records one point per host each run (every 5 minutes by default), so check back shortly." }));
+        return card;
+      }
+      const m = h.mttr;
+      const mttr = el("div", { class: "stat-grid mttr-grid" },
+        statCard("Mean time to remediate", hoursLabel(m.mean_hours)),
+        statCard("Median", hoursLabel(m.median_hours)),
+        statCard("Resolved in window", m.resolved),
+        statCard("Still open", m.still_open, m.still_open > 0 ? "stat-warn" : ""),
+        statCard("Oldest open", hoursLabel(m.oldest_open_hours), m.oldest_open_hours > 72 ? "stat-warn" : "")
+      );
+      const first = h.buckets[0], last = h.buckets[h.buckets.length - 1];
+      const delta = (k) => { const d = last[k] - first[k]; return `${d >= 0 ? "+" : ""}${d}`; };
+      card.append(
+        trendLegend(TREND_SERIES),
+        trendChart(h.buckets, TREND_SERIES),
+        el("p", { class: "meta", text: `Posture ${first.avg_posture} → ${last.avg_posture} (${delta("avg_posture")}), compliance ${first.avg_compliance} → ${last.avg_compliance} (${delta("avg_compliance")}) across ${h.hosts_tracked} tracked hosts. Time to remediate measures how long a host stays below 100% compliance before it's back.` }),
+        mttr
+      );
+      if (m.spans && m.spans.length) {
+        const table = el("table", { class: "fact-table" });
+        table.appendChild(el("tr", {}, el("th", { text: "Host" }), el("th", { text: "Fell out" }), el("th", { text: "Fixed" }), el("th", { text: "Took" })));
+        for (const sp of m.spans.slice(0, 8)) {
+          table.appendChild(el("tr", {}, el("td", {}, el("a", { href: `#/host/${encodeURIComponent(sp.host)}`, text: sp.host })),
+            el("td", { text: timeAgo(sp.from) }), el("td", { text: timeAgo(sp.to) }), el("td", { text: hoursLabel(sp.duration_hours) })));
+        }
+        card.appendChild(el("details", {}, el("summary", { text: `Recent remediations (${m.spans.length})` }), table));
+      }
+    } catch (err) {
+      card.replaceChildren(el("h2", { text: "Trends" }), el("p", { text: `Couldn't load score history: ${err.message}` }));
+    }
+    return card;
+  }
+
+  // sparkline is the host-detail miniature of trendChart: posture and
+  // compliance over the window, no axes, direct end values only.
+  function sparkline(points, series) {
+    const W = 420, H = 72;
+    const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "sparkline", role: "img", "aria-label": "Score history" });
+    if (points.length < 2) return svg;
+    const x = (i) => 4 + (i / (points.length - 1)) * (W - 110);
+    const y = (v) => 4 + (H - 8) - (Math.max(0, Math.min(100, v)) / 100) * (H - 8);
+    const last = points[points.length - 1];
+    const ys = series.map((s) => y(last[s.key]));
+    if (ys.length === 2 && Math.abs(ys[0] - ys[1]) < 12) { const mid = (ys[0] + ys[1]) / 2; ys[0] = mid - 6; ys[1] = mid + 6; }
+    series.forEach((s, si) => {
+      const d = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p[s.key]).toFixed(1)}`).join(" ");
+      svg.appendChild(svgEl("path", { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round" }));
+      svg.appendChild(svgEl("text", { x: W - 98, y: ys[si] + 4, class: "trend-label", text: `${s.short} ${last[s.key]}` }));
+    });
+    return svg;
+  }
+  const HOST_TREND_SERIES = [
+    { key: "posture", label: "Avg posture", short: "Posture", color: "#d9a70f" },
+    { key: "compliance", label: "Avg compliance", short: "Compliance", color: "#2f6fb3" },
+  ];
+
   async function showFleet() {
     let summary;
     try {
@@ -980,7 +1163,10 @@
     }
     renderDiscovered(discoveredAssets);
 
-    const nodes = [heading, stats, platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
+    const trendSlot = el("div", {});
+    trendCard(30).then((card) => trendSlot.replaceChildren(card));
+
+    const nodes = [heading, stats, trendSlot, platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
 
     if (audit) {
       const auditList = audit.length

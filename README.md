@@ -893,6 +893,35 @@ flag/env-only by design -- see `docs/api-reference.md` for the full
 field list. Everything else about this endpoint's response shape is
 identical to `GET`'s.
 
+## Score history, trends & time to remediate
+
+```
+GET /api/history?days=30            # readonly
+GET /api/hosts/{host}/history       # readonly
+```
+
+Every score in Muster used to be computed fresh per request and then
+forgotten -- a host was compliant or it wasn't, right now, with no way
+to say whether the fleet was getting better. The background evaluator
+(`internal/evaluator`) now records one `internal/history` point per host
+per run -- posture score, compliance score, vulnerability count, stale
+flag -- into a capped per-host series (a `model.Document`, see
+`internal/store`), and the Fleet tab draws the last 30 days as a trend
+chart with a hover crosshair:
+
+![Fleet trends](docs/screenshots/fleet-trends.png)
+
+The same series is what makes **time to remediate** measurable: the
+rollup finds every span where a host's compliance dipped below 100% and
+later recovered, and reports mean/median hours over the window, how
+many hosts are still open, and the oldest open span -- the metric a
+security program gets asked about ("are we fixing things faster?")
+that a snapshot tool can't answer. Each host's detail page shows its
+own 30-day sparkline. `cmd/seed` backfills 30 days of synthetic history
+(ending at each host's real current scores, with a few deliberate
+"fell out, then fixed" incidents) so a demo instance has a trend to
+show on day one.
+
 ## Fleet dashboard
 
 ```

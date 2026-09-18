@@ -770,3 +770,19 @@ main#app {
   resize: vertical;
   box-sizing: border-box;
 }
+
+/* Score trends (Fleet tab) and host sparklines -- see trendChart in app.js */
+.trend-chart { width: 100%; height: auto; display: block; margin: 6px 0 4px; }
+.trend-grid { stroke: var(--mu-border); stroke-width: 1; }
+.trend-axis { fill: var(--mu-text-muted); font-size: 11px; }
+.trend-label { fill: var(--mu-text); font-size: 12px; font-weight: 600; }
+.trend-cross { stroke: var(--mu-text-muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.trend-tip-bg { fill: var(--mu-black); opacity: 0.92; }
+.trend-tip-text { fill: var(--mu-white); font-size: 11px; }
+.trend-legend { display: flex; gap: 16px; font-size: 0.82rem; color: var(--mu-text-muted); margin-top: 4px; }
+.trend-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.trend-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.mttr-grid { margin-top: 12px; }
+.sparkline { width: 420px; max-width: 100%; height: auto; display: block; }
+.fact-card details summary { cursor: pointer; font-size: 0.85rem; color: var(--mu-text-muted); margin-top: 8px; }
+.spark-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }

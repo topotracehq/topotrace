@@ -19,9 +19,12 @@ import (
 	"time"
 
 	"muster/internal/allowlist"
+	"muster/internal/compliance"
+	"muster/internal/history"
 	"muster/internal/model"
 	"muster/internal/policy"
 	"muster/internal/remediate"
+	"muster/internal/signals"
 	"muster/internal/store"
 	"muster/internal/vuln"
 	"muster/internal/webhook"
@@ -74,9 +77,9 @@ func (e *Evaluator) runOnce(ctx context.Context) {
 		e.log().Error("evaluator: listing software rules", "err", err)
 		return
 	}
-	if len(rules) == 0 && len(softwareRules) == 0 {
-		return // nothing configured -- don't even bother fetching hosts/facts
-	}
+	// Even with no rules configured there's still work to do each run:
+	// recording every host's score-history point (see internal/history)
+	// is what makes trend charts and time-to-remediate possible at all.
 
 	hosts, err := e.Store.ListHosts(ctx)
 	if err != nil {
@@ -100,8 +103,17 @@ func (e *Evaluator) evaluateHost(ctx context.Context, h model.Host, rules []mode
 	for _, f := range facts {
 		byCategory[f.Category] = f
 	}
-	stale := policy.IsStale(h.LastCooked, now)
-	posture := policy.ComputePosture(h.Platform, byCategory, stale)
+	in := signals.FromFacts(h, byCategory, softwareRules, e.VulnFeed, now)
+	stale, posture := in.Stale, in.Posture
+
+	// One score-history point per host per run, computed from the same
+	// signals every rule below is judged against.
+	comp := compliance.Baseline.Evaluate(in)
+	if err := history.Record(ctx, e.Store, h.Name, history.Point{
+		At: now, Posture: posture.Score, Compliance: comp.Score, Vulns: len(in.VulnFindings), Stale: stale,
+	}); err != nil {
+		e.log().Error("evaluator: recording score history", "host", h.Name, "err", err)
+	}
 
 	e.evaluateSoftware(ctx, h, softwareRules, byCategory)
 
