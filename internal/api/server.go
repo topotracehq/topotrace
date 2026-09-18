@@ -176,6 +176,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/risk", s.handleFleetRisk)
 	mux.HandleFunc("GET /api/hosts/{host}/risk", s.handleHostRisk)
 	mux.HandleFunc("GET /api/benchmark", s.handleBenchmark)
+	mux.HandleFunc("GET /api/reports/executive", s.handleReportHTML)
+	mux.HandleFunc("GET /api/reports/{name}", s.handleReportCSV)
 	mux.HandleFunc("GET /api/hosts/{host}/history", s.handleHostHistory)
 	mux.HandleFunc("GET /api/audit", s.handleListAudit)
 	mux.HandleFunc("GET /api/policies", s.handleListPolicies)

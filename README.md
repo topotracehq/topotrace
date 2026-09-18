@@ -953,6 +953,27 @@ average mid-sized mixed fleet, not survey data and not a claim about any
 real industry. It's the seam a licensed or collected dataset would plug
 into.
 
+## Reports & exports
+
+```
+GET /api/reports/executive                 # readonly -- print-ready HTML
+GET /api/reports/compliance.csv            # readonly
+GET /api/reports/risk.csv                  # readonly
+GET /api/reports/vulnerabilities.csv       # readonly
+GET /api/reports/audit.csv                 # admin
+```
+
+For the person who will never open the dashboard: `internal/report`
+builds a one-page executive summary (headline stats, 30-day trend,
+highest-risk hosts, known vulnerabilities, recent activity) as a
+standalone HTML page laid out for the browser's own Print / Save as PDF
+-- no PDF library, on purpose, so there's no rendering dependency to
+own -- plus four CSV exports carrying exactly the numbers the dashboard
+shows. The Fleet tab's "Reports & exports" card wires all five up
+(fetching with the bearer token, since a plain link can't).
+
+![Executive report](docs/screenshots/executive-report.png)
+
 ## Fleet dashboard
 
 ```

@@ -1141,6 +1141,55 @@
     return el("div", { class: "fact-card" }, el("h2", { text: "Risk score" }), body);
   }
 
+  // downloadWithToken fetches an API path carrying the bearer token (a
+  // plain <a href> can't send the Authorization header) and either
+  // saves the response as a file or opens it in a new tab.
+  async function downloadWithToken(path, filename, openInTab) {
+    const headers = {};
+    const token = getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(path, { headers });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error((body && body.error) || `request failed: ${res.status}`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    if (openInTab) {
+      window.open(url, "_blank");
+    } else {
+      const a = el("a", { href: url, download: filename });
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  // reportsCard is the Fleet tab's export section: the print-ready
+  // executive summary and the four CSV exports (see internal/report).
+  function reportsCard() {
+    const msg = el("span", { class: "save-msg" });
+    const btn = (label, path, filename, openInTab) => {
+      const b = el("button", { type: "button", text: label });
+      b.addEventListener("click", async () => {
+        msg.textContent = "Preparing…";
+        try { await downloadWithToken(path, filename, openInTab); msg.textContent = ""; }
+        catch (err) { msg.textContent = `Error: ${err.message}`; }
+      });
+      return b;
+    };
+    const today = new Date().toISOString().slice(0, 10);
+    return el("div", { class: "fact-card" },
+      el("h2", { text: "Reports & exports" }),
+      el("p", { class: "meta", text: "The executive report opens as a print-ready page (use your browser's Print / Save as PDF). CSV exports carry the same numbers the dashboard shows. Audit export needs an admin credential." }),
+      el("div", { class: "editor-row" },
+        btn("Executive report", "/api/reports/executive", "", true),
+        btn("Compliance CSV", "/api/reports/compliance.csv", `muster-compliance-${today}.csv`),
+        btn("Risk CSV", "/api/reports/risk.csv", `muster-risk-${today}.csv`),
+        btn("Vulnerabilities CSV", "/api/reports/vulnerabilities.csv", `muster-vulnerabilities-${today}.csv`),
+        btn("Audit CSV", "/api/reports/audit.csv", `muster-audit-${today}.csv`),
+        msg));
+  }
+
   async function showFleet() {
     let summary;
     try {
@@ -1249,7 +1298,7 @@
     const benchSlot = el("div", {});
     benchmarkCard().then((card) => benchSlot.replaceChildren(card));
 
-    const nodes = [heading, stats, trendSlot, riskSlot, benchSlot, platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
+    const nodes = [heading, stats, trendSlot, riskSlot, benchSlot, reportsCard(), platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
 
     if (audit) {
       const auditList = audit.length

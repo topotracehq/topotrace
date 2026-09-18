@@ -132,6 +132,18 @@ not alphabetically.
   Every accepted edit is written to the audit trail (`settings_updated`),
   detail text only, never a secret value.
 
+## Reports & exports
+
+- `GET /api/reports/executive` -- a standalone, print-ready HTML
+  executive summary (fleet stats, 30-day trend, highest-risk hosts,
+  known vulnerabilities, and -- for an admin credential -- recent
+  audit activity). Use the browser's Print / Save as PDF; there is
+  deliberately no PDF library. `readonly`.
+- `GET /api/reports/{compliance|risk|vulnerabilities|audit}.csv` --
+  CSV exports built from the same signals the dashboard shows,
+  served with a `Content-Disposition: attachment` filename. `audit` is
+  `admin`; the rest are `readonly`.
+
 ## Everything else
 
 - `GET /healthz` -- liveness.
