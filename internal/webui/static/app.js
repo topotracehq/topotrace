@@ -112,6 +112,47 @@
     return String(value);
   }
 
+  // A fact whose data is exactly {"count": N, "items": [...]} -- the
+  // uniform shape internal/cook.listResult produces for every
+  // "N rows of the same thing" category (installed_software,
+  // disk_usage, pending_updates, listening_ports, etc. -- see
+  // internal/cook/linux_extra.go and windows_extra.go). Rendering it
+  // through the generic key/value table below used to hit
+  // formatValue -> String(item) for the "items" key, and String() on
+  // an array joins it by calling Object.prototype.toString() on every
+  // element -- that's where "[object Object],[object Object],..."
+  // came from. Detect the shape and render a real sub-table instead.
+  function isListShapedFact(data) {
+    const keys = Object.keys(data || {});
+    return keys.length === 2 && Array.isArray(data.items) && typeof data.count === "number";
+  }
+
+  function renderListFact(items) {
+    if (!items.length) return el("p", { class: "meta", text: "No entries." });
+    const columns = [];
+    for (const item of items) {
+      for (const k of Object.keys(item || {})) {
+        if (!columns.includes(k)) columns.push(k);
+      }
+    }
+    const table = el("table", { class: "fact-table fact-list-table" });
+    const head = el("tr");
+    for (const col of columns) head.appendChild(el("th", { text: titleCase(col) }));
+    table.appendChild(head);
+    for (const item of items) {
+      const tr = el("tr");
+      for (const col of columns) {
+        tr.appendChild(el("td", { text: col in item ? formatValue(col, item[col]) : "" }));
+      }
+      table.appendChild(tr);
+    }
+    // Cap the on-screen height for long lists -- installed_software on
+    // a real host can easily run into the thousands of entries, and
+    // without this one fact card turns the whole host-detail page
+    // into an endless scroll.
+    return el("div", { class: "fact-list-scroll" }, table);
+  }
+
   function el(tag, attrs, ...children) {
     const node = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs || {})) {
@@ -572,14 +613,25 @@
       nodes.push(el("p", { text: "No facts recorded for this host yet." }));
     }
     for (const fact of facts || []) {
-      const table = el("table", { class: "fact-table" });
-      for (const [k, v] of Object.entries(fact.data).sort(([a], [b]) => a.localeCompare(b))) {
-        const tr = el("tr");
-        tr.appendChild(el("td", { text: titleCase(k) }));
-        tr.appendChild(el("td", { text: formatValue(k, v) }));
-        table.appendChild(tr);
+      let body;
+      if (isListShapedFact(fact.data)) {
+        body = el(
+          "div",
+          {},
+          el("p", { class: "meta", text: `${fact.data.count} entries` }),
+          renderListFact(fact.data.items)
+        );
+      } else {
+        const table = el("table", { class: "fact-table" });
+        for (const [k, v] of Object.entries(fact.data).sort(([a], [b]) => a.localeCompare(b))) {
+          const tr = el("tr");
+          tr.appendChild(el("td", { text: titleCase(k) }));
+          tr.appendChild(el("td", { text: formatValue(k, v) }));
+          table.appendChild(tr);
+        }
+        body = table;
       }
-      nodes.push(el("div", { class: "fact-card" }, el("h2", { text: fact.category.replace(/_/g, " ") }), table));
+      nodes.push(el("div", { class: "fact-card" }, el("h2", { text: fact.category.replace(/_/g, " ") }), body));
     }
 
     nodes.push(await loadChanges(name));
