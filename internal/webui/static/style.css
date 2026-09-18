@@ -59,15 +59,34 @@ a { color: inherit; }
 
 .view-tabs {
   display: flex;
-  gap: 4px;
+  gap: 2px;
 }
+/* Icon-only nav -- was a row of text tabs (Hosts/Board/Fleet/Agents/
+   Compliance/Ask Muster/Docs/Settings), which got cramped as more tabs
+   were added. Each link is now a plain inline SVG with a native title
+   tooltip for the name; the text label itself is kept in the DOM for
+   screen readers but visually hidden (not display:none, so it's still
+   announced) rather than removed. */
 .view-tabs a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: rgba(255,255,255,0.7);
   text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 600;
-  padding: 6px 12px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   border-radius: 6px;
+}
+.view-tabs a svg { width: 18px; height: 18px; flex: none; }
+.view-tabs a .tab-label {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .view-tabs a:hover { color: var(--mu-white); background: rgba(255,255,255,0.08); }
 .view-tabs a.active { color: var(--mu-black); background: var(--mu-yellow); }
