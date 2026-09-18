@@ -17,6 +17,43 @@ not alphabetically.
   `remediate` or higher.
 - `GET /api/query?category=&field=&contains=` -- search across hosts.
 
+## Device visibility and discovery review
+
+See **Workspace Tools & Presentation** for the About, saved-view, notification
+preference, configuration backup/restore, and staged-change preflight APIs.
+
+- `GET /api/visibility` -- returns `demo`, `generated_at`, `agents`, `changes`,
+  `assets`, `discovery_restricted`, and `history_limited`. Requires `readonly`
+  access when authentication is enabled. Hosts, changes, and agent health follow
+  the API key's group scope. Global discovery is omitted for group-scoped keys.
+  Changes are newest first, up to 100 per host and 1,000 overall; the UI searches
+  that returned window. Agent entries include reporting status and four-category
+  collection coverage. Missing tracking is `unknown` rather than `healthy` when
+  inventory already exists.
+- `GET /api/visibility?demo=1` -- the same response shape, populated from an
+  isolated sample store with `demo: true`. Uses the same read authentication.
+  Does not write to the application's live store. Sample IDs must not be used for
+  live writes; the demo UI simulates review changes locally.
+- `PUT /api/discovered-assets/{id}/review` -- requires an **unscoped admin** with
+  strict authentication. Body: `{"state":"approved","reason":"Approved office
+  equipment"}`. Allowed states are `needs_review`, `approved`, and `unauthorized`;
+  a trimmed reason of 3–1,000 characters is required. Returns the saved review
+  with server-assigned `actor` and `updated_at`. Records an `asset-review` audit
+  entry. Returns 400 for invalid input, 404 for an unknown asset, and 403 for a
+  group-scoped administrator (missing credentials or insufficient role follow
+  the existing 401 response convention). This classifies a discovery record;
+  it does not block traffic, run a scan, or install an agent.
+
+Asset results include `state`, `matched_host` when matched, `stale`, and an
+optional `review`. Names and current IPv4 interface evidence are matched against
+managed inventory; interface evidence older than 24 hours is not used. A managed
+match takes precedence over a stored review. An unknown device starts as
+`needs_review`, not `unauthorized`. See **Device Visibility & Demo Walkthrough**
+for evidence limitations.
+
+For ownership, exceptions, dynamic groups, staged plans, and remediation
+verification endpoints, see **Work Queue & Governed Changes** in Docs.
+
 ## Posture, vulnerabilities, compliance, software lists
 
 - `GET /api/hosts/{host}/posture` -- on-demand 0-100 score.

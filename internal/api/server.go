@@ -53,6 +53,7 @@ import (
 	"muster/internal/ingest"
 	"muster/internal/model"
 	"muster/internal/oauth"
+	"muster/internal/operations"
 	"muster/internal/policy"
 	"muster/internal/remediate"
 	"muster/internal/scanner"
@@ -184,6 +185,7 @@ func (s *Server) log() *slog.Logger {
 // to serve the API and the web UI (internal/webui) from one HTTP server
 // on one port, rather than each owning its own listener.
 func (s *Server) Register(mux *http.ServeMux) {
+	s.registerOperations(mux)
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 	mux.HandleFunc("GET /status", s.handleStatusPage)
 	mux.HandleFunc("GET /status.json", s.handleStatusJSON)
@@ -1593,23 +1595,25 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 // structures, so the fleet context handed to the model stays small and
 // readable rather than a raw dump of every fact category on every host.
 type askHostContext struct {
-	Name               string   `json:"name"`
-	Platform           string   `json:"platform"`
-	Group              string   `json:"group,omitempty"`
-	Tags               []string `json:"tags,omitempty"`
-	Stale              bool     `json:"stale"`
-	LastReported       string   `json:"last_reported"`
-	PostureScore       int      `json:"posture_score"`
-	PostureFindings    []string `json:"posture_findings,omitempty"`
-	ComplianceScore    int      `json:"compliance_score"`
-	Vulnerabilities    []string `json:"vulnerabilities,omitempty"`
-	SoftwareViolations []string `json:"software_violations,omitempty"`
-	ShadowAI           []string `json:"shadow_ai_detections,omitempty"`
+	Coverage           policy.Coverage `json:"coverage"`
+	Name               string          `json:"name"`
+	Platform           string          `json:"platform"`
+	Group              string          `json:"group,omitempty"`
+	Tags               []string        `json:"tags,omitempty"`
+	Stale              bool            `json:"stale"`
+	LastReported       string          `json:"last_reported"`
+	PostureScore       int             `json:"posture_score"`
+	PostureFindings    []string        `json:"posture_findings,omitempty"`
+	ComplianceScore    int             `json:"compliance_score"`
+	Vulnerabilities    []string        `json:"vulnerabilities,omitempty"`
+	SoftwareViolations []string        `json:"software_violations,omitempty"`
+	ShadowAI           []string        `json:"shadow_ai_detections,omitempty"`
 }
 
 // askContext is the full compact snapshot handed to aiquery.Ask
 // alongside the operator's question.
 type askContext struct {
+	Sources          []askSource             `json:"sources"`
 	GeneratedAt      time.Time               `json:"generated_at"`
 	FleetSummary     map[string]any          `json:"fleet_summary"`
 	Hosts            []askHostContext        `json:"hosts"`
@@ -1624,8 +1628,9 @@ type askContext struct {
 // already do -- so Ask Muster's answers are grounded in exactly the same
 // numbers the rest of the dashboard shows, never a separately computed
 // (and possibly inconsistent) view of the same facts.
-func (s *Server) buildAskContext(ctx context.Context) (askContext, error) {
-	hosts, err := s.Store.ListHosts(ctx)
+func (s *Server) buildAskContext(r *http.Request) (askContext, error) {
+	ctx := r.Context()
+	hosts, err := s.scopedHosts(r)
 	if err != nil {
 		return askContext{}, fmt.Errorf("listing hosts: %w", err)
 	}
@@ -1642,9 +1647,27 @@ func (s *Server) buildAskContext(ctx context.Context) (askContext, error) {
 		return askContext{}, fmt.Errorf("listing discovered assets: %w", err)
 	}
 
+	if scope := s.keyScope(r); scope != "" {
+		assets = nil
+		filtered := []model.Rule{}
+		for _, rule := range policyRules {
+			if rule.Group == "" || rule.Group == scope {
+				filtered = append(filtered, rule)
+			}
+		}
+		policyRules = filtered
+		filteredSoftware := []model.SoftwareRule{}
+		for _, rule := range softwareRules {
+			if rule.Group == "" || rule.Group == scope {
+				filteredSoftware = append(filteredSoftware, rule)
+			}
+		}
+		softwareRules = filteredSoftware
+	}
 	now := time.Now().UTC()
 	byPlatform := map[string]int{}
 	staleCount := 0
+	sources := []askSource{}
 	hostCtxs := make([]askHostContext, 0, len(hosts))
 	for _, h := range hosts {
 		byPlatform[h.Platform]++
@@ -1659,7 +1682,8 @@ func (s *Server) buildAskContext(ctx context.Context) (askContext, error) {
 		}
 		result := compliance.Baseline.Evaluate(in)
 		hc := askHostContext{
-			Name: h.Name, Platform: h.Platform, Group: h.Group, Tags: h.Tags,
+			Coverage: in.Posture.Coverage,
+			Name:     h.Name, Platform: h.Platform, Group: h.Group, Tags: h.Tags,
 			Stale: stale, LastReported: h.LastCooked.Format(time.RFC3339),
 			PostureScore: in.Posture.Score, PostureFindings: in.Posture.Findings,
 			ComplianceScore: result.Score,
@@ -1677,10 +1701,12 @@ func (s *Server) buildAskContext(ctx context.Context) (askContext, error) {
 		for _, v := range in.ShadowAIViolations {
 			hc.ShadowAI = append(hc.ShadowAI, fmt.Sprintf("%s %s (matched: %s)", v.Package, v.Version, v.Rule))
 		}
+		sources = appendAskSources(sources, h, in.Facts, in.Posture.Coverage, now)
 		hostCtxs = append(hostCtxs, hc)
 	}
 
 	return askContext{
+		Sources:     sources,
 		GeneratedAt: now,
 		FleetSummary: map[string]any{
 			"total_hosts": len(hosts), "stale_hosts": staleCount, "by_platform": byPlatform,
@@ -1736,7 +1762,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fleetCtx, err := s.buildAskContext(r.Context())
+	fleetCtx, err := s.buildAskContext(r)
 	if err != nil {
 		s.log().Error("ask muster: building fleet context", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "gathering fleet context")
@@ -1759,7 +1785,8 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 		s.log().Error("recording audit entry", "err", err)
 	}
 
-	s.writeJSON(w, http.StatusOK, map[string]string{"answer": answer})
+	sources, warnings := citedSources(answer, fleetCtx.Sources)
+	s.writeJSON(w, http.StatusOK, map[string]any{"answer": answer, "sources": sources, "warnings": warnings, "generated_at": fleetCtx.GeneratedAt})
 }
 
 // handleListAudit is GET /api/audit[?host=...&limit=N] -- who did what,
@@ -1837,6 +1864,16 @@ func (s *Server) handleCreatePolicy(w http.ResponseWriter, r *http.Request) {
 	if req.Name == "" || !validRuleKinds[req.Kind] {
 		s.writeError(w, http.StatusBadRequest, "name is required and kind must be one of: stale, score_below, category_missing, vulnerabilities_found")
 		return
+	}
+	if strings.HasPrefix(req.Group, "dynamic:") {
+		if s.keyScope(r) != "" {
+			s.writeError(w, http.StatusForbidden, "dynamic policies require an unscoped admin")
+			return
+		}
+		if _, found, err := operations.Load[operations.DynamicGroup](r.Context(), s.Store, operations.GroupKind, strings.TrimPrefix(req.Group, "dynamic:")); err != nil || !found {
+			s.writeError(w, http.StatusBadRequest, "dynamic group does not exist")
+			return
+		}
 	}
 	if req.AutoRemediate != "" {
 		if _, known := remediate.Verbs[req.AutoRemediate]; !known {

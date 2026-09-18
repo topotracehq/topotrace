@@ -56,6 +56,7 @@ func IsStale(lastCooked, now time.Time) bool {
 type PostureResult struct {
 	Score    int      `json:"score"`
 	Findings []string `json:"findings"`
+	Coverage Coverage `json:"coverage"`
 }
 
 // ComputePosture scores a host out of 100, starting clean and
@@ -112,7 +113,7 @@ func ComputePosture(platform string, facts map[string]model.Fact, stale bool) Po
 	if score < 0 {
 		score = 0
 	}
-	return PostureResult{Score: score, Findings: findings}
+	return PostureResult{Score: score, Findings: findings, Coverage: CollectionCoverage(platform, facts, time.Now().UTC())}
 }
 
 // asNumber extracts a float64 from a JSON-decoded value that may be a

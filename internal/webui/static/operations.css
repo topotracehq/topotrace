@@ -1,0 +1,31 @@
+.work-page { max-width: 1200px; margin: auto; }
+.work-page .section-heading { flex-wrap: wrap; }
+.work-page button, .work-page input, .work-page select { font: inherit; border: 1px solid #77889977; border-radius: 5px; padding: .5rem .65rem; }
+.work-page button { cursor: pointer; background: #f6c416; color: #202727; }
+.work-page button.ghost { background: transparent; color: inherit; }
+.work-page button:disabled { opacity: .5; cursor: default; }
+.work-list, .work-page > section { margin-top: 1.25rem; }
+.work-item { margin-bottom: 1rem; }
+.work-item-head { display: flex; gap: .6rem; flex-wrap: wrap; align-items: baseline; }
+.work-item-head h2 { flex: 1 1 20rem; }
+.work-form { display: flex; flex-wrap: wrap; gap: 1rem; padding: 1rem 0; align-items: end; }
+.work-field { display: flex; flex-direction: column; gap: .4rem; flex: 1 1 200px; font-size: .9rem; }
+.work-field input, .work-field select { width: 100%; box-sizing: border-box; }
+.work-field input[type=checkbox] { width: auto; align-self: start; }
+.work-form fieldset { width: 100%; display: flex; flex-wrap: wrap; gap: .7rem; max-height: 250px; overflow-y: auto; }
+.work-form .meta, .work-form .save-msg { flex-basis: 100%; }
+.work-item details { margin-top: .85rem; }
+.work-group { border-bottom: 1px solid #77889955; padding: 1rem 0; }
+.work-group button { margin-right: .5rem; }
+.evidence-details { width: 100%; margin-top: .8rem; }
+.evidence-details summary, .work-page summary { cursor: pointer; padding: .5rem 0; font-weight: 600; }
+.evidence-row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: baseline; padding: .6rem 0; border-bottom: 1px solid #77889933; }
+.evidence-row small, .evidence-row pre { flex-basis: 100%; }
+.evidence-row pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; }
+.evidence-badge { display: inline-block; border: 1px solid #77889988; border-radius: 5px; padding: .15rem .45rem; font-size: .8rem; }
+.evidence-verified { color: #23854f; background: #23854f15; }
+.evidence-outdated { color: #ab6700; background: #ab670015; }
+.evidence-unknown { color: inherit; background: #77889915; }
+.evidence-answer > p { white-space: pre-wrap; }
+.posture-body:has(.evidence-details) { flex-wrap: wrap; }
+@media (max-width: 650px) { .work-form { display: block; } .work-field { margin-bottom: .8rem; } }

@@ -21,13 +21,13 @@ func TestConfigStoreGetSet(t *testing.T) {
 		t.Error("expected a zero-value initial Config to be disabled")
 	}
 
-	s.Set(Config{APIKey: "sk-ant-test", Model: "claude-opus-5"})
+	s.Set(Config{APIKey: "sk-ant-test", Model: "test-model"})
 	got := s.Get()
 	if !got.Enabled() {
 		t.Error("expected Enabled() true after Set with a non-empty APIKey")
 	}
-	if got.Model != "claude-opus-5" {
-		t.Errorf("got model %q, want claude-opus-5", got.Model)
+	if got.Model != "test-model" {
+		t.Errorf("got model %q, want test-model", got.Model)
 	}
 
 	s.Set(Config{})

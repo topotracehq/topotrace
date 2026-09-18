@@ -32,6 +32,11 @@ var Index = []struct {
 	Title string `json:"title"`
 }{
 	{"getting-started", "Getting Started"},
+	{"workflows", "Work Queue & Governed Changes"},
+	{"visibility", "Device Visibility & Demo Walkthrough"},
+	{"workspace-tools", "Workspace Tools & Presentation"},
+	{"recovery", "Full-server Recovery"},
+	{"legal", "Copyright & Responsible Use"},
 	{"agents", "Agents & Enrollment"},
 	{"api-reference", "API Reference"},
 	{"security-model", "Security Model"},

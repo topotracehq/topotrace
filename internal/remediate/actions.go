@@ -26,7 +26,12 @@
 // never a command line.
 package remediate
 
-import "fmt"
+import (
+	"fmt"
+	"regexp"
+)
+
+var serviceName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.@-]{0,127}$`)
 
 // Verb describes one allow-listed remediation action.
 type Verb struct {
@@ -76,6 +81,9 @@ func Validate(platform, verb, arg string) error {
 	}
 	if v.NeedsArg && arg == "" {
 		return fmt.Errorf("action %q requires an argument", verb)
+	}
+	if v.NeedsArg && !serviceName.MatchString(arg) {
+		return fmt.Errorf("service name must be 1–128 letters, digits, '.', '_', '@' or '-', starting with a letter or digit")
 	}
 	if !v.NeedsArg && arg != "" {
 		return fmt.Errorf("action %q does not take an argument", verb)

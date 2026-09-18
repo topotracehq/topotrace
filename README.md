@@ -755,8 +755,7 @@ GET /api/hosts/{host}/software-violations   # -> {"violations": [...], "shadow_a
 Alongside the operator-defined software allow/deny lists above,
 `internal/allowlist` ships a **built-in, pre-seeded ruleset**
 (`ShadowAIPatterns`) flagging known AI desktop apps, CLI tools, and
-browser-extension packages -- ChatGPT, Claude, Ollama, LM Studio,
-GitHub Copilot, Gemini, Perplexity, and others -- found in a host's
+browser-extension packages found in a host's
 `installed_software` fact. No configuration required: every Muster
 deployment can answer "do we have unauthorized AI tooling anywhere"
 on day one, the same "invisible SaaS/tool sprawl" problem enterprise

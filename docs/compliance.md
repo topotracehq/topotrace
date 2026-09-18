@@ -21,9 +21,8 @@ violations already leave.
 
 Alongside operator-defined software rules, Muster ships a built-in,
 pre-seeded ruleset (`internal/allowlist.ShadowAIPatterns`) flagging
-known AI desktop apps, CLI tools, and browser extensions --  ChatGPT,
-Claude, Ollama, LM Studio, GitHub Copilot, Gemini, Perplexity, and
-others -- found in a host's `installed_software` fact. No setup
+known AI desktop apps, CLI tools, and browser extensions
+found in a host's `installed_software` fact. No setup
 required: every deployment can answer "do we have unauthorized AI
 tooling anywhere" on day one, the same "invisible SaaS/tool sprawl"
 problem enterprise browser security products build shadow-IT/shadow-AI

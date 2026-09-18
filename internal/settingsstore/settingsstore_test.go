@@ -36,7 +36,7 @@ func TestSaveThenLoadRoundTrips(t *testing.T) {
 		SIEMHECURL:   "https://splunk.example.com:8088",
 		SIEMHECToken: "s3cr3t",
 		AIAPIKey:     "sk-ant-test",
-		AIModel:      "claude-opus-5",
+		AIModel:      "test-model",
 	}
 	if err := Save(path, want); err != nil {
 		t.Fatalf("Save: %v", err)

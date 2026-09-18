@@ -32,6 +32,7 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -75,6 +76,7 @@ func backoff(attempt int) time.Duration {
 
 // Delivery is one queued (event, sink) pair and its attempt history.
 type Delivery struct {
+	DigestCount int       `json:"digest_count,omitempty"`
 	ID          string    `json:"id"`
 	Sink        string    `json:"sink"`
 	Event       Event     `json:"event"`
@@ -95,12 +97,13 @@ type Dispatcher struct {
 	store  store.Store // nil means in-memory queue only
 	log    *slog.Logger
 
-	mu      sync.Mutex
-	pending map[string]*Delivery
-	dead    []Delivery // most recent MaxDead kept for inspection
-	seq     int64
-	wake    chan struct{}
-	now     func() time.Time // injectable clock for tests
+	mu       sync.Mutex
+	inFlight map[string]bool
+	pending  map[string]*Delivery
+	dead     []Delivery // most recent MaxDead kept for inspection
+	seq      int64
+	wake     chan struct{}
+	now      func() time.Time // injectable clock for tests
 }
 
 // MaxDead caps how many dead deliveries are kept in memory for the API.
@@ -125,7 +128,7 @@ func NewWithSinks(sinks []Sink, st store.Store, log *slog.Logger) *Dispatcher {
 	}
 	d := &Dispatcher{
 		sinks: sinks, byName: map[string]Sink{}, store: st, log: log,
-		pending: map[string]*Delivery{}, wake: make(chan struct{}, 1), now: func() time.Time { return time.Now().UTC() },
+		pending: map[string]*Delivery{}, inFlight: map[string]bool{}, wake: make(chan struct{}, 1), now: func() time.Time { return time.Now().UTC() },
 	}
 	for _, s := range sinks {
 		d.byName[s.Name()] = s
@@ -206,13 +209,43 @@ func (d *Dispatcher) Send(evt Event) {
 	if evt.Timestamp.IsZero() {
 		evt.Timestamp = d.now()
 	}
+	prefs, err := LoadPreferences(context.Background(), d.store)
+	if err != nil {
+		d.log.Error("notify: preferences unavailable; holding delivery", "err", err)
+		prefs = Preferences{DigestMinutes: 60, Timezone: "UTC"}
+	}
+	dueAt := prefs.Due(d.now())
 	d.mu.Lock()
 	for _, s := range d.sinks {
 		if !s.Accepts(evt.Type) {
 			continue
 		}
+		if prefs.DigestMinutes > 0 {
+			var bucket *Delivery
+			for _, candidate := range d.pending {
+				if candidate.Sink == s.Name() && candidate.DigestCount > 0 && candidate.DigestCount < 100 && candidate.Attempts == 0 && !d.inFlight[candidate.ID] && candidate.NextAttempt.Equal(dueAt) {
+					bucket = candidate
+					break
+				}
+			}
+			line := fmt.Sprintf("%s | %s | %s | %s", evt.Timestamp.Format(time.RFC3339), evt.Type, evt.Host, evt.Detail)
+			if len(line) > 1500 {
+				line = line[:1500] + "…"
+			}
+			if bucket != nil {
+				bucket.DigestCount++
+				bucket.Event.Detail += "\n" + line
+				d.persist(bucket)
+				continue
+			}
+			d.seq++
+			del := &Delivery{ID: strconv.FormatInt(d.seq, 10), Sink: s.Name(), Event: Event{Type: "digest", Timestamp: evt.Timestamp, Detail: "Muster notification digest\n" + line}, DigestCount: 1, NextAttempt: dueAt, CreatedAt: d.now()}
+			d.pending[del.ID] = del
+			d.persist(del)
+			continue
+		}
 		d.seq++
-		del := &Delivery{ID: strconv.FormatInt(d.seq, 10), Sink: s.Name(), Event: evt, NextAttempt: d.now(), CreatedAt: d.now()}
+		del := &Delivery{ID: strconv.FormatInt(d.seq, 10), Sink: s.Name(), Event: evt, NextAttempt: dueAt, CreatedAt: d.now()}
 		d.pending[del.ID] = del
 		d.persist(del)
 	}
@@ -270,11 +303,27 @@ func (d *Dispatcher) Run(ctx context.Context) {
 // passed, once each. Exported so tests and the test-event endpoint can
 // drive the queue without the worker.
 func (d *Dispatcher) DeliverDue(ctx context.Context) {
+	prefs, err := LoadPreferences(ctx, d.store)
+	if err != nil {
+		d.log.Error("notify: holding queue while preferences unavailable", "err", err)
+		return
+	}
 	d.mu.Lock()
 	var due []*Delivery
 	now := d.now()
 	for _, del := range d.pending {
+		if d.inFlight[del.ID] {
+			continue
+		}
+		if allowed := prefs.NextAllowed(now); allowed.After(now) {
+			if del.NextAttempt.Before(allowed) {
+				del.NextAttempt = allowed
+				d.persist(del)
+			}
+			continue
+		}
 		if !del.NextAttempt.After(now) {
+			d.inFlight[del.ID] = true
 			due = append(due, del)
 		}
 	}
@@ -282,6 +331,9 @@ func (d *Dispatcher) DeliverDue(ctx context.Context) {
 	sort.Slice(due, func(i, j int) bool { return due[i].ID < due[j].ID })
 	for _, del := range due {
 		d.attempt(ctx, del)
+		d.mu.Lock()
+		delete(d.inFlight, del.ID)
+		d.mu.Unlock()
 	}
 }
 

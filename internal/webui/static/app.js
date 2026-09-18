@@ -17,6 +17,9 @@
   "use strict";
 
   const app = document.getElementById("app");
+  const workspaceUI = window.MusterWorkspace({ api, el, app, downloadWithToken });
+  const workUI = window.MusterWork({ api, el, app, timeAgo, workspaceUI });
+  const visibilityUI = window.MusterVisibility({ api, el, app, timeAgo, workspaceUI });
   const searchForm = document.getElementById("search-form");
   const searchField = document.getElementById("search-field");
   const searchContains = document.getElementById("search-contains");
@@ -496,9 +499,10 @@
       for (const f of posture.findings) list.appendChild(el("li", { text: f }));
       body.appendChild(list);
     } else {
-      body.appendChild(el("p", { class: "posture-clean", text: "No posture issues observed." }));
+      body.appendChild(el("p", { class: "posture-clean", text: "No issues detected in the available evidence." }));
     }
-    return el("div", { class: "fact-card" }, el("h2", { text: "Compliance posture" }), body);
+    body.appendChild(workUI.evidence(posture.coverage));
+    return el("div", { class: "fact-card" }, el("h2", { text: "Posture and evidence confidence" }), body);
   }
 
   function vulnerabilitiesCard(findings) {
@@ -786,7 +790,7 @@
             host.name,
             el("span", { class: "badge", text: host.platform }),
             isStale(host.last_cooked) ? el("span", { class: "stale-badge", text: "STALE" }) : null,
-            posture ? postureBadge(posture.score) : null
+            posture ? el("span", {}, postureBadge(posture.score), el("small", { class: "meta", text: ` Evidence ${posture.coverage?.percent ?? 0}%` })) : null
           ),
           el("div", { class: "detail-meta", text: `Last reported ${timeAgo(host.last_cooked)} · first seen ${timeAgo(host.first_seen)}` })
         )
@@ -796,6 +800,9 @@
     ];
 
     if (posture) nodes.push(postureCard(posture));
+    const verificationSlot = el("div", { class: "fact-card" });
+    nodes.push(verificationSlot);
+    workUI.verification(name, verificationSlot);
     const baselineSlot = el("div", {});
     nodes.push(baselineSlot);
     const loadBaseline = () => api(`/api/hosts/${encodeURIComponent(name)}/baseline`).then((rep) => baselineSlot.replaceChildren(baselineCard(name, rep, loadBaseline))).catch(() => {});
@@ -1007,7 +1014,11 @@
     );
     const thresholdInput = el("input", { type: "number", placeholder: "threshold % (score_below only)", min: "0", max: "100" });
     const categoryInput = el("input", { type: "text", placeholder: "category (category_missing only)" });
-    const groupInput = el("input", { type: "text", placeholder: "group (optional)" });
+    const groupInput = el("select", { title: "Policy target" }, el("option", { value: "", text: "All devices" }));
+    Promise.all([api("/api/groups"), api("/api/dynamic-groups")]).then(([manual, dynamic]) => {
+      for (const group of manual) groupInput.appendChild(el("option", { value: typeof group === "string" ? group : group.name, text: typeof group === "string" ? group : group.name }));
+      for (const group of dynamic) groupInput.appendChild(el("option", { value: `dynamic:${group.id}`, text: `Dynamic: ${group.name}` }));
+    }).catch(() => {});
     const remediateSelect = el(
       "select", {},
       el("option", { value: "", text: "No auto-remediation" }),
@@ -2487,7 +2498,7 @@
       const openai = backendSelect.value === "openai-compatible";
       baseLabel.hidden = !openai;
       baseInput.hidden = !openai;
-      modelInput.placeholder = openai ? "e.g. qwen3:30b-a3b or a Hugging Face model id" : "claude-opus-5 (default)";
+      modelInput.placeholder = openai ? "Model ID served by your provider" : "Leave blank to use the default model";
       keyInput.placeholder = s.ask_muster.configured && current === backendSelect.value
         ? "leave blank to keep current key"
         : (openai ? "optional: HF token, or blank for a local server" : "sk-ant-...");
@@ -3091,7 +3102,7 @@
     );
 
     const log = el("div", { class: "ask-log" });
-    for (const turn of askHistory) log.appendChild(askTurn(turn.question, turn.answer));
+    for (const turn of askHistory) log.appendChild(askTurn(turn.question, workUI.answerNode(turn)));
 
     const questionInput = el("textarea", { class: "ask-input", rows: "2", placeholder: "e.g. Which prod hosts have known vulnerabilities? Any shadow AI detections I should know about?" });
     const sendBtn = el("button", { type: "submit", text: "Ask" });
@@ -3115,9 +3126,9 @@
       log.scrollTop = log.scrollHeight;
 
       try {
-        const { answer } = await api("/api/ask", { method: "POST", body: { question } });
-        thinking.replaceWith(document.createTextNode(answer));
-        askHistory.push({ question, answer });
+        const result = await api("/api/ask", { method: "POST", body: { question } });
+        thinking.replaceWith(workUI.answerNode(result));
+        askHistory.push({ question, ...result });
         statusMsg.textContent = "";
       } catch (err) {
         thinking.replaceWith(el("span", { class: "ask-error", text: err.message }));
@@ -3134,6 +3145,14 @@
     const hostMatch = hash.match(/^#\/host\/(.+)$/);
     if (hostMatch) {
       showHostDetail(decodeURIComponent(hostMatch[1]));
+    } else if (hash === "#/tools") {
+      workspaceUI.show();
+    } else if (hash === "#/about") {
+      workspaceUI.about();
+    } else if (hash === "#/visibility" || hash === "#/visibility/demo") {
+      visibilityUI.show(hash.endsWith("/demo"));
+    } else if (hash === "#/work") {
+      workUI.show();
     } else if (hash === "#/board") {
       showBoard();
     } else if (hash === "#/fleet") {
@@ -3167,7 +3186,7 @@
     const hash = location.hash || "#/";
     const view = hash === "#/board" ? "board" : hash === "#/fleet" ? "fleet" : hash === "#/agents" ? "agents" : hash === "#/entities" ? "entities" : hash === "#/compliance" ? "compliance" : hash === "#/ask" ? "ask" : hash === "#/docs" ? "docs" : hash === "#/settings" ? "settings" : "hosts";
     for (const a of document.querySelectorAll(".view-tabs a")) {
-      a.classList.toggle("active", a.dataset.view === view);
+      a.classList.toggle("active", a.dataset.view === (hash === "#/tools" ? "tools" : hash.startsWith("#/visibility") ? "visibility" : hash === "#/work" ? "work" : view));
     }
   }
 

@@ -65,7 +65,7 @@ func Gather(ctx context.Context, st store.Store, host model.Host, softwareRules 
 // host and reuses them across every rule).
 func FromFacts(host model.Host, byCategory map[string]model.Fact, softwareRules []model.SoftwareRule, feed *vuln.Feed, now time.Time) compliance.Input {
 	stale := policy.IsStale(host.LastCooked, now)
-	posture := policy.ComputePosture(host.Platform, byCategory, stale)
+	posture := policy.ComputePostureAt(host.Platform, byCategory, stale, now)
 
 	var inScope []model.SoftwareRule
 	for _, rule := range softwareRules {

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"muster/internal/alerts"
+	"muster/internal/operations"
 	"muster/internal/remediate"
 	"muster/internal/webhook"
 )
@@ -66,6 +67,8 @@ func (s *Server) handleListAlerts(w http.ResponseWriter, r *http.Request) {
 // strictly: quieting an alert is an operator decision worth
 // attributing.
 func (s *Server) handleSnoozeAlert(w http.ResponseWriter, r *http.Request) {
+	operations.Mu.Lock()
+	defer operations.Mu.Unlock()
 	actor, ok := s.requireRoleStrict(w, r, "remediate")
 	if !ok {
 		return
@@ -134,6 +137,8 @@ func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
 // while"). `remediate` or higher, strictly, same as queuing an action
 // by hand.
 func (s *Server) handleDecideApproval(w http.ResponseWriter, r *http.Request) {
+	operations.Mu.Lock()
+	defer operations.Mu.Unlock()
 	actor, ok := s.requireRoleStrict(w, r, "remediate")
 	if !ok {
 		return
@@ -152,6 +157,18 @@ func (s *Server) handleDecideApproval(w http.ResponseWriter, r *http.Request) {
 	if !found {
 		s.writeError(w, http.StatusNotFound, "no such pending approval")
 		return
+	}
+	if !s.workflowHost(w, r, a.Host) {
+		return
+	}
+	if decision == "approve" {
+		if _, active, err := operations.ExceptionFor(r.Context(), s.Store, a.ID, time.Now().UTC()); err != nil {
+			s.writeError(w, 500, "checking exception")
+			return
+		} else if active {
+			s.writeError(w, 409, "revoke the active exception before approving remediation")
+			return
+		}
 	}
 	if decision == "reject" {
 		if err := alerts.RemoveApproval(r.Context(), s.Store, id); err != nil {

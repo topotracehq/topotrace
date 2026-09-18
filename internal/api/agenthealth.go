@@ -15,6 +15,7 @@ package api
 
 import (
 	"net/http"
+	"sort"
 	"time"
 
 	"muster/internal/agenthealth"
@@ -41,7 +42,23 @@ func (s *Server) handleAgentHealth(w http.ResponseWriter, r *http.Request) {
 	for _, st := range all {
 		seen[st.Host] = true
 	}
-	if hosts, err := s.Store.ListHosts(r.Context()); err == nil {
+	hosts, err := s.scopedHosts(r)
+	if err != nil {
+		s.writeError(w, 500, "loading hosts")
+		return
+	}
+	visible := map[string]bool{}
+	for _, h := range hosts {
+		visible[h.Name] = true
+	}
+	filtered := all[:0]
+	for _, st := range all {
+		if visible[st.Host] {
+			filtered = append(filtered, st)
+		}
+	}
+	all = filtered
+	{
 		for _, h := range hosts {
 			if !seen[h.Name] {
 				st := agenthealth.Evaluate(agenthealth.Record{Host: h.Name}, now)
@@ -50,7 +67,7 @@ func (s *Server) handleAgentHealth(w http.ResponseWriter, r *http.Request) {
 					if now.Sub(h.LastCooked) > 24*time.Hour {
 						st.State, st.Detail = "missing", "last report predates agent-health tracking and is past the 24h window"
 					} else {
-						st.State, st.Detail = "healthy", "reported "+humanAgoAPI(now.Sub(h.LastCooked))+" ago (before agent-health tracking; cadence unknown)"
+						st.State, st.Detail = "unknown", "reported "+humanAgoAPI(now.Sub(h.LastCooked))+" ago (before agent-health tracking; cadence unknown)"
 					}
 				}
 				all = append(all, st)
@@ -58,6 +75,8 @@ func (s *Server) handleAgentHealth(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	counts := map[string]int{}
+	rank := map[string]int{"failing": 0, "missing": 1, "late": 2, "never": 3, "unknown": 4, "healthy": 5}
+	sort.SliceStable(all, func(i, j int) bool { return rank[all[i].State] < rank[all[j].State] })
 	for _, st := range all {
 		counts[st.State]++
 	}

@@ -15,8 +15,10 @@ else -- use it once to mint named, role-scoped API keys via
 
 Three fixed roles, `readonly < remediate < admin`. A key created via
 `POST /api/keys` is shown once; only its SHA-256 hash is ever stored.
-There is no finer-grained scoping yet (per-group or per-verb keys) --
-see the top-level README's "What's here vs. what's next."
+Keys can optionally name a board group. The Visibility and agent-health endpoints
+filter host evidence to that group. Per-verb custom roles are not supported.
+Global discovery has no group ownership model, so the Visibility response omits
+it for group-scoped keys, and discovery reviews require an unscoped administrator.
 
 ## Enrollment tokens
 
@@ -52,3 +54,20 @@ operator via the CLI, or the background evaluator acting on a policy
 rule. There's no path from an unauthenticated network client to a host
 actually running a command; every entry point funnels through the
 same validation.
+
+## Visibility reviews and demo isolation
+
+Device classifications are operator decisions backed by a required reason,
+actor, timestamp, and audit entry. They do not prove device identity or enforce
+network access. IP addresses can be reassigned; an old approval should be reviewed
+when equipment changes. Matching uses names and recent IPv4 interface evidence.
+
+The Visibility **Demo showcase** uses a disposable sample store and retains the
+normal read-access requirement. Its review controls change only the current
+browser view. They do not call the live review-write endpoint, update inventory,
+send notifications, or queue remediation. Refreshing restores the samples.
+
+This differs from **Settings → Demo / simulator**, whose scenarios intentionally
+write simulated audit events and can send notifications through configured
+integrations. Use the Visibility showcase for a presentation without those
+external effects. All pages outside that showcase still use live data.

@@ -21,12 +21,22 @@ package webui
 
 import (
 	"embed"
+	"encoding/base64"
 	"io/fs"
 	"net/http"
 )
 
 //go:embed static
 var embedded embed.FS
+
+// CompanyLogo returns an embedded data URL so downloaded reports remain branded offline.
+func CompanyLogo() string {
+	b, err := embedded.ReadFile("static/img/mcginnis-technologies.png")
+	if err != nil {
+		return ""
+	}
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(b)
+}
 
 // Handler serves the dashboard's static assets (index.html at "/", plus
 // style.css, app.js, and the brand images under img/) directly from the

@@ -1,5 +1,32 @@
 # Agents & enrollment
 
+## Reporting health and device visibility
+
+The **Visibility → Agent health** view combines reporting status with evidence
+coverage. A successful check-in does not mean every inventory category was
+collected successfully, and complete evidence does not mean a device is secure.
+
+| Status | Meaning |
+|---|---|
+| Healthy | Reports are arriving within the recorded cadence, with no newer failure. |
+| Failing | A report failed after the last successful report, or no report has ever succeeded. |
+| Late | The last success is more than twice the median recorded reporting interval ago. |
+| Missing | The last successful report or legacy inventory is over 24 hours old. |
+| Never | No successful report or legacy inventory is recorded. |
+| Unknown | Inventory exists, but reporting cadence tracking is unavailable. |
+
+Missing takes precedence over a recent failure when the last success is more than
+24 hours old. The failure count is cumulative, not a count of consecutive errors.
+Health and coverage use the snapshot time shown on the page; select **Refresh**
+to retrieve current evidence. Group-scoped keys see only their devices.
+
+For un-agented equipment, use **Visibility → Discovery review** after submitting
+a discovery report. A managed match uses host names or recently collected IPv4
+addresses; unmatched devices need review. An administrator can mark equipment
+approved or unauthorized with a reason. This does not enroll the device or block
+its network access. See **Device Visibility & Demo Walkthrough** for a ready-made
+sample presentation of these states.
+
 ## Tracked enrollment
 
 Muster never pushes an agent onto a remote host or holds credentials to

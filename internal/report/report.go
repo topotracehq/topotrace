@@ -35,6 +35,7 @@ import (
 	"muster/internal/history"
 	"muster/internal/model"
 	"muster/internal/risk"
+	"muster/internal/webui"
 )
 
 // HostRow is one host's line in the compliance/risk exports and the
@@ -66,6 +67,9 @@ type VulnRow struct {
 
 // Data is everything a report can draw on, built once by Build.
 type Data struct {
+	Demo          bool
+	Logo          template.URL
+	NextSteps     []string
 	GeneratedAt   time.Time
 	Hosts         []HostRow
 	Vulns         []VulnRow
@@ -178,6 +182,20 @@ var Names = []string{"compliance", "risk", "vulnerabilities", "audit"}
 
 // HTML renders the print-ready executive summary.
 func HTML(d Data) ([]byte, error) {
+	d.Logo = template.URL(webui.CompanyLogo()) // trusted embedded asset, never user input
+	if d.Stale > 0 {
+		d.NextSteps = append(d.NextSteps, fmt.Sprintf("Restore reporting on %d stale devices before relying on their scores.", d.Stale))
+	}
+	if d.Critical+d.High > 0 {
+		d.NextSteps = append(d.NextSteps, fmt.Sprintf("Assign owners and deadlines to the %d high or critical risk devices.", d.Critical+d.High))
+	}
+	if d.WithVulns > 0 {
+		d.NextSteps = append(d.NextSteps, fmt.Sprintf("Validate vulnerability matches on %d devices and schedule a tested remediation pilot.", d.WithVulns))
+	}
+	if len(d.NextSteps) == 0 {
+		d.NextSteps = append(d.NextSteps, "Review evidence coverage and missing collections; low reported risk does not prove a complete assessment.")
+	}
+	d.NextSteps = append(d.NextSteps, "Confirm backups and recovery instructions before changes, then verify the result with fresh device evidence.")
 	var buf bytes.Buffer
 	if err := execTemplate.Execute(&buf, d); err != nil {
 		return nil, err
@@ -244,8 +262,14 @@ var execTemplate = template.Must(template.New("exec").Funcs(funcs).Parse(`<!doct
   @media print { .print { display: none; } body { margin: 0; } }
 </style></head><body>
 <button class="print" onclick="window.print()">Print / save as PDF</button>
+<img src="{{.Logo}}" alt="McGinnis Technologies" width="160" height="160" style="object-fit:contain;float:left;margin:0 24px 16px 0">
 <h1>Fleet posture report</h1>
+<p>McGinnis Technologies, LLC · Security · Strategy · Solutions</p>
+{{if .Demo}}<p style="padding:12px;background:#fff0c9;font-weight:bold">DEMO DATA — Fictional devices; not an assessment of live systems.</p>{{end}}
 <div class="meta">Generated {{date .GeneratedAt}} by Muster · {{.TotalHosts}} managed hosts · illustrative checks, not a certified audit</div>
+<section style="clear:both"><h2>Executive summary</h2>
+<p>This snapshot covers {{.TotalHosts}} managed devices. {{.Critical}} are rated critical and {{.High}} high risk. {{.Stale}} have outdated reporting, and {{.WithVulns}} have known vulnerability matches requiring validation.</p>
+<h2>Recommended next steps</h2><ol>{{range .NextSteps}}<li>{{.}}</li>{{end}}</ol></section>
 
 <div class="stats">
   <div class="stat"><b>{{.AvgPosture}}</b><span>average posture score</span></div>
@@ -277,4 +301,5 @@ var execTemplate = template.Must(template.New("exec").Funcs(funcs).Parse(`<!doct
 </table>{{end}}
 
 <p class="meta" style="margin-top:28px">Scores are Muster's own illustrative computations (see docs/compliance.md); this report is a snapshot of the dashboard's data at generation time, not a certified assessment.</p>
+<footer class="meta" style="margin-top:28px;border-top:1px solid #e4e1d8;padding-top:14px">&copy; 2022–2026 McGinnis Technologies, LLC. Provided without warranty to the extent permitted by law. Verify findings and maintain backups before making changes. See Disclaimer &amp; Responsible Use in the Muster dashboard.</footer>
 </body></html>`))

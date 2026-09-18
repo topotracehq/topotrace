@@ -175,4 +175,5 @@ var statusTemplate = template.Must(template.New("status").Funcs(template.FuncMap
 <li><span>Last evaluation run</span><span>{{date .LastEvaluated}}</span></li>
 </ul>
 <footer>Aggregate figures only -- this page never lists hosts, findings, or people. Scores are Muster's own illustrative computations, not a certified assessment. Operators: the full dashboard is at <a href="/">/</a>.</footer>
+<footer>&copy; 2022–2026 McGinnis Technologies, LLC. &middot; <a href="/legal.html">Disclaimer &amp; Responsible Use</a></footer>
 </main></body></html>`))

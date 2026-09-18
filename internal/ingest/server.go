@@ -33,6 +33,8 @@ import (
 	"time"
 
 	"muster/internal/cook"
+	"muster/internal/model"
+	"muster/internal/operations"
 	"muster/internal/store"
 )
 
@@ -231,12 +233,28 @@ func (s *Server) deliverPendingAction(ctx context.Context, conn net.Conn, host s
 	if s.Pipeline == nil || s.Pipeline.Store == nil {
 		return
 	}
-	action, ok, err := s.Pipeline.Store.PendingAction(ctx, host)
+	operations.Mu.Lock()
+	defer operations.Mu.Unlock()
+	actions, err := s.Pipeline.Store.ListActions(ctx, host)
 	if err != nil {
 		log.Error("checking pending action", "err", err)
 		return
 	}
-	if !ok {
+	var action model.Action
+	for _, candidate := range actions {
+		if candidate.Delivered || candidate.Status != "" {
+			continue
+		}
+		allowed, err := operations.DeliveryAllowed(ctx, s.Pipeline.Store, candidate, time.Now().UTC())
+		if err != nil {
+			log.Error("checking maintenance window", "err", err)
+			return
+		}
+		if allowed && (action.ID == "" || candidate.QueuedAt.Before(action.QueuedAt)) {
+			action = candidate
+		}
+	}
+	if action.ID == "" {
 		return
 	}
 	arg := action.Arg

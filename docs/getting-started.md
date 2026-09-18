@@ -48,3 +48,32 @@ Once something's reporting, open the dashboard at `/` --
 whatever tags you assign, **Fleet** for a fleet-wide rollup,
 **Compliance** for posture/vulnerability/software-list scoring, and
 **Agents** to manage enrollments and downloads.
+
+Open **Work queue** to prioritize findings, assign owners and deadlines, manage
+expiring exceptions, create dynamic groups, and schedule staged service restarts.
+See **Work Queue & Governed Changes** in Docs for supported actions and limits.
+
+Open **Visibility** for searchable device changes, agent reporting health, and
+discovered-device review. Switch between live inventory and the **Demo showcase**.
+
+## Presenting a demo
+
+The **Tools** page includes presentation mode, branded live/demo reports,
+configuration backup and recovery, and notification controls. The **About Muster**
+footer link shows the installed version and support guidance. See **Workspace
+Tools & Presentation** in Docs for all eight additions and their limits.
+
+Open `/#/visibility/demo` after signing in with your existing credential. Six
+fictional devices and four sample discoveries are included automatically. No
+database import or agent installation is needed. A three-minute walkthrough is
+displayed above the views, with a longer guide under **Device Visibility & Demo
+Walkthrough** in Docs.
+
+Show **Device history**, then **Agent health**, then **Discovery review**. You can
+try sample review decisions and select **Reset demo** to restore the sample story.
+The yellow DEMO DATA banner remains visible. Sample records are isolated from
+live inventory and do not send notifications or execute actions. Other dashboard
+pages continue to show live data; this is a showcase for the Visibility page.
+
+After installing a new server binary, restart the service and refresh the browser
+with Ctrl+F5 if the new navigation has not appeared.

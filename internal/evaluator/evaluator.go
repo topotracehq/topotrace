@@ -36,8 +36,10 @@ import (
 	"muster/internal/compliance"
 	"muster/internal/history"
 	"muster/internal/model"
+	"muster/internal/operations"
 	"muster/internal/policy"
 	"muster/internal/remediate"
+	"muster/internal/risk"
 	"muster/internal/signals"
 	"muster/internal/store"
 	"muster/internal/vuln"
@@ -81,6 +83,8 @@ func (e *Evaluator) log() *slog.Logger {
 }
 
 func (e *Evaluator) runOnce(ctx context.Context) {
+	operations.Mu.Lock()
+	defer operations.Mu.Unlock()
 	rules, err := e.Store.ListRules(ctx)
 	if err != nil {
 		e.log().Error("evaluator: listing rules", "err", err)
@@ -129,6 +133,10 @@ func (e *Evaluator) runOnce(ctx context.Context) {
 	if err := alerts.Save(ctx, e.Store, state); err != nil {
 		e.log().Error("evaluator: saving alert state", "err", err)
 	}
+	if err := operations.AdvancePlans(ctx, e.Store, now); err != nil {
+		e.log().Error("advancing scheduled changes", "err", err)
+	}
+	e.escalateOverdue(ctx, now)
 }
 
 // runState carries the alert bookkeeping through one evaluator run.
@@ -162,7 +170,12 @@ func (e *Evaluator) evaluateHost(ctx context.Context, h model.Host, rules []mode
 	e.evaluateSoftware(ctx, h, softwareRules, byCategory, now, run)
 
 	for _, rule := range rules {
-		if rule.Group != "" && rule.Group != h.Group {
+		matches, matchErr := operations.MatchesGroup(ctx, e.Store, rule.Group, h, byCategory, risk.Compute(in).Score, now)
+		if matchErr != nil {
+			e.log().Error("matching dynamic policy group", "err", matchErr)
+			continue
+		}
+		if !matches {
 			continue // rule is scoped to a different board column -- not this host's concern
 		}
 		violated, reason := e.violates(rule, byCategory, stale, posture)
@@ -172,6 +185,18 @@ func (e *Evaluator) evaluateHost(ctx context.Context, h model.Host, rules []mode
 
 		key := alerts.PolicyKey(rule.ID, h.Name)
 		run.seen[key] = true
+		exception, accepted, err := operations.ExceptionFor(ctx, e.Store, key, now)
+		if err != nil {
+			e.log().Error("loading policy exception", "err", err)
+			continue
+		}
+		if accepted {
+			continue
+		}
+		if v, exists := run.state.Open[key]; exists && !exception.ExpiresAt.IsZero() && v.LastAlerted.Before(exception.ExpiresAt) {
+			v.LastAlerted = time.Time{}
+			run.state.Open[key] = v
+		}
 		decision := run.state.Observe(key, "policy", rule.ID, rule.Name, h.Name, reason, now)
 		if decision == alerts.Announce {
 			e.log().Info("evaluator: rule violated", "host", h.Name, "rule", rule.Name, "reason", reason)
@@ -302,6 +327,18 @@ func (e *Evaluator) evaluateSoftware(ctx context.Context, h model.Host, software
 		}
 		key := alerts.SoftwareKey(v.Rule, h.Name, v.Package)
 		run.seen[key] = true
+		exception, accepted, err := operations.ExceptionFor(ctx, e.Store, key, now)
+		if err != nil {
+			e.log().Error("loading software exception", "err", err)
+			continue
+		}
+		if accepted {
+			continue
+		}
+		if open, exists := run.state.Open[key]; exists && !exception.ExpiresAt.IsZero() && open.LastAlerted.Before(exception.ExpiresAt) {
+			open.LastAlerted = time.Time{}
+			run.state.Open[key] = open
+		}
 		if run.state.Observe(key, "software", "", v.Rule, h.Name, detail, now) != alerts.Announce {
 			continue
 		}

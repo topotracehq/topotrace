@@ -18,9 +18,11 @@ import (
 	"strings"
 	"time"
 
+	"muster/internal/compliance"
 	"muster/internal/history"
 	"muster/internal/model"
 	"muster/internal/report"
+	"muster/internal/signals"
 )
 
 // buildReport assembles report.Data from live signals. The audit trail
@@ -28,14 +30,56 @@ import (
 // -- a readonly key gets the report without the activity section rather
 // than a 403 for the whole thing.
 func (s *Server) buildReport(r *http.Request, includeAudit bool) (report.Data, error) {
+	if r.URL.Query().Get("demo") == "1" {
+		now := time.Now().UTC()
+		st, err := visibilityDemo(now)
+		if err != nil {
+			return report.Data{}, err
+		}
+		hosts, err := st.ListHosts(r.Context())
+		if err != nil {
+			return report.Data{}, err
+		}
+		inputs := []compliance.Input{}
+		for _, h := range hosts {
+			in, err := signals.Gather(r.Context(), st, h, nil, nil)
+			if err != nil {
+				return report.Data{}, err
+			}
+			inputs = append(inputs, in)
+		}
+		d := report.Build(inputs, nil, nil, now)
+		d.Demo = true
+		return d, nil
+	}
 	inputs, err := s.fleetInputs(r)
 	if err != nil {
 		return report.Data{}, err
 	}
 	series, _ := history.All(r.Context(), s.Store)
+	visible := map[string]bool{}
+	for _, in := range inputs {
+		visible[in.Host.Name] = true
+	}
+	filtered := series[:0]
+	for _, v := range series {
+		if visible[v.Host] {
+			filtered = append(filtered, v)
+		}
+	}
+	series = filtered
 	var audit []model.AuditEntry
 	if includeAudit {
 		audit, _ = s.Store.ListAudit(r.Context(), "", 200)
+		if s.keyScope(r) != "" {
+			filtered := audit[:0]
+			for _, a := range audit {
+				if visible[a.Target] {
+					filtered = append(filtered, a)
+				}
+			}
+			audit = filtered
+		}
 	}
 	return report.Build(inputs, series, audit, time.Now().UTC()), nil
 }
