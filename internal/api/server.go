@@ -25,11 +25,11 @@ import (
 	"time"
 
 	"muster/agent"
+	"muster/docs"
 	"muster/internal/aiquery"
 	"muster/internal/allowlist"
 	"muster/internal/compliance"
 	"muster/internal/cook"
-	"muster/docs"
 	"muster/internal/ingest"
 	"muster/internal/model"
 	"muster/internal/oauth"
@@ -1807,7 +1807,7 @@ func (s *Server) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 type mobileReportRequest struct {
 	Host     string                    `json:"host"`
 	Platform string                    `json:"platform"` // "android", "ios", or "chromeos"
-	Facts    map[string]map[string]any `json:"facts"`     // category -> field -> value, at least one category required
+	Facts    map[string]map[string]any `json:"facts"`    // category -> field -> value, at least one category required
 }
 
 // handleMobileReport is POST /api/mobile-report. Authenticated by
@@ -1997,9 +1997,9 @@ func (s *Server) handleDownloadAgent(w http.ResponseWriter, r *http.Request) {
 // sightings, not a full agent report (see model.DiscoveredAsset's doc
 // comment for how this differs from a managed Host).
 type discoverReportRequest struct {
-	ScannedBy   string                  `json:"scanned_by"`
-	ScannedCIDR string                  `json:"scanned_cidr"`
-	Assets      []discoveredAssetInput  `json:"assets"`
+	ScannedBy   string                 `json:"scanned_by"`
+	ScannedCIDR string                 `json:"scanned_cidr"`
+	Assets      []discoveredAssetInput `json:"assets"`
 }
 
 type discoveredAssetInput struct {

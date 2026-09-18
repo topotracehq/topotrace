@@ -34,7 +34,6 @@ func IsStale(lastCooked, now time.Time) bool {
 	return now.Sub(lastCooked) > StaleAfter
 }
 
-
 // PostureResult is a lightweight, on-demand compliance score for one
 // host -- never stored, always reflects whatever facts are passed in.
 // This is a heuristic, not a claim of formal/audited compliance: it

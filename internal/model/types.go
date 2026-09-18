@@ -123,7 +123,6 @@ type Rule struct {
 	CreatedAt        time.Time `json:"created_at"`
 }
 
-
 // Enrollment is a named, single-host, revocable credential used only to
 // self-register an agent -- deliberately narrower than an APIKey (which
 // grants a role across the whole API): an enrollment token authenticates
@@ -167,7 +166,6 @@ type SoftwareRule struct {
 	Match     string    `json:"match"`
 	CreatedAt time.Time `json:"created_at"`
 }
-
 
 // DiscoveredAsset is one host-like thing found on the network by a
 // discovery scan (cmd/discover) -- distinct from Host, which represents

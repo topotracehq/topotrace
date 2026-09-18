@@ -140,9 +140,9 @@ type vmListResponse struct {
 		Location   string            `json:"location"`
 		Tags       map[string]string `json:"tags"`
 		Properties struct {
-			VMID             string `json:"vmId"`
+			VMID              string `json:"vmId"`
 			ProvisioningState string `json:"provisioningState"`
-			HardwareProfile  struct {
+			HardwareProfile   struct {
 				VMSize string `json:"vmSize"`
 			} `json:"hardwareProfile"`
 			InstanceView struct {

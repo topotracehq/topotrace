@@ -168,10 +168,10 @@ func parseLinuxServices(rawDir string) (map[string]any, bool, error) {
 			continue
 		}
 		items = append(items, map[string]any{
-			"name":          strings.TrimSuffix(fields[0], ".service"),
-			"load_state":    fields[1],
-			"active_state":  fields[2],
-			"sub_state":     fields[3],
+			"name":         strings.TrimSuffix(fields[0], ".service"),
+			"load_state":   fields[1],
+			"active_state": fields[2],
+			"sub_state":    fields[3],
 		})
 	}
 	if err := scanner.Err(); err != nil {

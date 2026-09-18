@@ -227,10 +227,10 @@ func base64URL(b []byte) string {
 type aggregatedListResponse struct {
 	Items map[string]struct {
 		Instances []struct {
-			Name              string `json:"name"`
-			MachineType       string `json:"machineType"`
-			Status            string `json:"status"`
-			Zone              string `json:"zone"`
+			Name              string            `json:"name"`
+			MachineType       string            `json:"machineType"`
+			Status            string            `json:"status"`
+			Zone              string            `json:"zone"`
 			Labels            map[string]string `json:"labels"`
 			NetworkInterfaces []struct {
 				NetworkIP     string `json:"networkIP"`

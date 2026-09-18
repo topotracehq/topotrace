@@ -339,9 +339,9 @@ func deriveSigningKey(secretKey, dateStamp, region, service string) []byte {
 // --- reporting to Muster ------------------------------------------------
 
 type cloudReportRequest struct {
-	Provider  string                 `json:"provider"`
-	Account   string                 `json:"account,omitempty"`
-	Instances []cloudInstanceReport  `json:"instances"`
+	Provider  string                `json:"provider"`
+	Account   string                `json:"account,omitempty"`
+	Instances []cloudInstanceReport `json:"instances"`
 }
 
 type cloudInstanceReport struct {

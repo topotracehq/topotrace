@@ -22,48 +22,48 @@ import (
 )
 
 type snapshot struct {
-	Hosts        map[string]model.Host            `json:"hosts"`
-	Facts        map[string]map[string]model.Fact `json:"facts"` // host -> category -> fact
-	Changes      []model.Change                   `json:"changes,omitempty"`
-	Actions      []model.Action                   `json:"actions,omitempty"`
-	NextActionID int                               `json:"next_action_id,omitempty"`
-	Groups       []string                          `json:"groups,omitempty"`
-	AuditLog     []model.AuditEntry                `json:"audit_log,omitempty"`
-	NextAuditID  int                               `json:"next_audit_id,omitempty"`
-	APIKeys      []model.APIKey                    `json:"api_keys,omitempty"`
-	NextKeyID    int                               `json:"next_key_id,omitempty"`
-	Rules            []model.Rule                  `json:"rules,omitempty"`
-	NextRuleID       int                           `json:"next_rule_id,omitempty"`
-	Enrollments      []model.Enrollment            `json:"enrollments,omitempty"`
-	NextEnrollID     int                           `json:"next_enroll_id,omitempty"`
-	SoftwareRules    []model.SoftwareRule          `json:"software_rules,omitempty"`
-	NextSoftwareID   int                           `json:"next_software_id,omitempty"`
-	DiscoveredAssets []model.DiscoveredAsset      `json:"discovered_assets,omitempty"`
-	NextAssetID      int                           `json:"next_asset_id,omitempty"`
+	Hosts            map[string]model.Host            `json:"hosts"`
+	Facts            map[string]map[string]model.Fact `json:"facts"` // host -> category -> fact
+	Changes          []model.Change                   `json:"changes,omitempty"`
+	Actions          []model.Action                   `json:"actions,omitempty"`
+	NextActionID     int                              `json:"next_action_id,omitempty"`
+	Groups           []string                         `json:"groups,omitempty"`
+	AuditLog         []model.AuditEntry               `json:"audit_log,omitempty"`
+	NextAuditID      int                              `json:"next_audit_id,omitempty"`
+	APIKeys          []model.APIKey                   `json:"api_keys,omitempty"`
+	NextKeyID        int                              `json:"next_key_id,omitempty"`
+	Rules            []model.Rule                     `json:"rules,omitempty"`
+	NextRuleID       int                              `json:"next_rule_id,omitempty"`
+	Enrollments      []model.Enrollment               `json:"enrollments,omitempty"`
+	NextEnrollID     int                              `json:"next_enroll_id,omitempty"`
+	SoftwareRules    []model.SoftwareRule             `json:"software_rules,omitempty"`
+	NextSoftwareID   int                              `json:"next_software_id,omitempty"`
+	DiscoveredAssets []model.DiscoveredAsset          `json:"discovered_assets,omitempty"`
+	NextAssetID      int                              `json:"next_asset_id,omitempty"`
 }
 
 // Store is a concurrency-safe, optionally file-backed Store implementation.
 type Store struct {
-	mu           sync.Mutex
-	path         string // empty means in-memory only, no persistence
-	hosts        map[string]model.Host
-	facts        map[string]map[string]model.Fact
-	changes      []model.Change
-	actions      []model.Action
-	nextActionID int
-	groups       map[string]bool
-	auditLog     []model.AuditEntry
-	nextAuditID  int
-	apiKeys      []model.APIKey
-	nextKeyID    int
-	rules        []model.Rule
-	nextRuleID   int
-	enrollments  []model.Enrollment
-	nextEnrollID int
-	softwareRules  []model.SoftwareRule
-	nextSoftwareID int
-	discoveredAssets  []model.DiscoveredAsset
-	nextAssetID       int
+	mu               sync.Mutex
+	path             string // empty means in-memory only, no persistence
+	hosts            map[string]model.Host
+	facts            map[string]map[string]model.Fact
+	changes          []model.Change
+	actions          []model.Action
+	nextActionID     int
+	groups           map[string]bool
+	auditLog         []model.AuditEntry
+	nextAuditID      int
+	apiKeys          []model.APIKey
+	nextKeyID        int
+	rules            []model.Rule
+	nextRuleID       int
+	enrollments      []model.Enrollment
+	nextEnrollID     int
+	softwareRules    []model.SoftwareRule
+	nextSoftwareID   int
+	discoveredAssets []model.DiscoveredAsset
+	nextAssetID      int
 }
 
 // New creates a Store. If path is non-empty, existing state is loaded
