@@ -24,13 +24,14 @@ window.MusterVisibility = function ({ api, el, app, timeAgo, workspaceUI }) {
     const root = el("div", { class: "visibility-page" });
     app.replaceChildren(root);
     root.appendChild(el("h1", { text: "Device visibility" }));
+    root.appendChild(el("p", {class:"page-intro",text:"Follow device changes, understand reporting health, and review discoveries."}));
     const nav = el("div", { class: "visibility-toolbar" },
       el("a", { href: "#/visibility", class: "ghost", text: "Live inventory" }),
       el("a", { href: "#/visibility/demo", class: "ghost", text: "Demo showcase" }));
     const refresh = el("button", { type: "button", text: demo ? "Reset demo" : "Refresh" });
     refresh.addEventListener("click", () => show(demo)); nav.appendChild(refresh); root.appendChild(nav);
     nav.appendChild(workspaceUI.presentationButton());
-    root.appendChild(workspaceUI.reportButton(demo));
+    nav.appendChild(workspaceUI.reportButton(demo));
     if(demo){const scenarios=el("select",{"aria-label":"Demo scenario"},...[["overview","Fleet overview"],["unauthorized","New unauthorized device"],["failed_change","Failed change"],["recovery","Verified recovery"]].map(([value,text])=>el("option",{value,text})));scenarios.value=scenario;scenarios.addEventListener("change",()=>show(true,scenarios.value));nav.appendChild(scenarios);}
     root.appendChild(el("p", { class: demo ? "visibility-demo" : "meta", text: demo
       ? "DEMO DATA — Six fictional devices and four sample discoveries. Reviews are temporary and reset with this page. No live inventory, notifications, or device actions are changed."
@@ -48,7 +49,7 @@ window.MusterVisibility = function ({ api, el, app, timeAgo, workspaceUI }) {
       [data.changes.length, "Recorded changes"], [data.assets.filter(a => a.state === "needs_review" || a.state === "unauthorized").length, "Discoveries needing attention"]
     ].map(([n, title]) => el("div", {}, el("strong", { text: String(n) }), el("span", { text: title }))));
     renderStats(); root.appendChild(stats);
-    if (demo) root.appendChild(card("Your three-minute demo",
+    if (demo) root.appendChild(el("details", {class:"demo-guide"}, el("summary", {text:"Your three-minute demo · View walkthrough"}),
       el("ol", {}, ...[
         "Open Device history: show the web server upgrade, failed database service, and disabled laptop firewall.",
         "Open Agent health: compare healthy reporting, failed collection, a late laptop, and a missing branch device.",

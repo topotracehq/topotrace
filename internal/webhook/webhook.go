@@ -351,6 +351,7 @@ func (d *Dispatcher) attempt(ctx context.Context, del *Delivery) {
 	del.Attempts++
 	if err == nil {
 		del.DeliveredAt = d.now()
+		d.recordSuccess(del.Sink)
 		delete(d.pending, del.ID)
 		d.unpersist(del.ID)
 		d.log.Info("notify: delivered", "sink", del.Sink, "event", del.Event.Type, "attempts", del.Attempts)
@@ -433,6 +434,7 @@ func (d *Dispatcher) DeliverNow(ctx context.Context, evt Event) map[string]strin
 			out[s.Name()] = "failed: " + err.Error()
 		} else {
 			out[s.Name()] = "ok"
+			d.recordSuccess(s.Name())
 		}
 	}
 	return out

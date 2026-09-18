@@ -77,3 +77,9 @@ pages continue to show live data; this is a showcase for the Visibility page.
 
 After installing a new server binary, restart the service and refresh the browser
 with Ctrl+F5 if the new navigation has not appeared.
+
+## Navigate the dashboard
+
+Use the labeled sidebar to switch between Overview, Operations, and Workspace
+pages. On smaller screens, select Menu. See [Dashboard & Navigation](interface.md)
+for the documentation reader, work sections, printing, and presentation layout.

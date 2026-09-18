@@ -14,6 +14,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"muster/internal/compliance"
 	"muster/internal/history"
 	"muster/internal/model"
+	"muster/internal/operations"
 	"muster/internal/report"
 	"muster/internal/signals"
 )
@@ -56,6 +58,45 @@ func (s *Server) buildReport(r *http.Request, includeAudit bool) (report.Data, e
 	if err != nil {
 		return report.Data{}, err
 	}
+	q := r.URL.Query()
+	var start, end time.Time
+	if q.Get("from") != "" {
+		start, err = time.Parse("2006-01-02", q.Get("from"))
+		if err != nil {
+			return report.Data{}, fmt.Errorf("invalid start date")
+		}
+	}
+	if q.Get("to") != "" {
+		end, err = time.Parse("2006-01-02", q.Get("to"))
+		if err != nil {
+			return report.Data{}, fmt.Errorf("invalid end date")
+		}
+		end = end.Add(24 * time.Hour)
+	}
+	if !start.IsZero() && !end.IsZero() && !start.Before(end) {
+		return report.Data{}, fmt.Errorf("invalid date range")
+	}
+	selected := map[string]bool{}
+	if id := q.Get("collection"); id != "" {
+		c, ok, e := operations.Load[deviceCollection](r.Context(), s.Store, collectionKind, id)
+		if e != nil || !ok || (s.keyScope(r) != "" && c.Group != s.keyScope(r)) {
+			return report.Data{}, fmt.Errorf("collection unavailable")
+		}
+		for _, h := range c.Hosts {
+			selected[h] = true
+		}
+	}
+	selectedInputs := inputs[:0]
+	for _, in := range inputs {
+		if q.Get("group") != "" && in.Host.Group != q.Get("group") {
+			continue
+		}
+		if q.Get("collection") != "" && !selected[in.Host.Name] {
+			continue
+		}
+		selectedInputs = append(selectedInputs, in)
+	}
+	inputs = selectedInputs
 	series, _ := history.All(r.Context(), s.Store)
 	visible := map[string]bool{}
 	for _, in := range inputs {
@@ -64,6 +105,13 @@ func (s *Server) buildReport(r *http.Request, includeAudit bool) (report.Data, e
 	filtered := series[:0]
 	for _, v := range series {
 		if visible[v.Host] {
+			points := v.Points[:0]
+			for _, p := range v.Points {
+				if (start.IsZero() || !p.At.Before(start)) && (end.IsZero() || p.At.Before(end)) {
+					points = append(points, p)
+				}
+			}
+			v.Points = points
 			filtered = append(filtered, v)
 		}
 	}
@@ -71,17 +119,38 @@ func (s *Server) buildReport(r *http.Request, includeAudit bool) (report.Data, e
 	var audit []model.AuditEntry
 	if includeAudit {
 		audit, _ = s.Store.ListAudit(r.Context(), "", 200)
-		if s.keyScope(r) != "" {
+		if s.keyScope(r) != "" || q.Get("collection") != "" || q.Get("group") != "" || !start.IsZero() || !end.IsZero() {
 			filtered := audit[:0]
 			for _, a := range audit {
-				if visible[a.Target] {
+				if visible[a.Target] && (start.IsZero() || !a.CreatedAt.Before(start)) && (end.IsZero() || a.CreatedAt.Before(end)) {
 					filtered = append(filtered, a)
 				}
 			}
 			audit = filtered
 		}
 	}
-	return report.Build(inputs, series, audit, time.Now().UTC()), nil
+	d := report.Build(inputs, series, audit, time.Now().UTC())
+	d.Technical = q.Get("mode") == "technical"
+	d.ScopeNote = "Current inventory snapshot. Date selection filters retained trend/activity only (UTC); trends are limited to the most recent 30 days."
+	if q.Get("from") != "" || q.Get("to") != "" {
+		d.ScopeNote += " Requested interval: " + q.Get("from") + " through " + q.Get("to") + "."
+	}
+	if q.Get("sections") != "" {
+		sections := "," + q.Get("sections") + ","
+		if !strings.Contains(sections, ",hosts,") {
+			d.Hosts = nil
+		}
+		if !strings.Contains(sections, ",vulnerabilities,") {
+			d.Vulns = nil
+		}
+		if !strings.Contains(sections, ",activity,") {
+			d.Audit = nil
+		}
+		if !strings.Contains(sections, ",trend,") {
+			d.Trend = nil
+		}
+	}
+	return d, nil
 }
 
 // isAdmin reports whether the request's credential resolves to admin,

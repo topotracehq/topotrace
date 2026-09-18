@@ -53,15 +53,17 @@ window.MusterWork = function ({ api, el, app, timeAgo, workspaceUI }) {
     if(item.exception){const clear=el("button",{type:"button",class:"ghost",text:"Revoke exception"});clear.addEventListener("click",async()=>{try{await api("/api/work/exception",{method:"DELETE",body:{id:item.id,host:item.host}});await refresh();}catch(err){msg.textContent=err.message;}});form.appendChild(clear);}
     return form;
   }
+  let activeSection="Findings";
   async function show() {
     const container=el("div",{class:"work-page"}); app.replaceChildren(container);
-    container.appendChild(el("div",{class:"section-heading"},el("h1",{text:"Work queue"}),el("p",{class:"meta",text:"Open work ranked by overdue status and host risk. Accepted exceptions appear last. Evidence gaps remain visible."})));
+    container.appendChild(el("h1",{text:"Work queue"}));container.appendChild(el("p",{class:"page-intro",text:"Prioritize findings, assign ownership, and plan changes with evidence."}));
     const refreshButton=el("button",{type:"button",class:"ghost",text:"Refresh"}); refreshButton.addEventListener("click",show);container.appendChild(refreshButton);
     let data; try{data=await api("/api/work");}catch(err){container.appendChild(el("p",{text:err.message}));return;}
+    const findingsPanel=el("section",{class:"work-panel"});container.appendChild(findingsPanel);
     const filter=input("Filter by host, owner, team, or finding"), onlyMine=el("input",{type:"checkbox"});
-    container.appendChild(el("div",{class:"editor-row"},field("Search work",filter),field("Overdue only",onlyMine)));
-    const list=el("div",{class:"work-list"});container.appendChild(list);
-    container.insertBefore(workspaceUI.savedControls("work",()=>({query:filter.value,filter:onlyMine.checked?"overdue":"all"}),v=>{filter.value=v.query;onlyMine.checked=v.filter==="overdue";render();}),list);
+    findingsPanel.appendChild(el("div",{class:"editor-row"},field("Search work",filter),field("Overdue only",onlyMine)));
+    const list=el("div",{class:"work-list"});findingsPanel.appendChild(list);
+    findingsPanel.insertBefore(workspaceUI.savedControls("work",()=>({query:filter.value,filter:onlyMine.checked?"overdue":"all"}),v=>{filter.value=v.query;onlyMine.checked=v.filter==="overdue";render();}),list);
     function render(){list.replaceChildren();const rows=data.items.filter(i=>(!onlyMine.checked||i.overdue)&&`${i.host} ${i.title} ${i.assignment.owner} ${i.assignment.team}`.toLowerCase().includes(filter.value.toLowerCase()));
       list.appendChild(el("p",{class:"meta",text:`${rows.length} findings · updated ${dateText(data.generated_at)}`}));
       for(const item of rows){const a=item.assignment;const card=el("article",{class:"fact-card work-item"},
@@ -78,10 +80,14 @@ window.MusterWork = function ({ api, el, app, timeAgo, workspaceUI }) {
       if(!rows.length)list.appendChild(el("p",{text:"No matching open work."}));
     }
     filter.addEventListener("input",render);onlyMine.addEventListener("change",render);render();
-    const ownerSection=el("details",{class:"fact-card"},el("summary",{text:"Default device ownership"}));
+    const ownerSection=el("section",{class:"fact-card"},el("h2",{text:"Default device ownership"}));
     const hostSelect=el("select",{},...data.hosts.map(h=>el("option",{value:h,text:h}))), slot=el("div",{});
     const loadOwner=()=>{const host=hostSelect.value;slot.replaceChildren(...(host?[assignmentForm(host,"host:"+host,data.assignments.find(a=>a.id==="host:"+host)||{},show)]:[]));};hostSelect.addEventListener("change",loadOwner);ownerSection.append(field("Device",hostSelect),slot);loadOwner();container.appendChild(ownerSection);
     const groupSlot=el("section",{class:"fact-card"}), planSlot=el("section",{class:"fact-card"});container.append(groupSlot,planSlot);
+    const panels={Findings:findingsPanel,Ownership:ownerSection,"Dynamic groups":groupSlot,"Change plans":planSlot};
+    const tabs=el("div",{class:"visibility-toolbar work-sections",role:"group","aria-label":"Work queue sections"});
+    const select=()=>{for(const [name,panel] of Object.entries(panels))panel.hidden=name!==activeSection;for(const b of tabs.querySelectorAll("button"))b.setAttribute("aria-pressed",String(b.textContent===activeSection));};
+    for(const name of Object.keys(panels)){const b=el("button",{type:"button",text:name});b.addEventListener("click",()=>{activeSection=name;select();});tabs.appendChild(b);}container.insertBefore(tabs,refreshButton);select();
     await Promise.all([groups(groupSlot),plans(planSlot,data.hosts)]);
   }
   async function groups(container){

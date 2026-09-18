@@ -4,6 +4,12 @@ A hardware/software/configuration inventory system: lightweight agents
 report data from managed hosts, a Go server ingests and parses it, and a
 REST API answers questions like "which of my servers are running Ubuntu?"
 
+The [fleet workspace](docs/fleet-workspace.md) adds an actionable home page,
+global evidence search, saved device collections, comparison, an attention
+inbox, integration health, guided onboarding, and branded report selection.
+[Site workers](docs/site-operations.md) support bounded scheduled discovery
+and explicitly staged Linux SSH / Windows WinRM agent deployment.
+
 This is a **from-scratch project**, written in Go, inspired by — but not
 ported from — an older Perl system I modernized separately. The domain
 (agents → central collector → parsed/"cooked" facts → queryable reports)

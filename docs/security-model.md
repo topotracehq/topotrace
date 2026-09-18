@@ -71,3 +71,14 @@ This differs from **Settings → Demo / simulator**, whose scenarios intentional
 write simulated audit events and can send notifications through configured
 integrations. Use the Visibility showcase for a presentation without those
 external effects. All pages outside that showcase still use live data.
+## Site worker boundary
+
+Site workers use separate hashed bearer credentials limited to polling and
+returning their own jobs. Worker registration and job approval require an
+unscoped administrator. Administrative SSH/WinRM credentials stay on each
+worker. Its local address allowlist and pinned ingest destination restrict
+the work it accepts. Agent installation is privileged and uses separate
+per-host enrollment tokens; successful installation is not counted as a
+completed deployment until a fresh report is observed. See
+[Discovery & remote deployment](site-operations.md) for transport,
+privilege, lease, revocation, and recovery details.

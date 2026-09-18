@@ -358,3 +358,10 @@ verification endpoints, see **Work Queue & Governed Changes** in Docs.
 - `GET /metrics` -- Prometheus text format.
 - `GET /#/...` -- the web dashboard itself (Hosts, Board, Fleet,
   Compliance, Ask Muster, Agents, Docs).
+## Fleet workspace and site operations
+
+The new [fleet workspace API](fleet-workspace.md) covers overview, scoped
+search, collections, comparisons, inbox state, integration health and
+report selection. The [site operations API](site-operations.md) covers
+worker registration, reviewed discovery/deployment jobs, and worker-only
+poll/result endpoints. Worker credentials cannot call general admin APIs.

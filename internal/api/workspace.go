@@ -14,7 +14,7 @@ import (
 )
 
 const savedViewKind = "saved_view"
-const releaseVersion = "2026.09.18.4"
+const releaseVersion = "2026.09.18.6"
 
 type savedView struct {
 	ID     string `json:"id"`
@@ -44,6 +44,8 @@ func (v savedView) validate() error {
 	return nil
 }
 func (s *Server) registerWorkspace(mux *http.ServeMux) {
+	s.registerProductivity(mux)
+	s.registerSiteOps(mux)
 	mux.HandleFunc("GET /api/about", s.handleAbout)
 	mux.HandleFunc("GET /api/saved-views", s.handleSavedViews)
 	mux.HandleFunc("POST /api/saved-views", s.handleSavedViews)

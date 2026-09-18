@@ -67,6 +67,8 @@ type VulnRow struct {
 
 // Data is everything a report can draw on, built once by Build.
 type Data struct {
+	Technical     bool
+	ScopeNote     string
 	Demo          bool
 	Logo          template.URL
 	NextSteps     []string
@@ -248,24 +250,15 @@ var funcs = template.FuncMap{
 }
 
 var execTemplate = template.Must(template.New("exec").Funcs(funcs).Parse(`<!doctype html>
-<html><head><meta charset="utf-8"><title>Muster posture report</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Muster posture report</title>
 <style>
-  body { font: 13px/1.45 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #23272a; margin: 32px auto; max-width: 860px; padding: 0 24px; }
-  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 28px 0 8px; text-transform: uppercase; letter-spacing: .04em; color: #6b7278; }
-  .meta { color: #6b7278; font-size: 12px; }
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
-  .stat { border: 1px solid #e4e1d8; border-radius: 8px; padding: 10px 12px; }
-  .stat b { display: block; font-size: 22px; } .stat span { font-size: 11px; color: #6b7278; }
-  table { border-collapse: collapse; width: 100%; font-size: 12px; } th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid #e4e1d8; } th { color: #6b7278; font-weight: 600; }
-  .warn { color: #c0392b; font-weight: 600; } .ok { color: #2e7d32; }
-  .print { float: right; padding: 6px 12px; border: 1px solid #e4e1d8; border-radius: 6px; background: #fff; cursor: pointer; }
-  @media print { .print { display: none; } body { margin: 0; } }
+  *{box-sizing:border-box}body{font:14px/1.7 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#233440;background:#f4f6f8;margin:0;padding:40px 24px}.report-page{max-width:1040px;margin:auto;padding:44px;background:white;border:1px solid #dfe5e9;border-radius:14px}.report-head{display:flex;gap:28px;align-items:center;border-bottom:2px solid #9e2435;padding-bottom:24px;margin-bottom:28px}.report-logo{width:120px;height:120px;object-fit:contain;flex:none}.eyebrow{font-size:10px;letter-spacing:.15em;color:#9e2435;font-weight:700;text-transform:uppercase}h1{font-size:32px;letter-spacing:-.04em;line-height:1.2;margin:8px 0}h2{font-size:18px;letter-spacing:-.02em;margin:32px 0 12px;break-after:avoid}p{margin:10px 0}.meta{color:#60717d;font-size:12px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:28px 0}.stat{border:1px solid #dfe5e9;border-radius:9px;padding:18px;background:#f8fafb;break-inside:avoid}.stat b{display:block;font-size:28px;line-height:1.3;letter-spacing:-.03em;font-variant-numeric:tabular-nums}.stat span{font-size:11px;color:#60717d;display:block;margin-top:8px}table{border-collapse:collapse;width:100%;font-size:11px;table-layout:fixed}th,td{text-align:left;padding:10px 7px;border-bottom:1px solid #dfe5e9;overflow-wrap:anywhere;vertical-align:top}th{color:#60717d;font-size:10px;background:#f4f6f8}tr{break-inside:avoid}.warn{color:#a12d3a;font-weight:600}.ok{color:#26754b}.print{display:block;margin:0 0 22px auto;padding:10px 16px;border:1px solid #dfe5e9;border-radius:7px;background:white;color:#233440;cursor:pointer;font:inherit;font-size:12px}.demo-note{padding:14px 18px;background:#fff8e6;border:1px solid #e7d59e;border-radius:8px;color:#71551d;font-size:12px;font-weight:600}footer{border-top:1px solid #dfe5e9;padding-top:18px;margin-top:32px}@media(max-width:650px){body{padding:12px}.report-page{padding:22px}.report-head{gap:16px}.report-logo{width:70px;height:70px}h1{font-size:25px}.stats{grid-template-columns:repeat(2,1fr)}table{font-size:10px}th,td{padding:7px 4px}}@media print{@page{margin:15mm}body{background:white;padding:0;font-size:11px}.report-page{border:0;padding:0;max-width:none}.print{display:none}.report-head{break-inside:avoid}.stats{grid-template-columns:repeat(4,minmax(0,1fr))}.stat{padding:12px}.stat b{font-size:23px}table{font-size:9px}th,td{padding:7px 5px}thead{display:table-header-group}h2{break-after:avoid}}
 </style></head><body>
+<main class="report-page">
 <button class="print" onclick="window.print()">Print / save as PDF</button>
-<img src="{{.Logo}}" alt="McGinnis Technologies" width="160" height="160" style="object-fit:contain;float:left;margin:0 24px 16px 0">
-<h1>Fleet posture report</h1>
-<p>McGinnis Technologies, LLC · Security · Strategy · Solutions</p>
-{{if .Demo}}<p style="padding:12px;background:#fff0c9;font-weight:bold">DEMO DATA — Fictional devices; not an assessment of live systems.</p>{{end}}
+<header class="report-head"><img class="report-logo" src="{{.Logo}}" alt="McGinnis Technologies" width="120" height="120"><div><span class="eyebrow">Muster / {{if .Technical}}Technical{{else}}Executive{{end}} report</span><h1>Fleet posture report</h1><p class="meta">McGinnis Technologies, LLC · Security · Strategy · Solutions</p></div></header>
+{{if .ScopeNote}}<p class="meta">{{.ScopeNote}}</p>{{end}}
+{{if .Demo}}<p class="demo-note">DEMO DATA — Fictional devices; not an assessment of live systems.</p>{{end}}
 <div class="meta">Generated {{date .GeneratedAt}} by Muster · {{.TotalHosts}} managed hosts · illustrative checks, not a certified audit</div>
 <section style="clear:both"><h2>Executive summary</h2>
 <p>This snapshot covers {{.TotalHosts}} managed devices. {{.Critical}} are rated critical and {{.High}} high risk. {{.Stale}} have outdated reporting, and {{.WithVulns}} have known vulnerability matches requiring validation.</p>
@@ -285,10 +278,11 @@ var execTemplate = template.Must(template.New("exec").Funcs(funcs).Parse(`<!doct
 {{if .Trend}}<h2>30-day trend</h2>
 <p>Average posture {{(first .Trend).AvgPosture}} → {{(last .Trend).AvgPosture}}, average compliance {{(first .Trend).AvgCompliance}}% → {{(last .Trend).AvgCompliance}}% ({{day (first .Trend).At}} to {{day (last .Trend).At}}).</p>{{end}}
 
-<h2>Highest-risk hosts</h2>
+{{if .Hosts}}<h2>{{if .Technical}}Device details{{else}}Highest-risk hosts{{end}}</h2>
 <table><tr><th>Host</th><th>Platform</th><th>Group</th><th>Risk</th><th>Posture</th><th>Compliance</th><th>Vulns</th><th>Shadow AI</th><th>Stale</th></tr>
-{{range top .Hosts 10}}<tr><td>{{.Host}}</td><td>{{.Platform}}</td><td>{{.Group}}</td><td class="{{if or (eq .RiskLevel "critical") (eq .RiskLevel "high")}}warn{{end}}">{{.Risk}} {{.RiskLevel}}</td><td>{{.Posture}}</td><td>{{.Compliance}}%</td><td>{{.Vulns}}</td><td>{{.ShadowAI}}</td><td>{{if .Stale}}<span class="warn">yes</span>{{else}}no{{end}}</td></tr>{{end}}
-</table>
+{{$rows := top .Hosts 10}}{{if .Technical}}{{$rows = .Hosts}}{{end}}
+{{range $rows}}<tr><td>{{.Host}}</td><td>{{.Platform}}</td><td>{{.Group}}</td><td class="{{if or (eq .RiskLevel "critical") (eq .RiskLevel "high")}}warn{{end}}">{{.Risk}} {{.RiskLevel}}</td><td>{{.Posture}}</td><td>{{.Compliance}}%</td><td>{{.Vulns}}</td><td>{{.ShadowAI}}</td><td>{{if .Stale}}<span class="warn">yes</span>{{else}}no{{end}}</td></tr>{{end}}
+</table>{{end}}
 
 {{if .Vulns}}<h2>Known vulnerabilities ({{len .Vulns}})</h2>
 <table><tr><th>Host</th><th>Package</th><th>Version</th><th>CVE</th><th>Severity</th><th>Source</th></tr>
@@ -302,4 +296,4 @@ var execTemplate = template.Must(template.New("exec").Funcs(funcs).Parse(`<!doct
 
 <p class="meta" style="margin-top:28px">Scores are Muster's own illustrative computations (see docs/compliance.md); this report is a snapshot of the dashboard's data at generation time, not a certified assessment.</p>
 <footer class="meta" style="margin-top:28px;border-top:1px solid #e4e1d8;padding-top:14px">&copy; 2022–2026 McGinnis Technologies, LLC. Provided without warranty to the extent permitted by law. Verify findings and maintain backups before making changes. See Disclaimer &amp; Responsible Use in the Muster dashboard.</footer>
-</body></html>`))
+</main></body></html>`))

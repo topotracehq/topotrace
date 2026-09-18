@@ -18,6 +18,7 @@
 
   const app = document.getElementById("app");
   const workspaceUI = window.MusterWorkspace({ api, el, app, downloadWithToken });
+  const productivityUI = window.MusterProductivity({api,el,app,downloadWithToken});
   const workUI = window.MusterWork({ api, el, app, timeAgo, workspaceUI });
   const visibilityUI = window.MusterVisibility({ api, el, app, timeAgo, workspaceUI });
   const searchForm = document.getElementById("search-form");
@@ -72,10 +73,10 @@
   let knownGroups = [];
 
   const PLATFORM_ICONS = {
-    linux: "img/icon-linux.png",
-    windows: "img/icon-windows.png",
+    linux: "img/device-linux.svg",
+    windows: "img/device-windows.svg",
   };
-  const DEFAULT_ICON = "img/icon-servers.png";
+  const DEFAULT_ICON = "img/device-server.svg";
 
   function platformIcon(platform) {
     return PLATFORM_ICONS[(platform || "").toLowerCase()] || DEFAULT_ICON;
@@ -272,7 +273,7 @@
     return el(
       "div",
       { class: "empty-state" },
-      el("img", { src: "img/logotype.png", alt: "Muster" }),
+      el("img", { src: "img/muster-mark.svg", alt: "Muster" }),
       el("h2", { text: "No hosts reporting yet" }),
       el("p", { text: "Muster is up and waiting for its first packet. Send one with the bundled demo agent:" }),
       el("p", {}, el("code", { text: "go run ./cmd/demoagent -host demo01" })),
@@ -1407,7 +1408,11 @@
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     if (openInTab) {
-      window.open(url, "_blank");
+      const reportWindow = window.open(url, "_blank");
+      if (!reportWindow) {
+        URL.revokeObjectURL(url);
+        throw new Error("Your browser blocked the report window. Allow pop-ups for Muster and try again.");
+      }
     } else {
       const a = el("a", { href: url, download: filename });
       document.body.appendChild(a); a.click(); a.remove();
@@ -2193,164 +2198,8 @@
   }
 
 
-  // renderMarkdown is a small, hand-written subset renderer -- headers,
-  // paragraphs, fenced code blocks, inline code/bold, unordered lists,
-  // and pipe tables. Not a CommonMark implementation; just enough for
-  // this project's own docs/*.md, which are written plainly on purpose.
-  // No CDN dependency, matching the rest of this dashboard's
-  // dependency-free-vanilla-JS philosophy.
-  function renderMarkdown(md) {
-    const lines = md.replace(/\r\n/g, "\n").split("\n");
-    const out = [];
-    let i = 0;
-    let listBuf = null;
-    let tableBuf = null;
-
-    function flushList() {
-      if (listBuf) { out.push(listBuf); listBuf = null; }
-    }
-    function flushTable() {
-      if (tableBuf) { out.push(tableBuf); tableBuf = null; }
-    }
-    function inline(text) {
-      // Order matters: code spans first so ** inside `code` isn't touched.
-      const frag = document.createDocumentFragment();
-      const codeRe = /`([^`]+)`/g;
-      let lastIndex = 0;
-      let m;
-      const parts = [];
-      while ((m = codeRe.exec(text)) !== null) {
-        parts.push({ text: text.slice(lastIndex, m.index), code: false });
-        parts.push({ text: m[1], code: true });
-        lastIndex = codeRe.lastIndex;
-      }
-      parts.push({ text: text.slice(lastIndex), code: false });
-      for (const part of parts) {
-        if (part.code) {
-          frag.appendChild(el("code", { text: part.text }));
-          continue;
-        }
-        // bold **text**
-        const boldRe = /\*\*([^*]+)\*\*/g;
-        let li = 0, bm;
-        while ((bm = boldRe.exec(part.text)) !== null) {
-          if (bm.index > li) frag.appendChild(document.createTextNode(part.text.slice(li, bm.index)));
-          frag.appendChild(el("strong", { text: bm[1] }));
-          li = boldRe.lastIndex;
-        }
-        if (li < part.text.length) frag.appendChild(document.createTextNode(part.text.slice(li)));
-      }
-      return frag;
-    }
-
-    while (i < lines.length) {
-      const line = lines[i];
-
-      if (line.startsWith("```")) {
-        flushList(); flushTable();
-        const code = [];
-        i++;
-        while (i < lines.length && !lines[i].startsWith("```")) { code.push(lines[i]); i++; }
-        out.push(el("pre", { class: "install-snippet" }, el("code", { text: code.join("\n") })));
-        i++;
-        continue;
-      }
-
-      const headerMatch = line.match(/^(#{1,3})\s+(.*)$/);
-      if (headerMatch) {
-        flushList(); flushTable();
-        const tag = "h" + Math.min(headerMatch[1].length + 1, 4); // # -> h2 (h1 is the page title), ## -> h3, ### -> h4
-        const h = el(tag, {});
-        h.appendChild(inline(headerMatch[2]));
-        out.push(h);
-        i++;
-        continue;
-      }
-
-      if (/^\s*-\s+/.test(line)) {
-        flushTable();
-        if (!listBuf) listBuf = el("ul", { class: "docs-list" });
-        const li = el("li", {});
-        li.appendChild(inline(line.replace(/^\s*-\s+/, "")));
-        listBuf.appendChild(li);
-        i++;
-        continue;
-      }
-      flushList();
-
-      if (/^\s*\|.*\|\s*$/.test(line)) {
-        const next = lines[i + 1] || "";
-        if (!tableBuf && /^\s*\|[\s:|-]+\|\s*$/.test(next)) {
-          // header row + separator row -- start a table, skip the separator
-          const headCells = line.split("|").slice(1, -1).map((c) => c.trim());
-          tableBuf = el("table", { class: "docs-table" },
-            el("thead", {}, el("tr", {}, ...headCells.map((c) => el("th", { text: c }))))
-          );
-          tableBuf.appendChild(el("tbody", {}));
-          i += 2;
-          continue;
-        }
-        if (tableBuf) {
-          const cells = line.split("|").slice(1, -1).map((c) => c.trim());
-          const tbody = tableBuf.querySelector("tbody");
-          const row = el("tr", {});
-          for (const c of cells) {
-            const td = el("td", {});
-            td.appendChild(inline(c));
-            row.appendChild(td);
-          }
-          tbody.appendChild(row);
-          i++;
-          continue;
-        }
-      }
-      flushTable();
-
-      if (line.trim() === "") { i++; continue; }
-
-      const p = el("p", {});
-      p.appendChild(inline(line));
-      out.push(p);
-      i++;
-    }
-    flushList();
-    flushTable();
-    return out;
-  }
-
-  async function showDocs() {
-    const heading = el("div", { class: "section-heading" }, el("h1", { text: "Docs" }));
-    const nav = el("ul", { class: "docs-nav" });
-    const body = el("div", { class: "docs-body" }, el("p", { text: "Loading..." }));
-    app.replaceChildren(heading, el("div", { class: "docs-layout" }, nav, body));
-
-    let pages = [];
-    try {
-      pages = await api("/api/docs");
-    } catch (err) {
-      body.replaceChildren(el("p", { text: `Couldn't load the docs index: ${err.message}` }));
-      return;
-    }
-
-    async function loadPage(name) {
-      for (const a of nav.querySelectorAll("a")) a.classList.toggle("active", a.dataset.doc === name);
-      body.replaceChildren(el("p", { text: "Loading..." }));
-      try {
-        const res = await fetch(`/api/docs/${encodeURIComponent(name)}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const md = await res.text();
-        body.replaceChildren(...renderMarkdown(md));
-      } catch (err) {
-        body.replaceChildren(el("p", { text: `Couldn't load this page: ${err.message}` }));
-      }
-    }
-
-    for (const p of pages) {
-      const a = el("a", { href: "#", "data-doc": p.name, text: p.title });
-      a.addEventListener("click", (e) => { e.preventDefault(); loadPage(p.name); });
-      nav.appendChild(el("li", {}, a));
-    }
-    if (pages.length) loadPage(pages[0].name);
+  async function showDocs(name) {
+    await window.MusterDocs({ api, el, app }).show(name);
   }
 
   function boolLabel(b) {
@@ -3141,9 +2990,13 @@
   }
 
   function router() {
-    const hash = location.hash || "#/";
+    window.scrollTo(0, 0);
+    const hash = location.hash || "#/home";
     const hostMatch = hash.match(/^#\/host\/(.+)$/);
-    if (hostMatch) {
+    if (productivityUI.routes[hash.slice(2)]) {
+
+      productivityUI.show(hash.slice(2));
+    } else if (hostMatch) {
       showHostDetail(decodeURIComponent(hostMatch[1]));
     } else if (hash === "#/tools") {
       workspaceUI.show();
@@ -3165,8 +3018,8 @@
       showCompliance();
     } else if (hash === "#/ask") {
       showAskMuster();
-    } else if (hash === "#/docs") {
-      showDocs();
+    } else if (hash === "#/docs" || hash.startsWith("#/docs/")) {
+      showDocs(hash.slice(7));
     } else if (hash === "#/settings") {
       showSettings();
     } else {
@@ -3177,17 +3030,13 @@
   }
 
   function updateSearchUI() {
-    const onDashboard = (location.hash || "#/") === "#/";
-    searchForm.style.opacity = onDashboard ? "1" : "0.5";
+    const onDashboard = (location.hash || "#/home") === "#/";
+    searchForm.hidden = !onDashboard;
     searchClear.hidden = !currentFilter;
   }
 
   function updateNavUI() {
-    const hash = location.hash || "#/";
-    const view = hash === "#/board" ? "board" : hash === "#/fleet" ? "fleet" : hash === "#/agents" ? "agents" : hash === "#/entities" ? "entities" : hash === "#/compliance" ? "compliance" : hash === "#/ask" ? "ask" : hash === "#/docs" ? "docs" : hash === "#/settings" ? "settings" : "hosts";
-    for (const a of document.querySelectorAll(".view-tabs a")) {
-      a.classList.toggle("active", a.dataset.view === (hash === "#/tools" ? "tools" : hash.startsWith("#/visibility") ? "visibility" : hash === "#/work" ? "work" : view));
-    }
+    window.MusterShell.update(location.hash || "#/home");
   }
 
   searchForm.addEventListener("submit", (e) => {
@@ -3206,7 +3055,7 @@
   searchClear.addEventListener("click", () => {
     currentFilter = null;
     searchContains.value = "";
-    if ((location.hash || "#/") === "#/") showDashboard();
+    if ((location.hash || "#/home") === "#/") showDashboard();
     updateSearchUI();
   });
 
@@ -3216,6 +3065,7 @@
 
   authToggle.addEventListener("click", () => {
     authForm.hidden = !authForm.hidden;
+    authToggle.setAttribute("aria-expanded", String(!authForm.hidden));
     if (!authForm.hidden) authTokenInput.focus();
   });
 
@@ -3224,6 +3074,7 @@
     setToken(authTokenInput.value.trim());
     authTokenInput.value = "";
     authForm.hidden = true;
+    authToggle.setAttribute("aria-expanded", "false");
     refreshAuthStatus();
     router();
   });
@@ -3231,6 +3082,7 @@
   authClear.addEventListener("click", () => {
     setToken("");
     authTokenInput.value = "";
+    authToggle.setAttribute("aria-expanded", "false");
     refreshAuthStatus();
     router();
   });
@@ -3285,7 +3137,7 @@
     // excluded so a background re-render can't interrupt an in-progress
     // drag, and host detail already had its own reasons to stay out of
     // this before the board existed.
-    if ((location.hash || "#/") === "#/") showDashboard();
+    if ((location.hash || "#/home") === "#/") showDashboard();
   }, POLL_MS);
   window.addEventListener("beforeunload", () => clearInterval(pollTimer));
 })();
