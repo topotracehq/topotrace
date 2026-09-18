@@ -79,9 +79,10 @@ factor in the blended risk score, and as the Muster Baseline check
 A `compliance.Framework` is a small, fixed set of named checks scored
 as a percentage. **Muster Baseline**, the one built in today, checks:
 reporting recently (not stale), a posture score of at least 70, no
-known-vulnerable packages, no denied/unauthorized software, no risky
-browser extensions (see above), and no unauthorized AI tools detected
-(shadow AI, see above).
+known-vulnerable packages, no denied/unauthorized software, a
+vendor-supported OS (`internal/eol`), no expired or expiring server
+certificates (`internal/certs`), no risky browser extensions (see
+above), and no unauthorized AI tools detected (shadow AI, see above).
 
 This is explicitly **not** a certified mapping to CIS Benchmarks,
 SOC 2, PCI DSS, or any other real standard -- it's built entirely from

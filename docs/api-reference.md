@@ -31,6 +31,22 @@ not alphabetically.
   by `internal/browserext` (riskiest first, with reasons), plus
   `reported` (false when the agent never sent the category), `total`
   and `risky` counts.
+- `GET /api/hosts/{host}/sbom` -- the host's installed software as a
+  CycloneDX 1.5 JSON bill of materials (`application/vnd.cyclonedx+json`,
+  served as a download): one component per package with a purl
+  (`pkg:deb/ubuntu/...` on Linux, `pkg:generic/...` elsewhere), plus
+  the host's known vulnerability findings in CycloneDX's own
+  `vulnerabilities` section. OS-package level, not an application
+  dependency SBOM.
+- `GET /api/hosts/{host}/lifecycle` -- the host's OS end-of-support
+  status (`eol` / `ending-soon` / `supported` / `unknown`, with the
+  vendor date; macOS dates are estimates and say so) and every server
+  certificate the agent found with its expiry verdict (`expired` /
+  `expiring` within 30 days / `ok`).
+- `GET /api/software/sprawl` -- the fleet's installed software rolled
+  up against `internal/sprawl`'s illustrative commercial/SaaS catalog:
+  seats per product, licensed seats, hosts covered, and categories
+  where more than one product does the same job.
 - `GET /api/hosts/{host}/baseline` -- the host's golden baseline (if
   any) compared against its facts right now: `has_baseline`, when and
   by whom it was captured, and a `drift` list (category, field,

@@ -723,6 +723,44 @@ Fleet tab (`GET /api/summary`), and as their own Muster Baseline
 compliance check (`no-shadow-ai`, see "Compliance frameworks" in the
 in-app Docs tab).
 
+## OS lifecycle, certificate expiry, SBOMs & license sprawl
+
+```
+GET /api/hosts/{host}/lifecycle   # readonly -- OS end-of-life + certificate expiry
+GET /api/hosts/{host}/sbom        # readonly -- CycloneDX 1.5 JSON download
+GET /api/software/sprawl          # readonly -- fleet license/SaaS rollup
+```
+
+Four more answers from the inventory Muster already has:
+
+- **OS end of life** (`internal/eol`): a built-in table of vendor
+  end-of-support dates (Ubuntu, Debian, Windows client and Server,
+  macOS -- Apple publishes none, so those are marked estimates) checked
+  against each host's `system_summary`. An OS past its date gets no
+  security patches, so it's a `supported-os` compliance check, a risk
+  factor, a Fleet tile and a host-page verdict. Hand-maintained and
+  dated; check the vendor before relying on a row.
+- **Certificate expiry** (`internal/certs`): the Linux and macOS agents
+  collect server certificates from where they usually live (Let's
+  Encrypt, nginx/apache/haproxy, the RHEL/Debian cert dirs -- never the
+  CA bundle) via `openssl x509`; the Windows agent reads the machine
+  Personal store. Expired and expiring-within-30-days certs become the
+  `no-expiring-certificates` compliance check, a risk factor, a Fleet
+  tile and a host-page list. The Linux collection was exercised for
+  real against a self-signed cert here and cooked end to end through
+  the air-gap path.
+- **SBOM** (`internal/sbom`): each host's installed software as a
+  CycloneDX 1.5 document with purls and its vulnerability findings
+  attached, downloadable from the host page -- OS-package level, not a
+  build-dependency SBOM, and the doc comment says so.
+- **License & SaaS sprawl** (`internal/sprawl`): the same software
+  inventory asked the finance question -- which commercial/SaaS desktop
+  products are deployed, how many seats, and where three tools do one
+  job (three video-conferencing clients, two IDEs). Illustrative
+  catalog; the seam a real license inventory plugs into. Compliance tab.
+
+![OS lifecycle and certificates](docs/screenshots/host-lifecycle.png)
+
 ## Config drift & golden baselines
 
 ```
@@ -1229,6 +1267,7 @@ category is absent from a given cook run, not a failed run.
 | `patch_update_status` | `apt list --upgradable` (pending) | `Get-HotFix` (**installed**, not pending) |
 | `firewall_av_status` | `ufw status` | `Get-NetFirewallProfile` |
 | `browser_extensions` | every Chrome/Chromium/Brave/Edge profile's `Extensions/*/*/manifest.json` (also macOS) | same, under `AppData\Local\...\User Data` |
+| `tls_certificates` | `openssl x509 -enddate` over Let's Encrypt / nginx / apache / haproxy / `/etc/pki/tls/certs` / `/etc/ssl/private` (also macOS) | `Cert:\LocalMachine\My` |
 
 Two honest asymmetries, stated rather than papered over: `patch_update_
 status` answers "what's outstanding" on Linux (apt already knows what's
