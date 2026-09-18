@@ -111,12 +111,9 @@ second one wins for any host they both cover.
 Compliance tab, "Import scanner findings": pick a format, choose the
 CSV, and the browser reads the file and POSTs its contents. The result
 lists matched hosts with counts and names the unmatched scanner hosts.
-
-![Importing a Nessus CSV export](screenshots/compliance-scanner-import.png)
-
-The host page shows imported findings inline with Muster's own:
-
-![A host's merged findings](screenshots/host-vulns-imported.png)
+Each host's own page then shows the imported findings inline with
+Muster's own, tagged with the scanner they came from. Screenshots of
+both are in the repository README.
 
 ## What is verified
 
