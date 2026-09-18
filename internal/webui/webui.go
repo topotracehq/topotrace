@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         webui.go
+ * @brief        Package webui serves Muster's web dashboard: a small, dependency-free single-page app (plain HTML/CSS/JS, no build step) that talks to the REST API in internal/api.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-14
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package webui serves Muster's web dashboard: a small, dependency-free
 // single-page app (plain HTML/CSS/JS, no build step) that talks to the
 // REST API in internal/api. Embedded into the binary via embed.FS, so

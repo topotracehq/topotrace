@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         windows.go
+ * @brief        Windows support for the cook pipeline.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-14
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Windows support for the cook pipeline. Muster's own capture-file
 // contract for this platform (cpu.txt, memory.txt, os.txt, system.txt --
 // see agent/windows/muster-agent.ps1) is a flat "Key: Value" format

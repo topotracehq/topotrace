@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         main.go
+ * @brief        Command muster runs the Muster server: the TCP ingest daemon and the HTTP reporting API, side by side in one process, sharing one store.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-14
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Command muster runs the Muster server: the TCP ingest daemon and the
 // HTTP reporting API, side by side in one process, sharing one store.
 //

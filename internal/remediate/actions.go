@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         actions.go
+ * @brief        Package remediate is Muster's allow-list for self-healing/remediation actions: the small, fixed set of verbs an operator can queue for a host and an agent script is actually willing to execute.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package remediate is Muster's allow-list for self-healing/remediation
 // actions: the small, fixed set of verbs an operator can queue for a
 // host and an agent script is actually willing to execute.

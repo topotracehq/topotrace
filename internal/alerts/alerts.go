@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         alerts.go
+ * @brief        Package alerts is the state the background evaluator keeps between runs so it can stop shouting: which (rule, host) violations are currently open, when each was first seen and last announced, whether an operator has snoozed it, and which...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package alerts is the state the background evaluator keeps between
 // runs so it can stop shouting: which (rule, host) violations are
 // currently open, when each was first seen and last announced, whether

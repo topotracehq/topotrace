@@ -1,3 +1,16 @@
+################################################################################
+# @file         values.yaml
+# @brief        Default values for the muster chart.
+# @project      Muster
+#
+# @author       Michael McGinnis
+# @date         2026-09-17
+# @version      1.0.0
+#
+# Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+# Licensed under the MIT License -- see the LICENSE file at the repository root.
+################################################################################
+
 # Default values for the muster chart. Override with -f myvalues.yaml or
 # --set on `helm install`/`helm upgrade`. See README.md in this directory
 # for the full walkthrough (build/load images, kind vs. minikube vs.

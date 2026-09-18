@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         browserext_test.go
+ * @brief        Tests for the Muster cook package.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 package cook
 
 import (
@@ -46,5 +59,31 @@ func TestParseBrowserExtensions(t *testing.T) {
 
 	if _, ok, _ := parseBrowserExtensions(t.TempDir()); ok {
 		t.Fatal("missing file should report ok=false")
+	}
+}
+
+func TestParseCerts(t *testing.T) {
+	dir := t.TempDir()
+	lines := "/etc/letsencrypt/live/example.com/cert.pem\tCN = example.com\tC = US, O = Let's Encrypt, CN = R11\t2026-10-01T12:00:00Z\n" +
+		"/etc/nginx/ssl/old.crt\tCN=old.internal\tCN=Internal CA\tJan  2 15:04:05 2025 GMT\n"
+	os.WriteFile(filepath.Join(dir, "certs.txt"), []byte(lines), 0o644)
+	data, ok, err := parseLinuxCerts(dir)
+	if err != nil || !ok || data["count"] != 2 {
+		t.Fatalf("ok=%v err=%v data=%v", ok, err, data)
+	}
+	items := data["items"].([]map[string]any)
+	if items[1]["not_after"] != "2025-01-02T15:04:05Z" {
+		t.Fatalf("openssl date should normalize: %v", items[1]["not_after"])
+	}
+
+	win := "\"Thumbprint\",\"Subject\",\"Issuer\",\"NotAfter\"\r\n\"ABC123\",\"CN=WIN-HR01\",\"CN=Corp CA\",\"2026-12-31T00:00:00Z\"\r\n"
+	wdir := t.TempDir()
+	os.WriteFile(filepath.Join(wdir, "certs.txt"), []byte(win), 0o644)
+	wdata, err := cookWinCerts(wdir)
+	if err != nil || wdata == nil || wdata["count"] != 1 {
+		t.Fatalf("win: err=%v data=%v", err, wdata)
+	}
+	if wdata["items"].([]map[string]any)[0]["id"] != "ABC123" {
+		t.Fatalf("win id: %v", wdata)
 	}
 }

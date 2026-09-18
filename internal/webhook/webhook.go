@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         webhook.go
+ * @brief        Package webhook is Muster's outbound notification path: on a notable event (a policy or software violation, a remediation proposed, approved or executed, a violation resolved), deliver a small payload to every configured Sink -- generic ...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package webhook is Muster's outbound notification path: on a notable
 // event (a policy or software violation, a remediation proposed,
 // approved or executed, a violation resolved), deliver a small payload

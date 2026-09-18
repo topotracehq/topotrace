@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         main.go
+ * @brief        Command discover is Muster's network/asset discovery scanner: a TCP connect sweep across a CIDR (or a single address/comma-separated list), best-effort banner grabbing on anything that answers, and a report of what it found to Muster's POST /api/discover-report.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Command discover is Muster's network/asset discovery scanner: a TCP
 // connect sweep across a CIDR (or a single address/comma-separated
 // list), best-effort banner grabbing on anything that answers, and a

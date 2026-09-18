@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         siemforward.go
+ * @brief        Package siemforward forwards Muster's audit trail to a real SIEM, so events that already get recorded via store.Store.RecordAudit (policy violations, remediation, Ask Muster queries, enrollment/key management, OAuth logins, ...) also rea...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package siemforward forwards Muster's audit trail to a real SIEM, so
 // events that already get recorded via store.Store.RecordAudit (policy
 // violations, remediation, Ask Muster queries, enrollment/key

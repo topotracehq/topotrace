@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         linux.go
+ * @brief        Package cook turns a raw capture directory (whatever an agent uploaded and the ingest layer unpacked) into structured facts.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-14
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package cook turns a raw capture directory (whatever an agent uploaded
 // and the ingest layer unpacked) into structured facts. One file per
 // platform, same pattern in each: read the plain-text capture files a

@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         policy.go
+ * @brief        Package policy is Muster's start on a rule-evaluation layer over cooked facts -- deliberately small: one real rule (staleness), evaluated server-side so /api and the web UI's board agree on the same answer, instead of the board computing...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package policy is Muster's start on a rule-evaluation layer over
 // cooked facts -- deliberately small: one real rule (staleness),
 // evaluated server-side so /api and the web UI's board agree on the

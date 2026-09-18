@@ -1,3 +1,16 @@
+--------------------------------------------------------------------------------
+-- @file         0004_audit.sql
+-- @brief        0004_audit: an append-only log of authenticated writes and remediation events, for after-the-fact accountability.
+-- @project      Muster
+--
+-- @author       Michael McGinnis
+-- @date         2026-09-17
+-- @version      1.0.0
+--
+-- Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+-- Licensed under the MIT License -- see the LICENSE file at the repository root.
+--------------------------------------------------------------------------------
+
 -- 0004_audit: an append-only log of authenticated writes and
 -- remediation events, for after-the-fact accountability. See
 -- model.AuditEntry -- actor is an API key's name, "master" for the

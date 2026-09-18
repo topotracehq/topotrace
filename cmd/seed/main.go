@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         main.go
+ * @brief        Command seed populates a Muster store with a realistic, varied set of synthetic demo data -- a dozen-plus hosts across Linux/Windows/macOS, a mix of compliant and non-compliant posture, real-looking vulnerability findings, a couple of st...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Command seed populates a Muster store with a realistic, varied set of
 // synthetic demo data -- a dozen-plus hosts across Linux/Windows/macOS,
 // a mix of compliant and non-compliant posture, real-looking
@@ -199,6 +212,15 @@ func ext(browser, profile, id, name, version string, mv int, perms, hosts []stri
 	}
 }
 
+// cert builds one tls_certificates item; expires is relative to now.
+func certItem(id, subject, issuer string, expires time.Time) map[string]any {
+	return map[string]any{"id": id, "subject": subject, "issuer": issuer, "not_after": expires.UTC().Format(time.RFC3339)}
+}
+
+func certsFact(items ...map[string]any) map[string]any {
+	return map[string]any{"count": len(items), "items": items}
+}
+
 func exts(items ...map[string]any) map[string]any {
 	return map[string]any{"count": len(items), "items": items}
 }
@@ -289,6 +311,10 @@ func demoHosts(now time.Time) []seedHost {
 				),
 				"disk_usage":         disks([4]any{"/dev/sda1", 51200, 18400, 32800}),
 				"firewall_av_status": linuxFirewall("active"),
+				"tls_certificates": certsFact(
+					certItem("/etc/letsencrypt/live/www.example.com/cert.pem", "CN = www.example.com", "C = US, O = Let's Encrypt, CN = R11", now.Add(61*day)),
+					certItem("/etc/nginx/ssl/api-gateway.crt", "CN = api-gateway.example.com", "CN = Example Corp Internal CA", now.Add(12*day)),
+				),
 			},
 		},
 		{
@@ -321,6 +347,9 @@ func demoHosts(now time.Time) []seedHost {
 				),
 				"disk_usage":         disks([4]any{"/dev/sda1", 102400, 71200, 25900}),
 				"firewall_av_status": linuxFirewall("inactive"),
+				"tls_certificates": certsFact(
+					certItem("/etc/ssl/private/api01.crt", "CN = api01.prod.example.com", "CN = Example Corp Internal CA", now.Add(-9*day)),
+				),
 				"patch_update_status": pendingUpdates(
 					[3]string{"libssl3", "3.0.13", "3.0.10"},
 					[3]string{"linux-libc-dev", "5.4.0-192.212", "5.4.0-190.210"},
@@ -335,7 +364,7 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "db01.prod", Platform: "linux", Group: "prod", Tags: []string{"database", "pii", "criticality:critical"},
 			LastCooked: now, age: 200 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": linuxSummary("Ubuntu", "20.04.6 LTS", "5.4.0-190-generic", "Intel Xeon Gold 6252", 8, 32768, "3 days, 7:55"),
+				"system_summary": linuxSummary("Ubuntu", "24.04.1 LTS", "6.8.0-45-generic", "Intel Xeon Gold 6252", 8, 32768, "3 days, 7:55"),
 				"installed_software": sw(
 					// sudo <= 1.9.5 and openssl <= 1.1.1n are both real
 					// entries in internal/vuln.Dataset.
@@ -379,7 +408,7 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "build01.eng", Platform: "linux", Group: "eng", Tags: []string{"ci"},
 			LastCooked: now, age: 60 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": linuxSummary("Ubuntu", "20.04.6 LTS", "5.4.0-190-generic", "AMD EPYC 7402P", 16, 65536, "6 days, 14:20"),
+				"system_summary": linuxSummary("Ubuntu", "24.04.1 LTS", "6.8.0-45-generic", "AMD EPYC 7402P", 16, 65536, "6 days, 14:20"),
 				"installed_software": sw(
 					// bash <= 4.3.25 (Shellshock, CVE-2014-6271) is the
 					// most severe entry in internal/vuln.Dataset.
@@ -464,6 +493,10 @@ func demoHosts(now time.Time) []seedHost {
 				"installed_software": winSW(
 					[2]string{"Visual Studio Code", "1.89.1"},
 					[2]string{"Docker Desktop", "4.29.0"},
+					[2]string{"Slack", "4.38.125"},
+					[2]string{"Zoom Workplace", "6.1.0"},
+					[2]string{"JetBrains GoLand 2024.1", "241.14494.238"},
+					[2]string{"Webex", "44.6.0"},
 					// Shadow AI: OpenAI's official Windows desktop app.
 					[2]string{"ChatGPT", "1.2024.112"},
 				),
@@ -484,6 +517,13 @@ func demoHosts(now time.Time) []seedHost {
 				"system_summary": windowsSummary("Microsoft Windows 10 Enterprise", "22H2", "19045", "Intel Core i5-8500", 6, 8192, "40 days, 1:30"),
 				"installed_software": winSW(
 					[2]string{"Microsoft 365 Apps for Enterprise", "16.0.17231"},
+					[2]string{"Zoom Workplace", "6.1.0"},
+					[2]string{"Microsoft Teams", "24165.1414"},
+					[2]string{"Adobe Acrobat DC (64-bit)", "24.002.20857"},
+					[2]string{"TeamViewer", "15.55.3"},
+				),
+				"tls_certificates": certsFact(
+					certItem("3A5F9C1E2B7D4A6F8C0E1D2B3A4C5D6E7F8A9B0C", "CN=WIN-HR01.corp.example.com", "CN=Example Corp Issuing CA 01", now.Add(300*day)),
 				),
 				"disk_usage":         winDisks([3]any{"C:", 256000, 61200}),
 				"firewall_av_status": winFirewall(false, true, true),
@@ -497,7 +537,7 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "mac-eng01", Platform: "darwin", Group: "eng", Tags: []string{"laptop"},
 			LastCooked: now, age: 80 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": darwinSummary("macOS", "14.5", "23.5.0", "Apple M3 Pro", 12, 18432, "5 days, 2:10"),
+				"system_summary": darwinSummary("macOS", "15.6", "24.6.0", "Apple M3 Pro", 12, 18432, "5 days, 2:10"),
 			},
 		},
 		{
@@ -511,7 +551,7 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "mac-design01", Platform: "darwin", Group: "design", Tags: []string{"laptop"},
 			LastCooked: now, age: 30 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": darwinSummary("macOS", "14.5", "23.5.0", "Apple M3 Max", 16, 36864, "0 days, 6:50"),
+				"system_summary": darwinSummary("macOS", "15.6", "24.6.0", "Apple M3 Max", 16, 36864, "0 days, 6:50"),
 				"browser_extensions": exts(
 					ext("chrome", "aparker/Default", "gfbliohnnapiefjpjlpjnehglfpaknnc", "ColorZilla", "4.0", 3, []string{"storage", "activeTab"}, nil, true),
 					ext("chrome", "aparker/Default", "hoklmmgfnpapgjgcpechhaamimifchmp", "WhatFont", "2.1.4", 3, []string{"activeTab"}, nil, true),

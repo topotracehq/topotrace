@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         history.go
+ * @brief        Package history keeps a per-host time series of the scores Muster otherwise only ever computes fresh per request -- posture, compliance, vulnerability count, staleness -- so the dashboard can show a trend ("this fleet's posture over the ...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package history keeps a per-host time series of the scores Muster
 // otherwise only ever computes fresh per request -- posture, compliance,
 // vulnerability count, staleness -- so the dashboard can show a trend

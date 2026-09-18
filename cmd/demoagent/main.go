@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         main.go
+ * @brief        Command demoagent is a minimal stand-in for a real Muster agent: it tars+gzips a directory of already-captured text files and pushes them to the ingest daemon over the MUSTER1 protocol.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-14
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Command demoagent is a minimal stand-in for a real Muster agent: it
 // tars+gzips a directory of already-captured text files and pushes them
 // to the ingest daemon over the MUSTER1 protocol. This is a test/demo

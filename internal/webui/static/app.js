@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         app.js
+ * @brief        Muster dashboard -- a small hash-routed SPA, no build step, no framework.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-14
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Muster dashboard -- a small hash-routed SPA, no build step, no
 // framework. Talks to the JSON API in internal/api over fetch().
 (() => {
@@ -649,6 +662,66 @@
     return card;
   }
 
+  // lifecycleCard is the host page's OS support + certificate expiry
+  // section, with the SBOM download alongside (all three answer "what
+  // is on this box and how long is it good for").
+  function lifecycleCard(host, d) {
+    const osCls = d.os.state === "eol" ? "posture-bad" : d.os.state === "ending-soon" ? "posture-warn" : d.os.state === "supported" ? "posture-good" : "";
+    const osRow = el("div", { class: "posture-body" },
+      el("span", { class: `posture-badge ${osCls}`, text: d.os.state === "unknown" ? "OS lifecycle unknown" : d.os.state.replace("-", " ") }),
+      el("span", { class: "meta", text: " " + d.os.detail }));
+    const certList = el("ul", { class: "vuln-list" });
+    for (const c of d.certificates) {
+      const cls = c.state === "expired" ? "severity-critical" : c.state === "expiring" ? "severity-medium" : c.state === "ok" ? "severity-low" : "severity-low";
+      certList.appendChild(el("li", { class: "vuln-row" },
+        el("span", { class: `severity-pill ${cls}`, text: c.state }),
+        el("span", { class: "vuln-detail" }, el("strong", { text: c.subject || c.id }), ` — ${c.detail}`, el("div", { class: "meta", text: `issuer ${c.issuer || "?"} · ${c.id}` }))));
+    }
+    const certs = !d.certs_reported
+      ? el("p", { class: "meta", text: "No certificate inventory reported -- the agent looks in Let's Encrypt, nginx/apache/haproxy and the RHEL/Debian cert dirs on Linux and macOS, and the machine Personal store on Windows." })
+      : d.certificates.length ? certList : el("p", { text: "No server certificates found." });
+    const sbomBtn = el("button", { type: "button", text: "Download SBOM (CycloneDX)" });
+    const msg = el("span", { class: "save-msg" });
+    sbomBtn.addEventListener("click", async () => {
+      msg.textContent = "Preparing…";
+      try { await downloadWithToken(`/api/hosts/${encodeURIComponent(host)}/sbom`, `${host}.cdx.json`); msg.textContent = ""; }
+      catch (err) { msg.textContent = `Error: ${err.message}`; }
+    });
+    return el("div", { class: "fact-card" },
+      el("h2", { text: `OS lifecycle & certificates${d.certificate_issues ? ` (${d.certificate_issues} certificate issue${d.certificate_issues === 1 ? "" : "s"})` : ""}` }),
+      osRow,
+      el("h3", { class: "subhead", text: "Server certificates" }), certs,
+      el("div", { class: "editor-row" }, el("label", { text: "Software bill of materials" }), sbomBtn, msg));
+  }
+
+  // sprawlCard is the Compliance tab's license / SaaS sprawl rollup.
+  async function sprawlCard() {
+    const card = el("div", { class: "fact-card" }, el("h2", { text: "License & SaaS sprawl" }), el("p", { class: "meta", text: "Loading…" }));
+    try {
+      const d = await api("/api/software/sprawl");
+      const stats = el("div", { class: "stat-grid" },
+        statCard("Licensed seats deployed", d.licensed_seats),
+        statCard("Products found", d.installs.length),
+        statCard("Hosts with catalog matches", `${d.hosts_covered} / ${d.total_hosts}`),
+        statCard("Overlapping categories", d.overlaps.length, d.overlaps.length > 0 ? "stat-warn" : ""));
+      const rows = d.installs.map((i) => el("li", { class: "policy-row" },
+        el("span", { class: "policy-name", text: i.product }),
+        el("span", { class: "tag-pill", text: i.category }),
+        el("span", { class: "policy-condition", text: `${i.seats} seat${i.seats === 1 ? "" : "s"}${i.licensed ? " (licensed)" : " (free)"}: ${i.hosts.join(", ")}` })));
+      const overlaps = d.overlaps.map((o) => el("li", { class: "policy-row" },
+        el("span", { class: "policy-name", text: o.category }),
+        el("span", { class: "policy-condition", text: `${o.products.length} products doing the same job: ${o.products.join(", ")} (${o.seats} seats total)` })));
+      card.replaceChildren(el("h2", { text: "License & SaaS sprawl" }),
+        el("p", { class: "meta", text: "The same installed-software inventory the security checks use, asked the finance question: which commercial and SaaS desktop products are deployed, how many seats, and where more than one tool does the same job. Catalog is illustrative (internal/sprawl) -- the seam a real license inventory plugs into." }),
+        stats,
+        overlaps.length ? el("ul", { class: "policy-list" }, ...overlaps) : null,
+        rows.length ? el("ul", { class: "policy-list" }, ...rows) : el("p", { text: "No catalog products found on the fleet." }));
+    } catch (err) {
+      card.replaceChildren(el("h2", { text: "License & SaaS sprawl" }), el("p", { text: `Couldn't load: ${err.message}` }));
+    }
+    return card;
+  }
+
   function shadowAICard(findings) {
     if (!findings.length) {
       return el(
@@ -744,6 +817,9 @@
     nodes.push(vulnerabilitiesCard(findings || []));
     nodes.push(softwareViolationsCard((softwareViolations && softwareViolations.violations) || []));
     nodes.push(shadowAICard((softwareViolations && softwareViolations.shadow_ai) || []));
+    const lifecycleSlot = el("div", {});
+    nodes.push(lifecycleSlot);
+    api(`/api/hosts/${encodeURIComponent(name)}/lifecycle`).then((d) => lifecycleSlot.replaceChildren(lifecycleCard(name, d))).catch(() => {});
     const extSlot = el("div", {});
     nodes.push(extSlot);
     api(`/api/hosts/${encodeURIComponent(name)}/browser-extensions`).then((d) => extSlot.replaceChildren(browserExtensionsCard(d))).catch(() => extSlot.replaceChildren(browserExtensionsCard(null)));
@@ -1420,7 +1496,9 @@
       statCard("Hosts w/ vulnerabilities", summary.hosts_with_vulnerabilities, summary.hosts_with_vulnerabilities > 0 ? "stat-warn" : ""),
       statCard("Total findings", summary.total_vulnerability_findings, summary.total_vulnerability_findings > 0 ? "stat-warn" : ""),
       statCard("Shadow AI detections", summary.total_shadow_ai_findings, summary.total_shadow_ai_findings > 0 ? "stat-warn" : ""),
-      statCard("Risky browser extensions", summary.total_risky_extensions || 0, summary.total_risky_extensions > 0 ? "stat-warn" : "")
+      statCard("Risky browser extensions", summary.total_risky_extensions || 0, summary.total_risky_extensions > 0 ? "stat-warn" : ""),
+      statCard("OS past end of life", summary.hosts_os_eol || 0, summary.hosts_os_eol > 0 ? "stat-warn" : ""),
+      statCard("Certificate issues", summary.hosts_with_cert_issues || 0, summary.hosts_with_cert_issues > 0 ? "stat-warn" : "")
     );
 
     const platformList = el("ul", { class: "platform-breakdown" });
@@ -2251,7 +2329,9 @@
     const summarySlot = el("div", {});
     const rulesFormSlot = el("div", {});
     const rulesListSlot = el("div", {});
-    app.replaceChildren(heading, summarySlot, rulesFormSlot, rulesListSlot);
+    const sprawlSlot = el("div", {});
+    app.replaceChildren(heading, summarySlot, rulesFormSlot, rulesListSlot, sprawlSlot);
+    sprawlCard().then((card) => sprawlSlot.replaceChildren(card));
 
     // Framework selector: every built-in framework scores the same
     // signals, so switching just re-asks the summary with ?framework=.

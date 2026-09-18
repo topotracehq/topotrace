@@ -1,4 +1,17 @@
 #!/usr/bin/env bash
+################################################################################
+# @file         muster-server.sh
+# @brief        Systemd's ExecStart target for muster.service.
+# @project      Muster
+#
+# @author       Michael McGinnis
+# @date         2026-09-17
+# @version      1.0.0
+#
+# Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+# Licensed under the MIT License -- see the LICENSE file at the repository root.
+################################################################################
+
 #
 # Systemd's ExecStart target for muster.service. Exists as a real script
 # rather than a bare ExecStart=/usr/local/bin/muster line because several

@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         settingsstore.go
+ * @brief        Package settingsstore persists the small, explicit set of settings that PATCH /api/settings can change live -- SIEM forwarding's HEC credentials and Ask Muster's API key/model -- so a value set from the dashboard survives a process resta...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package settingsstore persists the small, explicit set of settings
 // that PATCH /api/settings can change live -- SIEM forwarding's HEC
 // credentials and Ask Muster's API key/model -- so a value set from the

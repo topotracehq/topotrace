@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         background.js
+ * @brief        background.js -- Muster Agent for ChromeOS, a Manifest V3 service worker.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // background.js -- Muster Agent for ChromeOS, a Manifest V3 service
 // worker.
 //

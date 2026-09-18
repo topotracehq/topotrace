@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         embed.go
+ * @brief        Package agent embeds a copy of every real agent script this repo ships, so the web dashboard's Agents/download page (internal/api's handleDownloadAgent) can serve them straight from the compiled binary -- the exact same file a human woul...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package agent embeds a copy of every real agent script this repo
 // ships, so the web dashboard's Agents/download page
 // (internal/api's handleDownloadAgent) can serve them straight from the

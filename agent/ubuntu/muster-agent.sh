@@ -1,4 +1,17 @@
 #!/usr/bin/env bash
+################################################################################
+# @file         muster-agent.sh
+# @brief        Minimal Ubuntu/Linux agent for Muster: collects basic system facts and pushes them to a Muster ingest daemon over the MUSTER1 wire protocol.
+# @project      Muster
+#
+# @author       Michael McGinnis
+# @date         2026-09-14
+# @version      1.0.0
+#
+# Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+# Licensed under the MIT License -- see the LICENSE file at the repository root.
+################################################################################
+
 #
 # Minimal Ubuntu/Linux agent for Muster: collects basic system facts and
 # pushes them to a Muster ingest daemon over the MUSTER1 wire protocol.
@@ -334,6 +347,33 @@ if [[ -s "$ext_out" ]]; then
     collected+=("browser_extensions.txt")
 else
     rm -f "$ext_out"
+fi
+
+# --- TLS certificates ----------------------------------------------------
+# Server certificates in the places they usually live (Let's Encrypt,
+# nginx/apache/haproxy config dirs, the RHEL and Debian private cert
+# dirs) -- not the CA bundle in /etc/ssl/certs, which is hundreds of
+# roots nobody needs an expiry alert for. One tab-separated line per
+# cert: path, subject, issuer, notAfter (ISO 8601 UTC). Needs openssl;
+# skipped silently without it.
+if command -v openssl >/dev/null 2>&1; then
+    cert_out="$OUT_DIR/certs.txt"
+    : > "$cert_out"
+    while IFS= read -r certfile; do
+        [[ -r "$certfile" ]] || continue
+        enddate="$(openssl x509 -in "$certfile" -noout -enddate 2>/dev/null | sed 's/^notAfter=//')" || continue
+        [[ -n "$enddate" ]] || continue
+        iso="$(date -u -d "$enddate" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "$enddate")"
+        subject="$(openssl x509 -in "$certfile" -noout -subject 2>/dev/null | sed 's/^subject=//')"
+        issuer="$(openssl x509 -in "$certfile" -noout -issuer 2>/dev/null | sed 's/^issuer=//')"
+        printf '%s\t%s\t%s\t%s\n' "$certfile" "$subject" "$issuer" "$iso" >> "$cert_out"
+    done < <(find /etc/letsencrypt/live /etc/nginx /etc/apache2 /etc/httpd /etc/haproxy /etc/pki/tls/certs /etc/ssl/private /etc/ssl/local \
+                -maxdepth 4 -type f \( -name '*.crt' -o -name '*.pem' -o -name 'cert*.pem' -o -name 'fullchain.pem' \) 2>/dev/null | grep -v -e '/privkey' -e '/chain.pem' | sort -u | head -200)
+    if [[ -s "$cert_out" ]]; then
+        collected+=("certs.txt")
+    else
+        rm -f "$cert_out"
+    fi
 fi
 
 if [[ ${#collected[@]} -eq 0 ]]; then

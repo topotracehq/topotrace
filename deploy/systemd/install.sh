@@ -1,4 +1,17 @@
 #!/usr/bin/env bash
+################################################################################
+# @file         install.sh
+# @brief        Convenience installer for a standalone systemd deployment of Muster.
+# @project      Muster
+#
+# @author       Michael McGinnis
+# @date         2026-09-17
+# @version      1.0.0
+#
+# Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+# Licensed under the MIT License -- see the LICENSE file at the repository root.
+################################################################################
+
 #
 # Convenience installer for a standalone systemd deployment of Muster.
 # Not required -- everything it does is also spelled out step-by-step in

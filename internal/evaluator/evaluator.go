@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         evaluator.go
+ * @brief        Package evaluator runs Muster's background compliance loop: on a fixed interval, it computes each host's posture (internal/policy), evaluates every persisted rule (model.Rule, via internal/store) against it, auto-queues a remediation act...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package evaluator runs Muster's background compliance loop: on a
 // fixed interval, it computes each host's posture (internal/policy),
 // evaluates every persisted rule (model.Rule, via internal/store)

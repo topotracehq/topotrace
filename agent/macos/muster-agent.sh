@@ -1,4 +1,17 @@
 #!/usr/bin/env bash
+################################################################################
+# @file         muster-agent.sh
+# @brief        Minimal macOS agent for Muster: collects basic system facts and pushes them to a Muster ingest daemon over the MUSTER1 wire protocol.
+# @project      Muster
+#
+# @author       Michael McGinnis
+# @date         2026-09-17
+# @version      1.0.0
+#
+# Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+# Licensed under the MIT License -- see the LICENSE file at the repository root.
+################################################################################
+
 #
 # Minimal macOS agent for Muster: collects basic system facts and pushes
 # them to a Muster ingest daemon over the MUSTER1 wire protocol.

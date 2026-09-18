@@ -1,3 +1,16 @@
+--------------------------------------------------------------------------------
+-- @file         0009_discovered_assets.sql
+-- @brief        0009_discovered_assets: network/asset discovery sightings (cmd/discover) -- see model.DiscoveredAsset.
+-- @project      Muster
+--
+-- @author       Michael McGinnis
+-- @date         2026-09-17
+-- @version      1.0.0
+--
+-- Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+-- Licensed under the MIT License -- see the LICENSE file at the repository root.
+--------------------------------------------------------------------------------
+
 -- 0009_discovered_assets: network/asset discovery sightings (cmd/discover)
 -- -- see model.DiscoveredAsset. Address is unique so a repeat scan
 -- upserts the existing row (refreshing open_ports/banners/known/

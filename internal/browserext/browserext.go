@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         browserext.go
+ * @brief        Package browserext evaluates a host's browser_extensions fact (see internal/cook.parseBrowserExtensions) for risk: the browser is where most of an endpoint's sensitive work happens now, and an extension with broad host access plus reques...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package browserext evaluates a host's browser_extensions fact (see
 // internal/cook.parseBrowserExtensions) for risk: the browser is where
 // most of an endpoint's sensitive work happens now, and an extension

@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         memstore.go
+ * @brief        Package memstore is Muster's reference Store implementation: an in-memory map guarded by a mutex, snapshotted to a JSON file on every write so a restart doesn't lose data.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-14
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package memstore is Muster's reference Store implementation: an
 // in-memory map guarded by a mutex, snapshotted to a JSON file on every
 // write so a restart doesn't lose data. It's not meant to be the

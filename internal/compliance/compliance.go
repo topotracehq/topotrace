@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         compliance.go
+ * @brief        Package compliance rolls up Muster's other signals -- staleness, posture scoring, vulnerability correlation, and software allow/deny lists -- into named "frameworks," each a small, fixed set of pass/ fail checks, scored as a percentage.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package compliance rolls up Muster's other signals -- staleness,
 // posture scoring, vulnerability correlation, and software allow/deny
 // lists -- into named "frameworks," each a small, fixed set of pass/
@@ -18,6 +31,8 @@ import (
 
 	"muster/internal/allowlist"
 	"muster/internal/browserext"
+	"muster/internal/certs"
+	"muster/internal/eol"
 	"muster/internal/model"
 	"muster/internal/policy"
 	"muster/internal/vuln"
@@ -55,6 +70,11 @@ type Input struct {
 	// BrowserExtensions is every installed extension the agent found,
 	// already evaluated -- checks look at browserext.Risky(...).
 	BrowserExtensions []browserext.Finding
+	// OSLifecycle is the host's operating-system support status.
+	OSLifecycle eol.Status
+	// Certificates is every server certificate the agent found,
+	// already evaluated -- checks look at certs.Problems(...).
+	Certificates []certs.Cert
 }
 
 // check is one named, described test against an Input -- a small,
@@ -139,6 +159,26 @@ var Baseline = Framework{
 			evaluate: func(in Input) (bool, string) {
 				if len(in.SoftwareViolations) > 0 {
 					return false, fmt.Sprintf("%d software violation(s)", len(in.SoftwareViolations))
+				}
+				return true, ""
+			},
+		},
+		{
+			id:          "supported-os",
+			description: "Operating system is still supported by its vendor (not past end of life)",
+			evaluate: func(in Input) (bool, string) {
+				if in.OSLifecycle.State == "eol" {
+					return false, in.OSLifecycle.Detail
+				}
+				return true, ""
+			},
+		},
+		{
+			id:          "no-expiring-certificates",
+			description: "No server certificate expired or expiring within 30 days",
+			evaluate: func(in Input) (bool, string) {
+				if p := certs.Problems(in.Certificates); len(p) > 0 {
+					return false, p[0].Detail
 				}
 				return true, ""
 			},

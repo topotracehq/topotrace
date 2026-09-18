@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         windows_extra.go
+ * @brief        Windows support for the newer capture categories beyond system_summary: disk usage, installed software, running services, listening ports, local users, network interfaces, scheduled tasks, installed patches, and firewall status.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Windows support for the newer capture categories beyond
 // system_summary: disk usage, installed software, running services,
 // listening ports, local users, network interfaces, scheduled tasks,
@@ -118,6 +131,11 @@ func CookWindowsCategories(rawDir string) (map[string]map[string]any, error) {
 		return nil, err
 	} else if ok && len(data) > 0 {
 		out["browser_extensions"] = data
+	}
+	if data, err := cookWinCerts(rawDir); err != nil {
+		return nil, err
+	} else if data != nil {
+		out["tls_certificates"] = data
 	}
 
 	return out, nil

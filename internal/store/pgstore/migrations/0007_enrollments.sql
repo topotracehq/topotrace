@@ -1,3 +1,16 @@
+--------------------------------------------------------------------------------
+-- @file         0007_enrollments.sql
+-- @brief        Part of the Muster migrations module.
+-- @project      Muster
+--
+-- @author       Michael McGinnis
+-- @date         2026-09-17
+-- @version      1.0.0
+--
+-- Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+-- Licensed under the MIT License -- see the LICENSE file at the repository root.
+--------------------------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS enrollments (
     id          BIGSERIAL PRIMARY KEY,
     host        TEXT NOT NULL,

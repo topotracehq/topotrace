@@ -1287,6 +1287,17 @@ same way you would any other exporter. Unauthenticated, matching
 way remediation or board edits are, so it isn't gated behind
 `-auth-token`.
 
+## File headers
+
+Every source file (Go, JS, CSS, HTML, shell, PowerShell, SQL, Kotlin,
+YAML) carries a McGinnis Technologies, LLC header -- file, one-line
+brief drawn from the file's own leading comment, project, author, the
+file's first-commit date, version, and the copyright line. The code is
+still MIT-licensed (see `LICENSE`); the header says so rather than
+claiming the code is confidential. `go run ./tools/fileheader` stamps
+any new file that's missing it (idempotent), and `go run
+./tools/fileheader -check` exits non-zero if one is, for CI.
+
 ## Testing
 
 ```

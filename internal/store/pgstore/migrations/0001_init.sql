@@ -1,3 +1,16 @@
+--------------------------------------------------------------------------------
+-- @file         0001_init.sql
+-- @brief        0001_init: hosts, facts, changes -- the original schema, from before muster had a migration runner at all.
+-- @project      Muster
+--
+-- @author       Michael McGinnis
+-- @date         2026-09-14
+-- @version      1.0.0
+--
+-- Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+-- Licensed under the MIT License -- see the LICENSE file at the repository root.
+--------------------------------------------------------------------------------
+
 -- 0001_init: hosts, facts, changes -- the original schema, from before
 -- muster had a migration runner at all. group_name/tags are included
 -- directly here (no separate ALTER TABLE compat step needed -- a

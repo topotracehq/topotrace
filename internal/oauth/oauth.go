@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         oauth.go
+ * @brief        Package oauth implements a minimal, dependency-free OAuth2 authorization-code login flow (with PKCE) for Muster's web dashboard, plus an in-memory session store for the cookie that flow leaves behind.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package oauth implements a minimal, dependency-free OAuth2
 // authorization-code login flow (with PKCE) for Muster's web
 // dashboard, plus an in-memory session store for the cookie that flow

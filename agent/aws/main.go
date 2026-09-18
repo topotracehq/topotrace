@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         main.go
+ * @brief        Command aws is Muster's AWS EC2 scanner: a read-only, one-shot CLI that lists running instances in one region via the EC2 API and reports them to Muster's POST /api/cloud-report, the same way an OS agent reports the machine it runs on --...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Command aws is Muster's AWS EC2 scanner: a read-only, one-shot CLI
 // that lists running instances in one region via the EC2 API and
 // reports them to Muster's POST /api/cloud-report, the same way an OS

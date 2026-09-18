@@ -1,3 +1,16 @@
+--------------------------------------------------------------------------------
+-- @file         0010_documents.sql
+-- @brief        0010_documents: generic (kind, id) -> JSON records for secondary per-object state -- see model.Document for what belongs here (score history, config baselines, remediation approvals, demo bookmarks, agent health) and what deliberately do...
+-- @project      Muster
+--
+-- @author       Michael McGinnis
+-- @date         2026-09-18
+-- @version      1.0.0
+--
+-- Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+-- Licensed under the MIT License -- see the LICENSE file at the repository root.
+--------------------------------------------------------------------------------
+
 -- 0010_documents: generic (kind, id) -> JSON records for secondary
 -- per-object state -- see model.Document for what belongs here (score
 -- history, config baselines, remediation approvals, demo bookmarks,

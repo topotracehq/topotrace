@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         linux_extra.go
+ * @brief        Linux support for the newer capture categories beyond system_summary: disk usage, installed packages, running services, listening ports, local users, network interfaces, scheduled (cron) tasks, pending package updates, and firewall status.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Linux support for the newer capture categories beyond system_summary:
 // disk usage, installed packages, running services, listening ports,
 // local users, network interfaces, scheduled (cron) tasks, pending
@@ -53,6 +66,7 @@ func CookLinuxCategories(rawDir string) (map[string]map[string]any, error) {
 		{"patch_update_status", parseLinuxUpdates},
 		{"firewall_av_status", parseLinuxFirewall},
 		{"browser_extensions", parseBrowserExtensions},
+		{"tls_certificates", parseLinuxCerts},
 	}
 	for _, st := range steps {
 		data, ok, err := st.parse(rawDir)

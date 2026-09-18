@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         protocol.go
+ * @brief        Package ingest is Muster's TCP front door: a lightweight, deliberately simple framed protocol agents use to push a captured data packet, and to report back the outcome of a remediation action they were asked to run.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-14
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package ingest is Muster's TCP front door: a lightweight, deliberately
 // simple framed protocol agents use to push a captured data packet, and
 // to report back the outcome of a remediation action they were asked to

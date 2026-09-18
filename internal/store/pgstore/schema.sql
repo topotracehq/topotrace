@@ -1,3 +1,16 @@
+--------------------------------------------------------------------------------
+-- @file         schema.sql
+-- @brief        This file is no longer used.
+-- @project      Muster
+--
+-- @author       Michael McGinnis
+-- @date         2026-09-14
+-- @version      1.0.0
+--
+-- Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+-- Licensed under the MIT License -- see the LICENSE file at the repository root.
+--------------------------------------------------------------------------------
+
 -- This file is no longer used. pgstore now applies its schema via a
 -- real migration runner -- see migrations/*.sql and migrate.go. Kept
 -- only as a pointer in case anything on disk still references the old

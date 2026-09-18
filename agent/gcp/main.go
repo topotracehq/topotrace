@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         main.go
+ * @brief        Command gcp is Muster's Google Compute Engine scanner: a read-only, one-shot CLI that lists instances across every zone in one project via the Compute Engine REST API and reports them to Muster's POST /api/cloud-report, the same way agen...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Command gcp is Muster's Google Compute Engine scanner: a read-only,
 // one-shot CLI that lists instances across every zone in one project
 // via the Compute Engine REST API and reports them to Muster's

@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         benchmark.go
+ * @brief        Package benchmark compares a fleet's headline numbers against a static reference baseline, so the Fleet tab can answer "how do we compare?" -- a question every security review asks and a snapshot of one fleet can't answer on its own.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package benchmark compares a fleet's headline numbers against a
 // static reference baseline, so the Fleet tab can answer "how do we
 // compare?" -- a question every security review asks and a snapshot of

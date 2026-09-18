@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         report.go
+ * @brief        Package report turns the fleet's live signals into things an operator can hand to someone who will never open the dashboard: CSV exports (compliance, vulnerabilities, risk, audit) and a print-ready HTML executive summary.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package report turns the fleet's live signals into things an operator
 // can hand to someone who will never open the dashboard: CSV exports
 // (compliance, vulnerabilities, risk, audit) and a print-ready HTML

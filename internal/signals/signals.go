@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         signals.go
+ * @brief        Package signals gathers, for one host, everything Muster's higher-level evaluations need -- facts by category, staleness, posture score, vulnerability findings, software allow/deny violations, Shadow AI detections -- into one compliance.Input.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package signals gathers, for one host, everything Muster's higher-level
 // evaluations need -- facts by category, staleness, posture score,
 // vulnerability findings, software allow/deny violations, Shadow AI
@@ -13,7 +26,9 @@ import (
 
 	"muster/internal/allowlist"
 	"muster/internal/browserext"
+	"muster/internal/certs"
 	"muster/internal/compliance"
+	"muster/internal/eol"
 	"muster/internal/model"
 	"muster/internal/policy"
 	"muster/internal/store"
@@ -65,6 +80,14 @@ func FromFacts(host model.Host, byCategory map[string]model.Fact, softwareRules 
 	}
 	if ext, ok := byCategory["browser_extensions"]; ok {
 		in.BrowserExtensions = browserext.Evaluate(browserext.FromFact(ext.Data["items"]))
+	}
+	if sum, ok := byCategory["system_summary"]; ok {
+		in.OSLifecycle = eol.Check(sum.Data, now)
+	} else {
+		in.OSLifecycle = eol.Status{State: "unknown", Detail: "no system_summary reported"}
+	}
+	if tc, ok := byCategory["tls_certificates"]; ok {
+		in.Certificates = certs.FromFact(tc.Data["items"], now)
 	}
 	return in
 }

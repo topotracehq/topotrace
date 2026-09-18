@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         darwin.go
+ * @brief        Package cook: macOS support.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package cook: macOS support. Reuses the same flat "Key: Value" capture
 // format windows.go introduced and its generic parser directly -- the
 // format itself was never actually Windows-specific, that's just where

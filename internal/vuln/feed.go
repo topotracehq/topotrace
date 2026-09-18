@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         feed.go
+ * @brief        Package vuln's live feed: a small, best-effort supplement to the static Dataset, pulled from OSV.dev (https://osv.dev/docs/#tag/api) -- a free, no-API-key-required vulnerability database covering, among others, the Debian ecosystem this project's dataset already targets.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package vuln's live feed: a small, best-effort supplement to the
 // static Dataset, pulled from OSV.dev (https://osv.dev/docs/#tag/api) --
 // a free, no-API-key-required vulnerability database covering, among

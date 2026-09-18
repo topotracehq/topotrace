@@ -1,3 +1,16 @@
+--------------------------------------------------------------------------------
+-- @file         0006_rules.sql
+-- @brief        0006_rules: persisted, optionally group-scoped compliance rules -- see model.Rule and internal/evaluator.
+-- @project      Muster
+--
+-- @author       Michael McGinnis
+-- @date         2026-09-17
+-- @version      1.0.0
+--
+-- Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+-- Licensed under the MIT License -- see the LICENSE file at the repository root.
+--------------------------------------------------------------------------------
+
 -- 0006_rules: persisted, optionally group-scoped compliance rules --
 -- see model.Rule and internal/evaluator. Deliberately a small fixed set
 -- of Kind values, not an arbitrary expression language stored as text.

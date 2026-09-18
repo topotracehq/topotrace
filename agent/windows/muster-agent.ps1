@@ -1,3 +1,16 @@
+################################################################################
+# @file         muster-agent.ps1
+# @brief        Part of the Muster windows module.
+# @project      Muster
+#
+# @author       Michael McGinnis
+# @date         2026-09-14
+# @version      1.0.0
+#
+# Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+# Licensed under the MIT License -- see the LICENSE file at the repository root.
+################################################################################
+
 <#
 .SYNOPSIS
     Minimal Windows agent for Muster: collects basic system facts and
@@ -329,6 +342,14 @@ Export-MusterExtra -Name "scheduledtasks.txt" -Collect {
 # See internal/cook/windows_extra.go's cookWinHotfixes doc comment.
 Export-MusterExtra -Name "hotfixes.txt" -Collect {
     Get-HotFix -ErrorAction SilentlyContinue | Select-Object HotFixID, InstalledOn
+}
+
+# Certificates in the machine's Personal store -- where IIS/RDP/
+# service certs live -- with expiry, for internal/cook's tls_certificates
+# category. Excludes the trusted-root stores on purpose.
+Export-MusterExtra -Name "certs.txt" -Collect {
+    Get-ChildItem -Path Cert:\LocalMachine\My -ErrorAction SilentlyContinue |
+        Select-Object Thumbprint, Subject, Issuer, @{ Name = "NotAfter"; Expression = { $_.NotAfter.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ") } }
 }
 
 Export-MusterExtra -Name "firewall.txt" -Collect {

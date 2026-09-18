@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         embed.go
+ * @brief        Package docs embeds Muster's in-app documentation pages, so the web dashboard's Docs tab (GET /api/docs, GET /api/docs/{name}) can serve them straight from the compiled binary -- the same "one source of truth, no separate copy that can d...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-17
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package docs embeds Muster's in-app documentation pages, so the web
 // dashboard's Docs tab (GET /api/docs, GET /api/docs/{name}) can serve
 // them straight from the compiled binary -- the same "one source of

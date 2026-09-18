@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         server.go
+ * @brief        Package api is Muster's read side: a small REST API over whatever the cook pipeline has stored, using only net/http (Go 1.22+'s pattern-based ServeMux is enough for a handful of routes -- no router dependency needed).
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-14
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package api is Muster's read side: a small REST API over whatever the
 // cook pipeline has stored, using only net/http (Go 1.22+'s pattern-based
 // ServeMux is enough for a handful of routes -- no router dependency
@@ -29,8 +42,10 @@ import (
 	"muster/internal/aiquery"
 	"muster/internal/allowlist"
 	"muster/internal/browserext"
+	"muster/internal/certs"
 	"muster/internal/compliance"
 	"muster/internal/cook"
+	"muster/internal/eol"
 	"muster/internal/ingest"
 	"muster/internal/model"
 	"muster/internal/oauth"
@@ -178,6 +193,9 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/risk", s.handleFleetRisk)
 	mux.HandleFunc("GET /api/hosts/{host}/risk", s.handleHostRisk)
 	mux.HandleFunc("GET /api/hosts/{host}/browser-extensions", s.handleHostBrowserExtensions)
+	mux.HandleFunc("GET /api/hosts/{host}/sbom", s.handleHostSBOM)
+	mux.HandleFunc("GET /api/hosts/{host}/lifecycle", s.handleHostLifecycle)
+	mux.HandleFunc("GET /api/software/sprawl", s.handleSprawl)
 	mux.HandleFunc("GET /api/hosts/{host}/baseline", s.handleGetBaseline)
 	mux.HandleFunc("POST /api/hosts/{host}/baseline", s.handleCaptureBaseline)
 	mux.HandleFunc("DELETE /api/hosts/{host}/baseline", s.handleDeleteBaseline)
@@ -1345,6 +1363,8 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 	totalShadowAI := 0
 	riskyExtHosts := 0
 	totalRiskyExt := 0
+	eolHosts := 0
+	certIssueHosts := 0
 
 	for _, h := range hosts {
 		byPlatform[h.Platform]++
@@ -1380,6 +1400,12 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 				totalRiskyExt += len(risky)
 			}
 		}
+		if sum, ok := byCategory["system_summary"]; ok && eol.Check(sum.Data, now).State == "eol" {
+			eolHosts++
+		}
+		if tc, ok := byCategory["tls_certificates"]; ok && len(certs.Problems(certs.FromFact(tc.Data["items"], now))) > 0 {
+			certIssueHosts++
+		}
 	}
 
 	avgScore := 0
@@ -1397,6 +1423,8 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		"total_shadow_ai_findings":     totalShadowAI,
 		"hosts_with_risky_extensions":  riskyExtHosts,
 		"total_risky_extensions":       totalRiskyExt,
+		"hosts_os_eol":                 eolHosts,
+		"hosts_with_cert_issues":       certIssueHosts,
 	})
 }
 

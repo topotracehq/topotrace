@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         style.css
+ * @brief        Brand colors sampled directly from the Muster logo assets.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-14
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 /* Brand colors sampled directly from the Muster logo assets. */
 :root {
   --mu-black: #1a2123;
@@ -802,3 +815,4 @@ main#app {
 .framework-block { padding: 8px 0; border-bottom: 1px solid var(--mu-border); }
 .framework-block:last-child { border-bottom: none; }
 .framework-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.fact-card h3.subhead { font-size: 0.82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--mu-text-muted); margin: 14px 0 6px; }

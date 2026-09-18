@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         risk.go
+ * @brief        Package risk blends the separate signals Muster already computes for a host -- vulnerability findings and their severity, posture score, staleness, Shadow AI and software-policy violations -- with two operator-supplied facts about the ho...
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 // Package risk blends the separate signals Muster already computes for a
 // host -- vulnerability findings and their severity, posture score,
 // staleness, Shadow AI and software-policy violations -- with two
@@ -22,6 +35,7 @@ import (
 	"strings"
 
 	"muster/internal/browserext"
+	"muster/internal/certs"
 	"muster/internal/compliance"
 )
 
@@ -110,6 +124,19 @@ func Compute(in compliance.Input) Result {
 			pts = 15
 		}
 		factors = append(factors, Factor{Name: "shadow-ai", Points: pts, Detail: fmt.Sprintf("%d unsanctioned AI tool(s)", n)})
+	}
+	switch in.OSLifecycle.State {
+	case "eol":
+		factors = append(factors, Factor{Name: "os-end-of-life", Points: 15, Detail: in.OSLifecycle.Detail})
+	case "ending-soon":
+		factors = append(factors, Factor{Name: "os-support-ending", Points: 5, Detail: in.OSLifecycle.Detail})
+	}
+	if p := certs.Problems(in.Certificates); len(p) > 0 {
+		pts := 5.0
+		if p[0].State == "expired" {
+			pts = 10
+		}
+		factors = append(factors, Factor{Name: "certificates", Points: pts, Detail: p[0].Detail})
 	}
 	if n := len(browserext.Risky(in.BrowserExtensions)); n > 0 {
 		pts := float64(n) * 5
