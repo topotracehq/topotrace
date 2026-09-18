@@ -28,7 +28,7 @@ import (
 // first step of every fleet-wide rollup (risk, benchmark, reports).
 // Hosts whose facts can't be loaded are logged and skipped, never fatal.
 func (s *Server) fleetInputs(r *http.Request) ([]compliance.Input, error) {
-	hosts, err := s.Store.ListHosts(r.Context())
+	hosts, err := s.scopedHosts(r)
 	if err != nil {
 		return nil, err
 	}

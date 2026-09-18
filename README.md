@@ -484,6 +484,21 @@ queue an action on a host (directly, or indirectly through an
 auto-remediating policy) gets this stricter gate; day-to-day reporting
 data doesn't.
 
+### Scoped API keys
+
+`POST /api/keys` takes an optional `"group"`. A key scoped to a board
+group is the "one team, one slice of the fleet" credential: host lists
+and every fleet rollup (summary, risk, benchmark, reports, the network
+map, bookmarks) only include that group's hosts, and any host-scoped
+endpoint for a host outside the group answers 403 with a message that
+says why. The master token, OAuth sessions and unscoped keys see the
+whole fleet, exactly as before. Fleet-wide history and the compliance
+summary are the deliberate exceptions still visible to a scoped key --
+they carry no host names outside the group's own entries... except
+`/api/compliance/summary`'s per-host list, which is filtered too.
+Verified live: a `prod`-scoped readonly key lists five hosts, gets 403
+on `WIN-HR01`, and sees `total_hosts: 5` on summary and risk.
+
 ### Managing API keys
 
 ```
@@ -1240,6 +1255,41 @@ most recent audit entries -- the aggregate view to check before drilling
 into a specific host, whose own detail page now also shows its posture
 score and vulnerability findings inline.
 
+## Agent health
+
+```
+GET /api/agents/health   # readonly
+```
+
+"Stale" says a host hasn't reported in 24 hours. `internal/agenthealth`
+watches the collectors themselves: every report attempt over every path
+(TCP, mobile, cloud, air-gap) records a check-in with how many changes
+it carried, and every failure (bad or missing token, unextractable
+payload, cook error) records why -- so the Agents tab can say the agent
+that usually reports every 30 minutes is 3 hours late, or that
+something has been presenting a wrong token for `badbox` for an hour
+without one success. Cadence is the median of the last 20 gaps;
+"late" is more than twice that. Verified live with a real air-gapped
+report and a deliberately bad-token TCP upload.
+
+![Agent health](docs/screenshots/agents-health.png)
+
+## Public status page
+
+```
+GET /status        # unauthenticated, aggregates only
+GET /status.json
+```
+
+A trust-page-style status view for a customer, an auditor or a manager:
+how many hosts, what percent are fully compliant, average scores, open
+findings, findings resolved this week, which integrations are on and
+when the evaluator last ran -- and nothing else. No host names, no
+findings, no people, by construction. `-public-status=false` turns it
+off.
+
+![Status page](docs/screenshots/status-page.png)
+
 ## Agent enrollment & the Agents tab
 
 ```
@@ -1617,11 +1667,10 @@ Deliberately not done yet, in rough priority order:
   never holds SSH/WinRM credentials and never pushes an agent onto a
   remote host or runs code on your behalf. A deliberate scope boundary,
   not a gap to close later — see "Agent enrollment & the Agents tab".
-- **Finer-grained roles** — today it's exactly three fixed tiers
-  (`readonly`/`remediate`/`admin`), the same "small, fixed set" choice
-  `internal/remediate`'s verbs and `model.Rule`'s `Kind` both make;
-  per-group or per-verb scoped keys (e.g. a key that can only remediate
-  hosts in one group) don't exist yet.
+- **Finer-grained roles** — still exactly three fixed tiers
+  (`readonly`/`remediate`/`admin`); scoped API keys now narrow a key to
+  one board group, but per-verb scoping (a key that can only
+  `restart-service`) is still not a thing.
 - **Dashboard treatment for the eight newer fact categories** — collected,
   stored, diffed, and queryable via the API today; the web UI's card view
   still only has bespoke layout for system_summary (host detail now

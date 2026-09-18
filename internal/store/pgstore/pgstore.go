@@ -559,12 +559,12 @@ func (s *Store) ListAudit(ctx context.Context, host string, limit int) ([]model.
 	return out, rows.Err()
 }
 
-const apiKeyColumns = `id, name, role, token_hash, created_at`
+const apiKeyColumns = `id, name, role, group_name, token_hash, created_at`
 
 func scanAPIKey(row interface{ Scan(...any) error }) (model.APIKey, error) {
 	var k model.APIKey
 	var id int64
-	if err := row.Scan(&id, &k.Name, &k.Role, &k.TokenHash, &k.CreatedAt); err != nil {
+	if err := row.Scan(&id, &k.Name, &k.Role, &k.Group, &k.TokenHash, &k.CreatedAt); err != nil {
 		return model.APIKey{}, err
 	}
 	k.ID = strconv.FormatInt(id, 10)
@@ -572,11 +572,11 @@ func scanAPIKey(row interface{ Scan(...any) error }) (model.APIKey, error) {
 }
 
 // CreateAPIKey persists a new named, role-scoped credential.
-func (s *Store) CreateAPIKey(ctx context.Context, name, role, tokenHash string) (model.APIKey, error) {
+func (s *Store) CreateAPIKey(ctx context.Context, name, role, group, tokenHash string) (model.APIKey, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO api_keys (name, role, token_hash, created_at)
-		VALUES ($1, $2, $3, $4)
-		RETURNING `+apiKeyColumns, name, role, tokenHash, time.Now().UTC())
+		INSERT INTO api_keys (name, role, group_name, token_hash, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING `+apiKeyColumns, name, role, group, tokenHash, time.Now().UTC())
 	k, err := scanAPIKey(row)
 	if err != nil {
 		return model.APIKey{}, fmt.Errorf("pgstore: creating api key %q: %w", name, err)

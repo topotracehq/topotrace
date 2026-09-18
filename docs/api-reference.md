@@ -161,10 +161,19 @@ not alphabetically.
   window, oldest first.
 - `GET /api/audit` -- audit trail (`admin`).
 - `GET/POST /api/keys`, `DELETE /api/keys/{id}` -- named API keys
-  (`admin`).
+  (`admin`). `POST` takes an optional `"group"`: a key scoped to one
+  board group only sees that group's hosts in host lists and fleet
+  rollups (summary, risk, benchmark, reports, graph, bookmarks) and
+  gets 403 from any host-scoped endpoint for a host outside it.
 - `GET /api/auth/login`, `GET /api/auth/callback`, `POST /api/auth/logout`
   -- OAuth2/OIDC login for the web dashboard, if configured. See the
   Security Model page.
+- `GET /api/agents/health` -- every host's agent health (`internal/
+  agenthealth`): last check-in, how it arrived (tcp/mobile/cloud/
+  airgap), cadence (median of recent gaps), late/missing/failing/never
+  verdict, failure count with the last reason. Recorded on every
+  report attempt, including bad-token uploads for host names that
+  never succeed.
 - `GET /api/graph` -- the network/asset relationship picture, laid
   out server-side (`internal/graph`): hub nodes per /24 subnet (from
   `network_interfaces` facts and discovery CIDRs) or per board group,
@@ -255,6 +264,11 @@ not alphabetically.
 ## Everything else
 
 - `GET /healthz` -- liveness.
+- `GET /status`, `GET /status.json` -- unauthenticated, aggregate-only
+  status page: host count, percent fully compliant, average scores,
+  open findings, findings resolved in the last 7 days, which
+  integrations are on, last evaluator run. Never host names or
+  findings. `-public-status=false` turns it off.
 - `GET /metrics` -- Prometheus text format.
 - `GET /#/...` -- the web dashboard itself (Hosts, Board, Fleet,
   Compliance, Ask Muster, Agents, Docs).

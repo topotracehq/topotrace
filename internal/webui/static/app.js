@@ -2050,6 +2050,36 @@
     );
   }
 
+  // agentHealthCard is the Agents tab's collector-health view (see
+  // internal/agenthealth): per host, when the agent last checked in,
+  // its usual cadence, whether it's late/missing/failing, and how many
+  // report attempts failed -- the agents themselves, not the data.
+  async function agentHealthCard() {
+    const card = el("div", { class: "fact-card" }, el("h2", { text: "Agent health" }), el("p", { class: "meta", text: "Loading…" }));
+    try {
+      const d = await api("/api/agents/health");
+      const c = d.counts || {};
+      const stats = el("div", { class: "stat-grid" },
+        statCard("Healthy", c.healthy || 0),
+        statCard("Late", c.late || 0, c.late ? "stat-warn" : ""),
+        statCard("Missing", c.missing || 0, c.missing ? "stat-warn" : ""),
+        statCard("Failing", c.failing || 0, c.failing ? "stat-warn" : ""),
+        statCard("Never reported", c.never || 0));
+      const pill = (st) => el("span", { class: `severity-pill ${st === "failing" || st === "missing" ? "severity-critical" : st === "late" ? "severity-medium" : "severity-low"}`, text: st });
+      const rows = d.agents.map((a) => el("li", { class: "policy-row" },
+        pill(a.state),
+        el("a", { href: `#/host/${encodeURIComponent(a.host)}`, class: "policy-name", text: a.host }),
+        el("span", { class: "policy-condition", text: a.detail }),
+        el("span", { class: "change-time", text: `${a.checkins || 0} check-in${a.checkins === 1 ? "" : "s"}${a.path ? ` via ${a.path}` : ""}${a.failures ? `, ${a.failures} failure${a.failures === 1 ? "" : "s"}` : ""}` })));
+      card.replaceChildren(el("h2", { text: `Agent health (${d.agents.length})` }),
+        el("p", { class: "meta", text: "\"Stale\" says a host hasn't reported in 24 hours; this says the agent that usually reports every 30 minutes is 3 hours late, or that something is presenting a wrong token for a host name. Recorded on every report attempt over TCP, mobile, cloud and air-gap paths." }),
+        stats, rows.length ? el("ul", { class: "policy-list" }, ...rows) : el("p", { text: "No agents have reported yet." }));
+    } catch (err) {
+      card.replaceChildren(el("h2", { text: "Agent health" }), el("p", { text: `Couldn't load: ${err.message}` }));
+    }
+    return card;
+  }
+
   async function showAgents() {
     const heading = el(
       "div",
@@ -2095,7 +2125,9 @@
       refreshList();
     });
 
-    app.replaceChildren(heading, form, revealSlot, listSlot, downloadsCard(), airgapImportCard());
+    const healthSlot = el("div", {});
+    agentHealthCard().then((card) => healthSlot.replaceChildren(card));
+    app.replaceChildren(heading, form, revealSlot, listSlot, healthSlot, downloadsCard(), airgapImportCard());
     await refreshList();
   }
 

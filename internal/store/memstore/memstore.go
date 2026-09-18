@@ -504,7 +504,7 @@ func (s *Store) ListAudit(_ context.Context, host string, limit int) ([]model.Au
 }
 
 // CreateAPIKey persists a new named, role-scoped credential.
-func (s *Store) CreateAPIKey(_ context.Context, name, role, tokenHash string) (model.APIKey, error) {
+func (s *Store) CreateAPIKey(_ context.Context, name, role, group, tokenHash string) (model.APIKey, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.nextKeyID++
@@ -512,6 +512,7 @@ func (s *Store) CreateAPIKey(_ context.Context, name, role, tokenHash string) (m
 		ID:        fmt.Sprintf("k%d", s.nextKeyID),
 		Name:      name,
 		Role:      role,
+		Group:     group,
 		TokenHash: tokenHash,
 		CreatedAt: time.Now().UTC(),
 	}

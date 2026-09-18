@@ -21,6 +21,7 @@ import (
 	"sort"
 	"time"
 
+	"muster/internal/agenthealth"
 	"muster/internal/model"
 	"muster/internal/store"
 )
@@ -31,6 +32,10 @@ import (
 // Pipeline finds the most recent raw capture directory for a host and
 // cooks it into the store, dispatching to the right platform parser.
 type Pipeline struct {
+	// Path labels how reports reach this pipeline for agent-health
+	// bookkeeping ("tcp" when empty; internal/api sets "airgap" on its
+	// own copy).
+	Path       string
 	RawBaseDir string // e.g. "./data/raw" -- raw/<platform>/<host>/<timestamp>/...
 	Store      store.Store
 }
@@ -89,6 +94,13 @@ func (p *Pipeline) Cook(ctx context.Context, platform, host string) ([]model.Cha
 		}
 		allChanges = append(allChanges, changes...)
 	}
+	// Agent health is best-effort bookkeeping about the collector, never
+	// a reason to fail the report that just succeeded.
+	path := p.Path
+	if path == "" {
+		path = "tcp"
+	}
+	_ = agenthealth.Checkin(ctx, p.Store, host, path, len(allChanges), now)
 	return allChanges, nil
 }
 

@@ -108,9 +108,14 @@ type AuditEntry struct {
 // never log or expose it, and the raw token itself is only ever shown
 // once, at creation time, in the API response (never persisted).
 type APIKey struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Role      string    `json:"role"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Role string `json:"role"`
+	// Group, when set, scopes the key to one board group: host lists
+	// and fleet rollups only include that group's hosts, and any
+	// host-scoped endpoint for a host outside it answers 403. Empty
+	// means the whole fleet, as every key was before scoping existed.
+	Group     string    `json:"group,omitempty"`
 	TokenHash string    `json:"-"`
 	CreatedAt time.Time `json:"created_at"`
 }

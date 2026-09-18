@@ -110,10 +110,11 @@ type Store interface {
 	// Target equals host are returned.
 	ListAudit(ctx context.Context, host string, limit int) ([]model.AuditEntry, error)
 
-	// CreateAPIKey persists a new named, role-scoped credential. tokenHash
-	// is a SHA-256 hex digest computed by the caller (internal/api) --
-	// Store never sees or stores the raw token.
-	CreateAPIKey(ctx context.Context, name, role, tokenHash string) (model.APIKey, error)
+	// CreateAPIKey persists a new named, role-scoped credential,
+	// optionally scoped to one board group (see model.APIKey.Group).
+	// tokenHash is a SHA-256 hex digest computed by the caller
+	// (internal/api) -- Store never sees or stores the raw token.
+	CreateAPIKey(ctx context.Context, name, role, group, tokenHash string) (model.APIKey, error)
 
 	// ListAPIKeys returns every key, sorted by name. TokenHash is
 	// included (Store's own record), but model.APIKey never marshals it

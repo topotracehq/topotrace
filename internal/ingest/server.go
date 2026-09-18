@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"muster/internal/agenthealth"
 	"net"
 	"os"
 	"path/filepath"
@@ -192,6 +193,7 @@ func (s *Server) handleUpload(ctx context.Context, conn net.Conn, reader *bufio.
 
 	if !s.authorizedUpload(ctx, hdr.Token, hdr.Host) {
 		log.Warn("unauthorized upload")
+		_ = agenthealth.Failure(ctx, s.Pipeline.Store, hdr.Host, "unauthorized upload (bad or missing token)", time.Now().UTC())
 		fmt.Fprintf(conn, "ERR unauthorized\n")
 		return
 	}
@@ -199,6 +201,7 @@ func (s *Server) handleUpload(ctx context.Context, conn net.Conn, reader *bufio.
 	snapshotDir := filepath.Join(s.RawBaseDir, hdr.Platform, hdr.Host, time.Now().UTC().Format("20060102T150405Z"))
 	if err := ExtractPayload(reader, hdr.Bytes, snapshotDir); err != nil {
 		log.Error("extract failed", "err", err)
+		_ = agenthealth.Failure(ctx, s.Pipeline.Store, hdr.Host, "payload could not be extracted: "+err.Error(), time.Now().UTC())
 		fmt.Fprintf(conn, "ERR could not process packet\n")
 		return
 	}
@@ -206,6 +209,7 @@ func (s *Server) handleUpload(ctx context.Context, conn net.Conn, reader *bufio.
 	changes, err := s.Pipeline.Cook(ctx, hdr.Platform, hdr.Host)
 	if err != nil {
 		log.Error("cook failed", "err", err)
+		_ = agenthealth.Failure(ctx, s.Pipeline.Store, hdr.Host, "cook failed: "+err.Error(), time.Now().UTC())
 		fmt.Fprintf(conn, "ERR packet stored but cooking failed\n")
 		return
 	}

@@ -39,6 +39,7 @@ import (
 
 	"muster/agent"
 	"muster/docs"
+	"muster/internal/agenthealth"
 	"muster/internal/aiquery"
 	"muster/internal/allowlist"
 	"muster/internal/breach"
@@ -162,6 +163,11 @@ type Server struct {
 	// Breach is the Have I Been Pwned client (see internal/breach);
 	// nil means public lookups only, same as a client with no key.
 	Breach *breach.Client
+
+	// PublicStatus enables the unauthenticated GET /status page and
+	// /status.json (aggregates only -- see status.go). cmd/muster's
+	// -public-status flag, default true.
+	PublicStatus bool
 }
 
 func (s *Server) log() *slog.Logger {
@@ -176,6 +182,8 @@ func (s *Server) log() *slog.Logger {
 // on one port, rather than each owning its own listener.
 func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
+	mux.HandleFunc("GET /status", s.handleStatusPage)
+	mux.HandleFunc("GET /status.json", s.handleStatusJSON)
 	mux.HandleFunc("GET /metrics", s.handleMetrics)
 	mux.HandleFunc("GET /api/hosts", s.handleListHosts)
 	mux.HandleFunc("GET /api/hosts/{host}", s.handleGetHost)
@@ -240,6 +248,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/enrollments/{id}", s.handleDeleteEnrollment)
 	mux.HandleFunc("POST /api/mobile-report", s.handleMobileReport)
 	mux.HandleFunc("GET /api/agents/download/{platform}", s.handleDownloadAgent)
+	mux.HandleFunc("GET /api/agents/health", s.handleAgentHealth)
 	mux.HandleFunc("GET /api/docs", s.handleListDocs)
 	mux.HandleFunc("GET /api/docs/{name}", s.handleGetDoc)
 	mux.HandleFunc("POST /api/discover-report", s.handleDiscoverReport)
@@ -643,6 +652,12 @@ func (s *Server) requireRoleStrict(w http.ResponseWriter, r *http.Request, need 
 			return "", false
 		}
 		if found && roleAllows(key.Role, need) {
+			if key.Group != "" {
+				if host := r.PathValue("host"); host != "" && !s.hostInGroup(r, host, key.Group) {
+					s.writeError(w, http.StatusForbidden, "this API key is scoped to group "+key.Group+" and that host is not in it")
+					return "", false
+				}
+			}
 			return key.Name, true
 		}
 		s.writeError(w, http.StatusUnauthorized, "missing or invalid bearer token, or insufficient role")
@@ -769,11 +784,52 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 // the board's STALE badge already showed client-side (see
 // internal/policy), so "which hosts are stale" is now a real, scriptable
 // answer, not something only the browser could compute.
+// keyScope returns the board group the request's API key is scoped to,
+// or "" for an unscoped credential (the master token, an OAuth session,
+// an unscoped key, or demo mode). Re-resolves the key from the header;
+// cheap, and it keeps requireRole's signature unchanged.
+func (s *Server) keyScope(r *http.Request) string {
+	got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if got == "" || s.AuthToken == "" || subtle.ConstantTimeCompare([]byte(got), []byte(s.AuthToken)) == 1 {
+		return ""
+	}
+	key, found, err := s.Store.FindAPIKeyByHash(r.Context(), sha256Hex(got))
+	if err != nil || !found {
+		return ""
+	}
+	return key.Group
+}
+
+// hostInGroup reports whether host's board group is group.
+func (s *Server) hostInGroup(r *http.Request, host, group string) bool {
+	h, ok, err := s.Store.GetHost(r.Context(), host)
+	return err == nil && ok && h.Group == group
+}
+
+// scopedHosts lists hosts, narrowed to the request key's group scope.
+func (s *Server) scopedHosts(r *http.Request) ([]model.Host, error) {
+	hosts, err := s.Store.ListHosts(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	scope := s.keyScope(r)
+	if scope == "" {
+		return hosts, nil
+	}
+	out := make([]model.Host, 0, len(hosts))
+	for _, h := range hosts {
+		if h.Group == scope {
+			out = append(out, h)
+		}
+	}
+	return out, nil
+}
+
 func (s *Server) handleListHosts(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireRole(w, r, "readonly"); !ok {
 		return
 	}
-	hosts, err := s.Store.ListHosts(r.Context())
+	hosts, err := s.scopedHosts(r)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "listing hosts")
 		return
@@ -1249,7 +1305,7 @@ func (s *Server) handleComplianceSummary(w http.ResponseWriter, r *http.Request)
 	if _, ok := s.requireRole(w, r, "readonly"); !ok {
 		return
 	}
-	hosts, err := s.Store.ListHosts(r.Context())
+	hosts, err := s.scopedHosts(r)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "listing hosts")
 		return
@@ -1359,7 +1415,7 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireRole(w, r, "readonly"); !ok {
 		return
 	}
-	hosts, err := s.Store.ListHosts(r.Context())
+	hosts, err := s.scopedHosts(r)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "listing hosts")
 		return
@@ -1819,8 +1875,9 @@ var validRoles = map[string]bool{"readonly": true, "remediate": true, "admin": t
 
 // keyRequest is the body of POST /api/keys.
 type keyRequest struct {
-	Name string `json:"name"`
-	Role string `json:"role"`
+	Name  string `json:"name"`
+	Role  string `json:"role"`
+	Group string `json:"group"` // optional: scope the key to one board group
 }
 
 // handleListKeys is GET /api/keys -- admin-only, always authenticated
@@ -1866,16 +1923,16 @@ func (s *Server) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "generating token")
 		return
 	}
-	created, err := s.Store.CreateAPIKey(r.Context(), req.Name, req.Role, sha256Hex(raw))
+	created, err := s.Store.CreateAPIKey(r.Context(), req.Name, req.Role, strings.TrimSpace(req.Group), sha256Hex(raw))
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "creating api key")
 		return
 	}
-	if _, err := s.Store.RecordAudit(r.Context(), actor, "create-key", created.Name, fmt.Sprintf("role=%s", created.Role)); err != nil {
+	if _, err := s.Store.RecordAudit(r.Context(), actor, "create-key", created.Name, fmt.Sprintf("role=%s group=%q", created.Role, created.Group)); err != nil {
 		s.log().Error("recording audit entry", "err", err)
 	}
 	s.writeJSON(w, http.StatusCreated, map[string]any{
-		"id": created.ID, "name": created.Name, "role": created.Role,
+		"id": created.ID, "name": created.Name, "role": created.Role, "group": created.Group,
 		"token": raw, "created_at": created.CreatedAt,
 	})
 }
@@ -1968,6 +2025,7 @@ func (s *Server) handleMobileReport(w http.ResponseWriter, r *http.Request) {
 		}
 		totalChanges += len(changes)
 	}
+	_ = agenthealth.Checkin(r.Context(), s.Store, req.Host, "mobile", totalChanges, now)
 	s.writeJSON(w, http.StatusOK, map[string]any{"host": req.Host, "changes": totalChanges})
 }
 
@@ -2260,8 +2318,12 @@ func (s *Server) handleAirgapReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	changes, err := s.Pipeline.Cook(r.Context(), req.Platform, req.Host)
+	// same pipeline, labeled so agent health records the path
+	airgap := *s.Pipeline
+	airgap.Path = "airgap"
+	changes, err := airgap.Cook(r.Context(), req.Platform, req.Host)
 	if err != nil {
+		_ = agenthealth.Failure(r.Context(), s.Store, req.Host, "air-gapped payload failed to cook: "+err.Error(), time.Now().UTC())
 		s.writeError(w, http.StatusInternalServerError, fmt.Sprintf("cooking payload: %v", err))
 		return
 	}
@@ -2343,6 +2405,7 @@ func (s *Server) handleCloudReport(w http.ResponseWriter, r *http.Request) {
 			}
 			totalChanges += len(changes)
 		}
+		_ = agenthealth.Checkin(r.Context(), s.Store, inst.Host, "cloud", len(inst.Facts), now)
 		reported = append(reported, inst.Host)
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"hosts_reported": len(reported), "changes": totalChanges})
