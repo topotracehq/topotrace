@@ -71,6 +71,30 @@ policy drafting below, which has to emit a valid rule. `Validate`
 catches malformed drafts and both extra features fall back to
 non-AI paths, so the floor is safe; the ceiling is lower.
 
+### Reasoning models
+
+A reasoning model (Qwen3, DeepSeek-R1 and similar) writes a hidden
+scratchpad before its visible answer, and that scratchpad is charged
+against the same token budget. Point Ask Muster at one and the whole
+budget can be spent thinking, leaving an empty answer and
+`finish_reason=length`.
+
+Two mitigations are built in: this backend raises any caller's token
+budget to a floor that leaves room for both, and an empty answer is
+reported as what it actually is rather than as a blank mystery.
+
+The better fix is to use a non-reasoning build. On Ollama, Qwen3's
+`-instruct-2507` tags are non-thinking:
+
+```
+ollama pull qwen3:30b-a3b-instruct-2507-q4_K_M
+```
+
+That also makes answers land sooner, since none of the time is spent
+on tokens nobody reads. For a fleet question there is not much for a
+model to reason about anyway: the context already contains the facts,
+and the job is to summarize them accurately.
+
 ### Switching without a restart
 
 All of the above can also be set from the Settings page's Ask Muster

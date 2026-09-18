@@ -67,7 +67,9 @@ func TestCompleteOpenAIRoundTrip(t *testing.T) {
 	defer srv.Close()
 
 	cfg := Config{Backend: BackendOpenAI, BaseURL: srv.URL + "/v1", Model: "meta-llama/Llama-3.1-8B-Instruct", APIKey: "hf_test"}
-	got, err := Complete(context.Background(), cfg, "you are a fleet assistant", "which hosts are stale?", 256)
+	// Above the reasoning-model floor, so the caller's budget passes
+	// through untouched (the floor itself is covered separately).
+	got, err := Complete(context.Background(), cfg, "you are a fleet assistant", "which hosts are stale?", 4096)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +82,7 @@ func TestCompleteOpenAIRoundTrip(t *testing.T) {
 	if seen["model"] != "meta-llama/Llama-3.1-8B-Instruct" {
 		t.Fatalf("model: %v", seen["model"])
 	}
-	if seen["max_tokens"] != float64(256) {
+	if seen["max_tokens"] != float64(4096) {
 		t.Fatalf("max_tokens: %v", seen["max_tokens"])
 	}
 	msgs, ok := seen["messages"].([]any)
@@ -191,5 +193,91 @@ func TestCompleteOpenAIRejectsEmptyAndMissingChoices(t *testing.T) {
 func TestCompleteUnconfiguredIsAClearError(t *testing.T) {
 	if _, err := Complete(context.Background(), Config{}, "s", "u", 0); err != ErrNotConfigured {
 		t.Fatalf("err = %v, want ErrNotConfigured", err)
+	}
+}
+
+// A reasoning model that burns its whole budget thinking is the most
+// likely way this backend fails in practice, and the old error ("empty
+// response") sent the operator looking at the network instead of the
+// model. These pin the diagnosis.
+func TestCompleteOpenAIExplainsReasoningOnlyResponses(t *testing.T) {
+	cases := []struct {
+		name, body, want string
+	}{
+		{
+			"ollama style, budget exhausted",
+			`{"choices":[{"message":{"content":"","reasoning":"Let me think about the fleet..."},"finish_reason":"length"}]}`,
+			"used its whole",
+		},
+		{
+			"vllm style, budget exhausted",
+			`{"choices":[{"message":{"content":"","reasoning_content":"thinking..."},"finish_reason":"length"}]}`,
+			"used its whole",
+		},
+		{
+			"reasoning but stopped cleanly",
+			`{"choices":[{"message":{"content":"","reasoning":"hmm"},"finish_reason":"stop"}]}`,
+			"only reasoning and no answer",
+		},
+		{
+			"no reasoning, just truncated",
+			`{"choices":[{"message":{"content":""},"finish_reason":"length"}]}`,
+			"token limit before producing any answer",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+			cfg := Config{Backend: BackendOpenAI, BaseURL: srv.URL + "/v1", Model: "qwen3:30b"}
+			_, err := Complete(context.Background(), cfg, "s", "u", 0)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err = %v, want it to mention %q", err, tc.want)
+			}
+			// Whatever the failure, the model name belongs in it: that
+			// is the thing the operator will change.
+			if err != nil && !strings.Contains(err.Error(), "qwen3:30b") {
+				t.Fatalf("error should name the model: %v", err)
+			}
+		})
+	}
+}
+
+// Reasoning output must never be passed off as the answer.
+func TestCompleteOpenAINeverReturnsReasoningAsTheAnswer(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"the real answer","reasoning":"secret scratchpad"},"finish_reason":"stop"}]}`))
+	}))
+	defer srv.Close()
+	got, err := Complete(context.Background(), Config{Backend: BackendOpenAI, BaseURL: srv.URL + "/v1", Model: "m"}, "s", "u", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "the real answer" {
+		t.Fatalf("answer = %q, want the content field only", got)
+	}
+}
+
+// The token floor protects a caller whose budget was tuned for a
+// non-reasoning model.
+func TestCompleteOpenAIRaisesSmallTokenBudgets(t *testing.T) {
+	var seen map[string]any
+	srv := okServer(t, "ok", &seen, nil)
+	defer srv.Close()
+	cfg := Config{Backend: BackendOpenAI, BaseURL: srv.URL + "/v1", Model: "m"}
+	if _, err := Complete(context.Background(), cfg, "s", "u", 512); err != nil {
+		t.Fatal(err)
+	}
+	if seen["max_tokens"] != float64(minOpenAITokens) {
+		t.Fatalf("max_tokens = %v, want the %d floor", seen["max_tokens"], minOpenAITokens)
+	}
+	// A caller asking for more than the floor keeps what it asked for.
+	if _, err := Complete(context.Background(), cfg, "s", "u", 8000); err != nil {
+		t.Fatal(err)
+	}
+	if seen["max_tokens"] != float64(8000) {
+		t.Fatalf("max_tokens = %v, want the caller's 8000", seen["max_tokens"])
 	}
 }

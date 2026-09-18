@@ -40,6 +40,10 @@ import (
 // name an endpoint.
 const chatCompletionsPath = "/chat/completions"
 
+// minOpenAITokens is the floor this backend applies to any caller's
+// token budget. See the comment at its use for why.
+const minOpenAITokens = 3072
+
 // endpointFor turns whatever the operator typed into a URL to POST to.
 // People reasonably enter any of these, and all of them should work:
 //
@@ -72,6 +76,16 @@ func completeOpenAI(ctx context.Context, cfg Config, system, user string, maxTok
 	}
 	if maxTokens <= 0 {
 		maxTokens = 1024
+	}
+	// Reasoning models (Qwen3, DeepSeek-R1 and friends) emit a hidden
+	// scratchpad before their visible answer, and it is charged against
+	// the same budget. A limit tuned for a non-reasoning model gets
+	// consumed entirely by thinking, and the caller gets an empty
+	// answer with finish_reason=length. There is no way to know from
+	// here which kind of model is on the other end, so the floor is
+	// raised for this backend rather than trusting the caller's budget.
+	if maxTokens < minOpenAITokens {
+		maxTokens = minOpenAITokens
 	}
 	reqBody, err := json.Marshal(map[string]any{
 		"model":      model,
@@ -150,8 +164,13 @@ func completeOpenAI(ctx context.Context, cfg Config, system, user string, maxTok
 		Choices []struct {
 			Message struct {
 				Content string `json:"content"`
-				// Reasoning models put their visible answer in content
-				// and their scratchpad elsewhere; only content is used.
+				// A reasoning model's scratchpad. Ollama calls it
+				// "reasoning"; vLLM and DeepSeek-compatible servers call
+				// it "reasoning_content". Never used as the answer --
+				// it is read only so an empty content can be explained
+				// instead of reported as a blank mystery.
+				Reasoning        string `json:"reasoning"`
+				ReasoningContent string `json:"reasoning_content"`
 			} `json:"message"`
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
@@ -162,9 +181,31 @@ func completeOpenAI(ctx context.Context, cfg Config, system, user string, maxTok
 	if len(out.Choices) == 0 {
 		return "", fmt.Errorf("aiquery: %s returned no choices", endpoint)
 	}
-	answer := strings.TrimSpace(out.Choices[0].Message.Content)
-	if answer == "" {
-		return "", fmt.Errorf("aiquery: empty response from %s (finish_reason=%s)", endpoint, out.Choices[0].FinishReason)
+	choice := out.Choices[0]
+	answer := strings.TrimSpace(choice.Message.Content)
+	if answer != "" {
+		return answer, nil
 	}
-	return answer, nil
+
+	// An empty answer is almost always a reasoning model that spent its
+	// whole token budget thinking. Say that, and say what to do about
+	// it: the bare "empty response" this used to return sent the
+	// operator looking at the network and the model name, neither of
+	// which was the problem.
+	reasoning := strings.TrimSpace(choice.Message.Reasoning)
+	if reasoning == "" {
+		reasoning = strings.TrimSpace(choice.Message.ReasoningContent)
+	}
+	if reasoning != "" {
+		if choice.FinishReason == "length" {
+			return "", fmt.Errorf("aiquery: %s (model %q) used its whole %d-token budget on reasoning and never produced an answer. "+
+				"Use a non-reasoning build of the model (for Qwen3 on Ollama, the -instruct-2507 tags), or turn thinking off on the server",
+				endpoint, model, maxTokens)
+		}
+		return "", fmt.Errorf("aiquery: %s (model %q) returned only reasoning and no answer (finish_reason=%s)", endpoint, model, choice.FinishReason)
+	}
+	if choice.FinishReason == "length" {
+		return "", fmt.Errorf("aiquery: %s (model %q) hit the %d-token limit before producing any answer", endpoint, model, maxTokens)
+	}
+	return "", fmt.Errorf("aiquery: empty response from %s (model %q, finish_reason=%s)", endpoint, model, choice.FinishReason)
 }

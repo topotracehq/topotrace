@@ -951,7 +951,12 @@ a fair one. A model running on hardware the operator controls means the
 inventory never leaves their network. The tradeoff is real too: a small
 self-hosted model is worse at this than a frontier model, particularly
 at drafting a valid policy rule, which is why `Validate` exists and why
-both extra features fall back to non-AI paths.
+both extra features fall back to non-AI paths. Reasoning models need
+one more consideration: their hidden scratchpad spends the same token
+budget as the answer, so this backend raises the floor and, if a model
+still burns the lot thinking, says so plainly instead of returning a
+blank. A non-reasoning build (Qwen3's `-instruct-2507` tags on Ollama)
+avoids the problem and is faster besides.
 
 ![Ask Muster backend selection](docs/screenshots/settings-ai-backend.png)
 
