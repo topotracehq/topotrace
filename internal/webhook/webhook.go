@@ -47,6 +47,16 @@ func New(urls []string, log *slog.Logger) *Dispatcher {
 	}
 }
 
+// Count reports how many URLs d posts to -- used by the settings API to
+// surface "webhooks configured, N of them" without ever exposing the
+// URLs themselves. Safe on a nil Dispatcher, same as Send.
+func (d *Dispatcher) Count() int {
+	if d == nil {
+		return 0
+	}
+	return len(d.urls)
+}
+
 // Send posts evt to every configured URL, one retry each after a short
 // delay. Blocks for the duration of every attempt -- callers on a
 // latency-sensitive path (an HTTP handler, say) should call this via

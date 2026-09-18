@@ -46,8 +46,8 @@ not alphabetically.
   manage per-host enrollment tokens (`admin`).
 - `GET /api/agents/download/{platform}` -- unauthenticated script
   download (`linux`, `macos`, `windows`).
-- `POST /api/mobile-report` -- JSON fact report (Android/iOS), an
-  enrollment token as bearer auth.
+- `POST /api/mobile-report` -- JSON fact report (Android/iOS/ChromeOS),
+  an enrollment token as bearer auth.
 - `POST /api/cloud-report` -- JSON fact report (batch) from a cloud
   scanner (AWS/Azure/GCP); requires the server's master token, not
   a per-host enrollment (one scan legitimately covers many instances).
@@ -76,6 +76,12 @@ not alphabetically.
 - `GET /api/auth/login`, `GET /api/auth/callback`, `POST /api/auth/logout`
   -- OAuth2/OIDC login for the web dashboard, if configured. See the
   Security Model page.
+- `GET /api/settings` -- server-level configuration snapshot (`admin`):
+  storage backend, listen addresses, evaluator interval, and whether
+  auth/OAuth/the vuln feed/Ask Muster/webhooks/SIEM forwarding are
+  configured, with non-secret metadata (mode, counts, intervals, model
+  name, OAuth role-map) for each -- never a token, DSN, API key, or
+  webhook/OAuth URL itself.
 
 ## Everything else
 

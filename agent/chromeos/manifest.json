@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Muster Agent for ChromeOS",
+  "version": "1.0.0",
+  "description": "Reports managed Chromebook device facts (serial, asset ID, CPU/memory/storage, network) to a Muster inventory server.",
+  "minimum_chrome_version": "89",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "enterprise.deviceAttributes",
+    "enterprise.networkingAttributes",
+    "system.cpu",
+    "system.memory",
+    "system.storage",
+    "storage",
+    "alarms"
+  ],
+  "storage": {
+    "managed_schema": "managed_schema.json"
+  }
+}
