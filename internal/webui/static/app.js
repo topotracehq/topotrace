@@ -2011,6 +2011,29 @@
     return el("div", { class: "fact-card" }, el("h2", { text: title }), table, form);
   }
 
+  // notificationsTester is the Settings page's "send a test event"
+  // control for the notification sinks (POST /api/notifications/test),
+  // reporting each sink's outcome inline.
+  function notificationsTester(s) {
+    const msg = el("span", { class: "save-msg" });
+    const results = el("ul", { class: "posture-findings" });
+    const btn = el("button", { type: "button", text: "Send test event" });
+    btn.addEventListener("click", async () => {
+      msg.textContent = "Sending…";
+      results.replaceChildren();
+      try {
+        const r = await api("/api/notifications/test", { method: "POST", body: {} });
+        msg.textContent = "";
+        for (const [sink, outcome] of Object.entries(r.results)) results.appendChild(el("li", { text: `${sink}: ${outcome}` }));
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    const wrap = el("div", {});
+    wrap.append(el("div", { class: "editor-row" }, el("label", { text: s.webhooks.configured ? "Sinks are set with -webhook-url, -slack-webhook-url, -teams-webhook-url, -jira-*, -servicenow-* (flags/env)" : "No sinks configured -- set -webhook-url, -slack-webhook-url, -teams-webhook-url, -jira-* or -servicenow-* (flags/env) and restart" }), btn, msg), results);
+    return wrap;
+  }
+
   // siemForwardingEditor is the SIEM Forwarding card's edit form --
   // PATCH /api/settings, live (no restart) via internal/siemforward.Dynamic,
   // persisted via internal/settingsstore when the server was started
@@ -2152,10 +2175,12 @@
       ["Model", s.ask_muster.model || null],
     ], askMusterEditor(s));
 
-    const webhooks = settingsTable("Webhooks", [
+    const webhooks = settingsCardWithForm("Notifications", [
       ["Configured", boolLabel(s.webhooks.configured)],
-      ["Count", s.webhooks.count],
-    ]);
+      ["Sinks", (s.webhooks.sinks || []).join(", ") || null],
+      ["Queued deliveries", s.webhooks.pending],
+      ["Dead letters", s.webhooks.dead],
+    ], notificationsTester(s));
 
     const siem = settingsCardWithForm("SIEM forwarding", [
       ["Configured", boolLabel(s.siem.configured)],

@@ -182,6 +182,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/hosts/{host}/baseline", s.handleCaptureBaseline)
 	mux.HandleFunc("DELETE /api/hosts/{host}/baseline", s.handleDeleteBaseline)
 	mux.HandleFunc("GET /api/drift", s.handleFleetDrift)
+	mux.HandleFunc("GET /api/notifications/queue", s.handleNotifyQueue)
+	mux.HandleFunc("POST /api/notifications/test", s.handleNotifyTest)
 	mux.HandleFunc("GET /api/alerts", s.handleListAlerts)
 	mux.HandleFunc("POST /api/alerts/snooze", s.handleSnoozeAlert)
 	mux.HandleFunc("GET /api/approvals", s.handleListApprovals)
@@ -278,11 +280,16 @@ type settingsAskMuster struct {
 	Model      string `json:"model,omitempty"`
 }
 
-// settingsWebhooks is GET /api/settings's webhook slice -- a count,
-// never the URLs themselves.
+// settingsWebhooks is GET /api/settings's notification slice -- the
+// sink names (a generic webhook sink's name includes its URL, which
+// is deliberately redacted here to its host), never a token or
+// credential.
 type settingsWebhooks struct {
-	Configured bool `json:"configured"`
-	Count      int  `json:"count"`
+	Configured bool     `json:"configured"`
+	Count      int      `json:"count"`
+	Sinks      []string `json:"sinks,omitempty"`
+	Pending    int      `json:"pending"`
+	Dead       int      `json:"dead"`
 }
 
 // settingsSIEM is GET /api/settings's SIEM-forwarding slice (see
@@ -343,10 +350,7 @@ func (s *Server) settingsSnapshot() settingsResponse {
 		VulnFeed: settingsVulnFeed{
 			Enabled: s.VulnFeed != nil,
 		},
-		Webhooks: settingsWebhooks{
-			Configured: s.Webhooks.Count() > 0,
-			Count:      s.Webhooks.Count(),
-		},
+		Webhooks: notifySettings(s.Webhooks),
 	}
 	if s.VulnFeed != nil {
 		resp.VulnFeed.Interval = s.VulnFeedInterval.String()

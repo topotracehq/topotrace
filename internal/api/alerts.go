@@ -41,10 +41,10 @@ func (s *Server) handleListAlerts(w http.ResponseWriter, r *http.Request) {
 		out = append(out, row{Violation: v, Snoozed: sn})
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{
-		"open":          len(list),
-		"snoozed":       snoozed,
+		"open":                len(list),
+		"snoozed":             snoozed,
 		"realert_after_hours": int(alerts.RealertAfter.Hours()),
-		"violations":    out,
+		"violations":          out,
 	})
 }
 

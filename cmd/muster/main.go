@@ -68,6 +68,17 @@ func main() {
 		aiAPIKey = flag.String("ai-api-key", os.Getenv("MUSTER_AI_API_KEY"), "Anthropic API key for \"Ask Muster\" (POST /api/ask), a natural-language query surface over the fleet data with every question+answer recorded to the audit log. Empty disables the endpoint (it answers with a clear 'not configured' error). Also read from MUSTER_AI_API_KEY.")
 		aiModel  = flag.String("ai-model", os.Getenv("MUSTER_AI_MODEL"), "Anthropic model id Ask Muster calls (e.g. claude-opus-5). Empty uses internal/aiquery's built-in default. Also read from MUSTER_AI_MODEL.")
 
+		slackWebhookURL = flag.String("slack-webhook-url", os.Getenv("MUSTER_SLACK_WEBHOOK_URL"), "Slack incoming-webhook URL to post every notable event to (policy/software violations, remediations, resolutions). Also read from MUSTER_SLACK_WEBHOOK_URL.")
+		teamsWebhookURL = flag.String("teams-webhook-url", os.Getenv("MUSTER_TEAMS_WEBHOOK_URL"), "Microsoft Teams incoming-webhook / Workflows URL to post every notable event to as an Adaptive Card. Also read from MUSTER_TEAMS_WEBHOOK_URL.")
+		jiraURL         = flag.String("jira-url", os.Getenv("MUSTER_JIRA_URL"), "Jira Cloud base URL (e.g. https://yourteam.atlassian.net) to open one issue per policy/software violation or proposed remediation in. Requires -jira-email, -jira-token, -jira-project. Also read from MUSTER_JIRA_URL.")
+		jiraEmail       = flag.String("jira-email", os.Getenv("MUSTER_JIRA_EMAIL"), "Atlassian account email for -jira-url (basic auth with the API token). Also read from MUSTER_JIRA_EMAIL.")
+		jiraToken       = flag.String("jira-token", os.Getenv("MUSTER_JIRA_TOKEN"), "Atlassian API token for -jira-url. Also read from MUSTER_JIRA_TOKEN.")
+		jiraProject     = flag.String("jira-project", os.Getenv("MUSTER_JIRA_PROJECT"), "Jira project key to create issues in (e.g. OPS). Also read from MUSTER_JIRA_PROJECT.")
+		jiraIssueType   = flag.String("jira-issue-type", os.Getenv("MUSTER_JIRA_ISSUE_TYPE"), "Jira issue type name (default Task). Also read from MUSTER_JIRA_ISSUE_TYPE.")
+		snowURL         = flag.String("servicenow-url", os.Getenv("MUSTER_SERVICENOW_URL"), "ServiceNow instance URL (e.g. https://dev12345.service-now.com) to open one incident per policy/software violation or proposed remediation in. Requires -servicenow-user and -servicenow-password. Also read from MUSTER_SERVICENOW_URL.")
+		snowUser        = flag.String("servicenow-user", os.Getenv("MUSTER_SERVICENOW_USER"), "ServiceNow basic-auth user for -servicenow-url. Also read from MUSTER_SERVICENOW_USER.")
+		snowPassword    = flag.String("servicenow-password", os.Getenv("MUSTER_SERVICENOW_PASSWORD"), "ServiceNow basic-auth password for -servicenow-url. Also read from MUSTER_SERVICENOW_PASSWORD.")
+
 		siemHECURL   = flag.String("siem-hec-url", os.Getenv("MUSTER_SIEM_HEC_URL"), "Splunk HTTP Event Collector base URL (e.g. https://splunk.example.com:8088) to forward every audit-log entry to, via internal/siemforward. Leave both -siem-hec-* flags empty to disable SIEM forwarding entirely. Also read from MUSTER_SIEM_HEC_URL.")
 		siemHECToken = flag.String("siem-hec-token", os.Getenv("MUSTER_SIEM_HEC_TOKEN"), "Splunk HEC token, sent as \"Authorization: Splunk <token>\". Required once -siem-hec-url is set. Also read from MUSTER_SIEM_HEC_TOKEN.")
 	)
@@ -167,15 +178,40 @@ func main() {
 		logger.Error("loading web UI assets", "err", err)
 		os.Exit(1)
 	}
-	var hookURLs []string
+	// Outbound notifications (internal/webhook): generic webhook URLs
+	// plus Slack, Teams, Jira and ServiceNow sinks, all through one
+	// durable, store-backed queue with retries -- see that package.
+	// Every sink is optional; the Dispatcher is a safe no-op with none.
+	var sinks []webhook.Sink
+	httpClient := &http.Client{Timeout: 10 * time.Second}
 	for _, u := range strings.Split(*webhookURLs, ",") {
 		if u = strings.TrimSpace(u); u != "" {
-			hookURLs = append(hookURLs, u)
+			sinks = append(sinks, &webhook.URLSink{URL: u, Client: httpClient})
 		}
 	}
-	hooks := webhook.New(hookURLs, logger.With("component", "webhook"))
-	if len(hookURLs) > 0 {
-		logger.Info("webhooks configured", "count", len(hookURLs))
+	if *slackWebhookURL != "" {
+		sinks = append(sinks, &webhook.SlackSink{WebhookURL: *slackWebhookURL, Client: httpClient})
+	}
+	if *teamsWebhookURL != "" {
+		sinks = append(sinks, &webhook.TeamsSink{WebhookURL: *teamsWebhookURL, Client: httpClient})
+	}
+	if *jiraURL != "" {
+		if *jiraEmail == "" || *jiraToken == "" || *jiraProject == "" {
+			fmt.Fprintln(os.Stderr, "jira partially configured -- -jira-url needs -jira-email, -jira-token and -jira-project")
+			os.Exit(1)
+		}
+		sinks = append(sinks, &webhook.JiraSink{BaseURL: *jiraURL, Email: *jiraEmail, APIToken: *jiraToken, Project: *jiraProject, IssueType: *jiraIssueType, Events: webhook.TicketEvents, Client: httpClient})
+	}
+	if *snowURL != "" {
+		if *snowUser == "" || *snowPassword == "" {
+			fmt.Fprintln(os.Stderr, "servicenow partially configured -- -servicenow-url needs -servicenow-user and -servicenow-password")
+			os.Exit(1)
+		}
+		sinks = append(sinks, &webhook.ServiceNowSink{InstanceURL: *snowURL, User: *snowUser, Password: *snowPassword, Events: webhook.TicketEvents, Client: httpClient})
+	}
+	hooks := webhook.NewWithSinks(sinks, st, logger.With("component", "notify"))
+	if len(sinks) > 0 {
+		logger.Info("notification sinks configured", "sinks", hooks.SinkNames())
 	}
 
 	var vulnFeed *vuln.Feed
@@ -246,6 +282,12 @@ func main() {
 	go func() {
 		defer wg.Done()
 		eval.Run(ctx)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		hooks.Run(ctx)
 	}()
 
 	if vulnFeed != nil {

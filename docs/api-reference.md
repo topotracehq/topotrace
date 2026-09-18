@@ -138,6 +138,14 @@ not alphabetically.
 - `GET /api/auth/login`, `GET /api/auth/callback`, `POST /api/auth/logout`
   -- OAuth2/OIDC login for the web dashboard, if configured. See the
   Security Model page.
+- `GET /api/notifications/queue` -- the outbound delivery queue
+  (`admin`): configured sinks (generic webhook URLs redacted to their
+  host), pending deliveries with attempts/next attempt/last error, and
+  dead letters. See the README's Notifications section.
+- `POST /api/notifications/test` -- deliver one synthetic event
+  (default type `test`; body `{"type","host","detail"}` optional) to
+  every sink synchronously and report each sink's outcome. `admin`,
+  strict, audited as `notification-test`.
 - `GET /api/settings` -- server-level configuration snapshot (`admin`):
   storage backend, listen addresses, evaluator interval, and whether
   auth/OAuth/the vuln feed/Ask Muster/webhooks/SIEM forwarding are

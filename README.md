@@ -894,25 +894,58 @@ backends (a real `audit_log` table with indexes on `target` and
 `created_at` for pgstore, an append-only slice persisted to the JSON
 snapshot for memstore).
 
-## Webhooks
+## Notifications: webhooks, Slack, Teams, Jira, ServiceNow
 
 ```
-go run ./cmd/muster -webhook-url "https://example.com/hooks/muster,https://example.org/hooks/other"
-# or: MUSTER_WEBHOOK_URLS=https://example.com/hooks/muster go run ./cmd/muster
+go run ./cmd/muster \
+  -webhook-url "https://example.com/hooks/muster" \
+  -slack-webhook-url "https://hooks.slack.com/services/..." \
+  -teams-webhook-url "https://....webhook.office.com/..." \
+  -jira-url https://yourteam.atlassian.net -jira-email you@example.com -jira-token <api-token> -jira-project OPS \
+  -servicenow-url https://dev12345.service-now.com -servicenow-user muster -servicenow-password <pw>
+# every flag also reads its MUSTER_* env var; every one is optional
 ```
 
-A minimal generic outbound notifier (`internal/webhook`): on a
-`policy_violation`, `software_violation`, `violation_resolved`,
-`remediation_proposed` or `remediation_executed` event, POST a small JSON
-payload (`{"type", "host", "detail", "timestamp"}`) to every configured
-URL. One attempt, one retry after a short delay, every failure logged --
-not a durable queue, not exactly-once delivery, just best effort, and
-loud about it when both attempts fail. A `Dispatcher` with no URLs
-configured (the default) is a safe no-op, so nothing has to branch on
-"are webhooks even on." (For a real SIEM specifically, see "SIEM
-forwarding" below -- it forwards the full audit trail, not just these
-two event types, and speaks Splunk HEC's actual wire format rather than
-an ad hoc JSON shape.)
+`internal/webhook` fans every notable event -- `policy_violation`,
+`software_violation`, `violation_resolved`, `remediation_proposed`,
+`remediation_executed`, and `test` -- out to a set of **sinks**:
+
+- **Generic webhook URLs** (`-webhook-url`, comma-separated): the raw
+  event JSON (`{"type", "host", "detail", "timestamp"}`), the original
+  behavior.
+- **Slack** (`-slack-webhook-url`): an incoming webhook, `{"text": ...}`
+  with the event as a bold title plus detail.
+- **Microsoft Teams** (`-teams-webhook-url`): an incoming webhook /
+  Workflows URL, sent as an Adaptive Card with a fact set.
+- **Jira** (`-jira-url` + email/token/project): one issue per finding
+  via the Cloud REST API v3 (`POST /rest/api/3/issue`, ADF description,
+  `muster` + event-type labels).
+- **ServiceNow** (`-servicenow-url` + user/password): one incident per
+  finding via the Table API (`POST /api/now/table/incident`).
+
+The ticketing sinks only accept the findings worth a ticket
+(`policy_violation`, `software_violation`, `remediation_proposed`); the
+chat and generic sinks take everything. All stdlib `net/http` against
+each service's documented API -- no SDKs, same reason as the cloud
+agents and SIEM forwarding. Each sink's payload is unit-tested against
+an `httptest.Server`; none has been pointed at a real Slack/Teams/Jira/
+ServiceNow tenant from this environment, so treat the exact field names
+as "matches the docs," not "verified live."
+
+**Durable queue.** Deliveries no longer go "one try, one retry, then a
+warning." An event is written to the Store (a `notify_queue` document
+per pending delivery) before any network call; a background worker
+attempts each with exponential backoff (2s, 15s, 1m, 5m, 30m; six
+attempts); a delivery that exhausts them is kept as a dead letter so an
+operator can see what never arrived; a restart resumes whatever was
+pending. `GET /api/notifications/queue` (admin) shows pending and dead
+deliveries with attempts and last error; `POST /api/notifications/test`
+(admin) delivers a synthetic event to every sink synchronously and
+reports each outcome -- the Settings page's Notifications card is that
+button. This is also what closes the long-standing "durable webhook
+queue" backlog item.
+
+![Notifications](docs/screenshots/settings-notifications.png)
 
 ## SIEM forwarding
 
@@ -1439,10 +1472,6 @@ Deliberately not done yet, in rough priority order:
   never holds SSH/WinRM credentials and never pushes an agent onto a
   remote host or runs code on your behalf. A deliberate scope boundary,
   not a gap to close later — see "Agent enrollment & the Agents tab".
-- **A durable webhook queue** — `internal/webhook` is one attempt plus
-  one retry, in-memory, logged either way; an endpoint that's down for
-  longer than that retry window silently misses events rather than
-  catching up once it's back.
 - **Finer-grained roles** — today it's exactly three fixed tiers
   (`readonly`/`remediate`/`admin`), the same "small, fixed set" choice
   `internal/remediate`'s verbs and `model.Rule`'s `Kind` both make;
