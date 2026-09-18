@@ -76,6 +76,19 @@ const systemPrompt = `You are "Ask Muster," a governed-AI assistant built into t
 // touches the Store itself, keeping the "build context" and "call the
 // model" concerns separate.
 func Ask(ctx context.Context, cfg Config, question string, fleetContext any) (string, error) {
+	ctxJSON, err := json.Marshal(fleetContext)
+	if err != nil {
+		return "", fmt.Errorf("aiquery: encoding fleet context: %w", err)
+	}
+	userContent := fmt.Sprintf("Fleet context (JSON):\n%s\n\nQuestion: %s", ctxJSON, question)
+	return Complete(ctx, cfg, systemPrompt, userContent, 1024)
+}
+
+// Complete is one Messages API call: system prompt, one user message,
+// text answer. Ask, the policy drafter and the executive summary all go
+// through here, so there is exactly one place that knows the wire
+// format, the headers, and how an API error is surfaced.
+func Complete(ctx context.Context, cfg Config, system, user string, maxTokens int) (string, error) {
 	if !cfg.Enabled() {
 		return "", ErrNotConfigured
 	}
@@ -83,20 +96,15 @@ func Ask(ctx context.Context, cfg Config, question string, fleetContext any) (st
 	if model == "" {
 		model = defaultModel
 	}
-
-	ctxJSON, err := json.Marshal(fleetContext)
-	if err != nil {
-		return "", fmt.Errorf("aiquery: encoding fleet context: %w", err)
+	if maxTokens <= 0 {
+		maxTokens = 1024
 	}
-
-	userContent := fmt.Sprintf("Fleet context (JSON):\n%s\n\nQuestion: %s", ctxJSON, question)
-
 	reqBody, err := json.Marshal(map[string]any{
 		"model":      model,
-		"max_tokens": 1024,
-		"system":     systemPrompt,
+		"max_tokens": maxTokens,
+		"system":     system,
 		"messages": []map[string]string{
-			{"role": "user", "content": userContent},
+			{"role": "user", "content": user},
 		},
 	})
 	if err != nil {
@@ -111,7 +119,7 @@ func Ask(ctx context.Context, cfg Config, question string, fleetContext any) (st
 	req.Header.Set("anthropic-version", anthropicVersion)
 	req.Header.Set("content-type", "application/json")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("aiquery: calling Anthropic API: %w", err)

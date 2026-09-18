@@ -126,6 +126,17 @@ not alphabetically.
 ## Ask Muster
 
 - `POST /api/ask` -- `{"question": "..."}`, `readonly` or higher.
+- `POST /api/ask/draft-policy` -- `{"description": "..."}` in plain
+  English; out, a `draft` in `POST /api/policies`'s own field names
+  (name, kind, threshold, category, group, auto_remediate,
+  auto_remediate_arg, require_approval) plus an `explanation` and a
+  `source` (`ask-muster`, or `heuristic` when no API key is configured
+  and keyword rules drafted it instead). Nothing is created -- the
+  operator reviews and posts it. `readonly`; audited as `ask-muster`.
+- `POST /api/ask/summary` -- a four-paragraph plain-English executive
+  summary of the fleet from the same data as the executive report,
+  written by Ask Muster or (no key) filled from a template; `source`
+  says which. `readonly`; audited.
   Answers a natural-language question about the fleet using the
   Anthropic Messages API, grounded in a compact JSON snapshot built
   from the Store (never a live model call with no context). Returns

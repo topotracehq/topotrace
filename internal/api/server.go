@@ -245,6 +245,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/auth/logout", s.handleAuthLogout)
 	mux.HandleFunc("GET /api/auth/me", s.handleAuthMe)
 	mux.HandleFunc("POST /api/ask", s.handleAsk)
+	mux.HandleFunc("POST /api/ask/draft-policy", s.handleDraftPolicy)
+	mux.HandleFunc("POST /api/ask/summary", s.handleExecutiveSummary)
 	mux.HandleFunc("GET /api/settings", s.handleSettings)
 	mux.HandleFunc("PATCH /api/settings", s.handlePatchSettings)
 }

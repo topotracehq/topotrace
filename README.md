@@ -896,6 +896,16 @@ documented contract and exercised against the "not configured" path
 `api.anthropic.com` yet. Set `-ai-api-key` to a real key and ask it a
 question before relying on it.
 
+
+Ask Muster also **drafts policy rules from plain English** (the Fleet
+tab's "Or describe it" row fills the policy form for you to review and
+create -- never creates on its own) and **writes the executive summary**
+(a button on the Reports card, four paragraphs from the same data as the
+printed report). Both fall back to keyword rules / a template without an
+API key and say so. See `docs/ask-muster.md`.
+
+![Draft a policy from a description](docs/screenshots/fleet-ask-draft.png)
+
 ## Policy rules & the background evaluator
 
 Policies are what closes the loop the original "what's next" list

@@ -816,3 +816,5 @@ main#app {
 .framework-block:last-child { border-bottom: none; }
 .framework-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .fact-card h3.subhead { font-size: 0.82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--mu-text-muted); margin: 14px 0 6px; }
+.editor-row input.wide { min-width: 360px; flex: 1; }
+.exec-summary p { margin: 6px 0; max-width: 78ch; }

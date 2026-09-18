@@ -14,10 +14,12 @@
 package report
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
 
+	"muster/internal/aiquery"
 	"muster/internal/compliance"
 	"muster/internal/model"
 	"muster/internal/policy"
@@ -75,6 +77,19 @@ func TestHTMLRenders(t *testing.T) {
 	for _, want := range []string{"Fleet posture report", "CVE-2014-6271", "average posture score", "with &#34;quotes&#34;"} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("missing %q in report html", want)
+		}
+	}
+}
+
+func TestTemplateSummary(t *testing.T) {
+	d := sample()
+	s, err := ExecutiveSummary(context.Background(), aiquery.Config{}, d)
+	if err != nil || s.Source != "template" {
+		t.Fatalf("%+v %v", s, err)
+	}
+	for _, want := range []string{"managing 2 hosts", "most in need of attention are b", "Recommended first step: patch the 1 host"} {
+		if !strings.Contains(s.Text, want) {
+			t.Fatalf("summary missing %q:\n%s", want, s.Text)
 		}
 	}
 }

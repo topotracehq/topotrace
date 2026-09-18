@@ -1018,6 +1018,7 @@
       el("button", { type: "submit", text: "Create" }),
       msg
     );
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const name = nameInput.value.trim();
@@ -1049,7 +1050,36 @@
         msg.textContent = `Error: ${err.message}`;
       }
     });
-    return form;
+
+    // "Describe it" row: plain English -> POST /api/ask/draft-policy ->
+    // the fields above get filled in for review. The draft is never
+    // created on its own; Create is still the operator's click.
+    const descInput = el("input", { type: "text", class: "wide", placeholder: "e.g. flag prod hosts below 80 posture and restart nginx after I approve" });
+    const draftBtn = el("button", { type: "button", text: "Draft with Ask Muster" });
+    const draftMsg = el("span", { class: "save-msg" });
+    draftBtn.addEventListener("click", async () => {
+      const description = descInput.value.trim();
+      if (!description) return;
+      draftMsg.textContent = "Drafting…";
+      try {
+        const r = await api("/api/ask/draft-policy", { method: "POST", body: { description } });
+        const d = r.draft;
+        nameInput.value = d.name || "";
+        kindSelect.value = d.kind || "stale";
+        thresholdInput.value = d.threshold ? String(d.threshold) : "";
+        categoryInput.value = d.category || "";
+        groupInput.value = d.group || "";
+        remediateSelect.value = d.auto_remediate || "";
+        remediateArgInput.value = d.auto_remediate_arg || "";
+        approvalBox.checked = !!d.require_approval;
+        draftMsg.textContent = `${d.source === "heuristic" ? "Drafted by keyword rules (Ask Muster not configured)" : "Drafted by Ask Muster"}: ${d.explanation}${r.validation_error ? ` -- needs a fix: ${r.validation_error}` : ""}. Review the fields, then Create.`;
+      } catch (err) {
+        draftMsg.textContent = `Error: ${err.message}`;
+      }
+    });
+    const draftRow = el("div", { class: "editor-row" }, el("label", { text: "Or describe it" }), descInput, draftBtn, draftMsg);
+    const wrapper = el("div", {}, draftRow, form);
+    return wrapper;
   }
 
   function policyRow(rule, onDelete) {
@@ -1380,8 +1410,26 @@
       return b;
     };
     const today = new Date().toISOString().slice(0, 10);
+    const summaryOut = el("div", { class: "exec-summary" });
+    const summaryBtn = el("button", { type: "button", text: "Executive summary (Ask Muster)" });
+    summaryBtn.addEventListener("click", async () => {
+      msg.textContent = "Writing…";
+      summaryOut.replaceChildren();
+      try {
+        const r = await api("/api/ask/summary", { method: "POST", body: {} });
+        msg.textContent = "";
+        const paras = r.summary.text.split(/\n\s*\n/).map((p) => el("p", { text: p }));
+        summaryOut.replaceChildren(
+          el("p", { class: "meta", text: r.summary.source === "template" ? "Written from a template because Ask Muster isn't configured (set an API key on the Settings page for a model-written summary)." : "Written by Ask Muster from the same data as the executive report; recorded to the audit trail." }),
+          ...paras);
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
     return el("div", { class: "fact-card" },
       el("h2", { text: "Reports & exports" }),
+      el("div", { class: "editor-row" }, summaryBtn),
+      summaryOut,
       el("p", { class: "meta", text: "The executive report opens as a print-ready page (use your browser's Print / Save as PDF). CSV exports carry the same numbers the dashboard shows. Audit export needs an admin credential." }),
       el("div", { class: "editor-row" },
         btn("Executive report", "/api/reports/executive", "", true),

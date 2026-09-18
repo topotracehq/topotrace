@@ -51,3 +51,30 @@ conversation state kept server-side (the browser's Ask Muster panel
 keeps a client-side transcript purely for display; the audit log is
 the real record). No memory across questions today: each question is
 answered from a fresh snapshot, not a running conversation.
+
+## Beyond questions: drafting policies and writing the summary
+
+Two more things Ask Muster does, both built so the AI proposes and a
+person decides:
+
+- **Draft a policy rule from a description.** On the Fleet tab's policy
+  form, type what you want in plain English ("flag any prod host whose
+  posture score drops below 75 and restart nginx, but ask me to approve
+  first") and `POST /api/ask/draft-policy` fills the form's fields --
+  kind, threshold, group, auto-remediation, require-approval -- with an
+  explanation of why. The draft is validated against the fixed rule
+  vocabulary and never created on its own; Create is still your click.
+  Without an API key, keyword heuristics draft it instead and the UI
+  says so.
+- **Write the executive summary.** `POST /api/ask/summary` hands the
+  same `report.Data` the executive report is built from to the model
+  with a strict "only these numbers, name the hosts, four short
+  paragraphs, one recommendation" prompt. Without a key a deterministic
+  template produces the same four paragraphs from the numbers directly,
+  labeled as such.
+
+Both go through `aiquery.Complete`, the one place that knows the
+Messages API wire format, and both record an audit entry like every
+other Ask Muster call. Neither has been exercised against a live
+Anthropic key from this environment; the heuristic and template paths
+were.
