@@ -226,6 +226,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/trust/{host}", s.handleTrust)
 	mux.HandleFunc("GET /api/signals", s.handleSignals)
 	mux.HandleFunc("GET /api/breaches", s.handleBreaches)
+	mux.HandleFunc("GET /api/entities", s.handleEntities)
+	mux.HandleFunc("GET /api/entities/kinds", s.handleEntityKinds)
 	mux.HandleFunc("POST /api/scanner-import", s.handleScannerImport)
 	mux.HandleFunc("GET /api/scanner-import/formats", s.handleScannerFormats)
 	mux.HandleFunc("GET /api/alerts", s.handleListAlerts)

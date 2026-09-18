@@ -2644,6 +2644,312 @@
     return form;
   }
 
+  // ENTITY_KIND_SHAPES maps an entity kind to the shape it draws as.
+  // Shape carries the kind because color is already carrying the
+  // family: a node-link diagram can put any two nodes side by side, and
+  // past three categorical hues a palette stops separating every pair
+  // for colorblind readers. Three family hues plus seven shapes gets
+  // both dimensions across without failing that check.
+  function entityShape(kind, r) {
+    const pts = (list) => list.map(([x, y]) => `${x},${y}`).join(" ");
+    const poly = (n, rot) => {
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        const a = rot + (2 * Math.PI * i) / n;
+        out.push([(r * Math.cos(a)).toFixed(1), (r * Math.sin(a)).toFixed(1)]);
+      }
+      return out;
+    };
+    switch (kind) {
+      case "group":
+        return svgEl("rect", { x: -r, y: -r, width: 2 * r, height: 2 * r, rx: r * 0.42, class: "ent-node-shape" });
+      case "rule":
+        return svgEl("rect", { x: -r * 0.86, y: -r * 0.86, width: r * 1.72, height: r * 1.72, class: "ent-node-shape" });
+      case "package":
+        return svgEl("polygon", { points: pts(poly(6, 0)), class: "ent-node-shape" });
+      case "cve":
+        return svgEl("polygon", { points: pts(poly(4, -Math.PI / 2)), class: "ent-node-shape" });
+      case "certificate":
+        return svgEl("polygon", { points: pts(poly(3, -Math.PI / 2)), class: "ent-node-shape" });
+      case "extension":
+        return svgEl("polygon", { points: pts(poly(5, -Math.PI / 2)), class: "ent-node-shape" });
+      default:
+        return svgEl("circle", { r: r, class: "ent-node-shape" });
+    }
+  }
+
+  const ENTITY_FAMILY_COLOR = { asset: "var(--ent-asset)", finding: "var(--ent-finding)", policy: "var(--ent-policy)" };
+  const ENTITY_KIND_LABEL = {
+    host: "host", group: "board group", package: "package", cve: "vulnerability",
+    certificate: "certificate", extension: "browser extension", rule: "rule",
+  };
+  const ENTITY_EDGE_LABEL = {
+    member: "is in", installs: "installs", "affected-by": "affected by",
+    "exposed-to": "exposed to", presents: "presents", governs: "governs",
+    indirect: "indirectly linked to",
+  };
+
+  // truncate keeps a direct label from running over its neighbors; the
+  // full text is always in the tooltip and the table view.
+  function truncate(s, max) {
+    s = String(s || "");
+    return s.length > max ? s.slice(0, max - 1) + "…" : s;
+  }
+
+  // showEntities is the Entity map tab: the fleet's entities and the
+  // relationships between them, as one traversable picture instead of
+  // a dozen separate lists.
+  async function showEntities() {
+    const state = {
+      types: new Set(),          // empty = every kind
+      focus: null,
+      depth: 2,
+      table: false,
+      kinds: [],
+    };
+
+    const heading = el(
+      "div", { class: "section-heading" },
+      el("h1", { text: "Entity map" }),
+      el("span", { class: "meta", text: "Hosts, groups, notable packages, vulnerabilities, certificates, extensions and rules, and how they connect" })
+    );
+    const slot = el("div", {});
+    app.replaceChildren(heading, slot);
+
+    try {
+      const meta = await api("/api/entities/kinds");
+      state.kinds = meta.kinds || [];
+    } catch (err) {
+      // The legend can fall back to whatever the graph itself returns.
+      state.kinds = [];
+    }
+
+    async function render() {
+      const card = el("div", { class: "fact-card" }, el("h2", { text: "Entity map" }), el("p", { class: "meta", text: "Loading…" }));
+      slot.replaceChildren(card);
+      let g;
+      try {
+        const params = new URLSearchParams();
+        if (state.types.size) params.set("types", [...state.types].join(","));
+        if (state.focus) { params.set("focus", state.focus); params.set("depth", String(state.depth)); }
+        g = await api(`/api/entities${params.toString() ? "?" + params.toString() : ""}`);
+      } catch (err) {
+        card.replaceChildren(el("h2", { text: "Entity map" }), el("p", { text: `Couldn't load the entity map: ${err.message}` }));
+        return;
+      }
+
+      const kinds = state.kinds.length ? state.kinds : [...new Set(g.nodes.map((n) => n.kind))].map((k) => ({ kind: k, family: "asset" }));
+      const famOf = {};
+      for (const k of kinds) famOf[k.kind] = k.family;
+
+      // --- filter row: one row above the graph
+      const chips = kinds.map((k) => {
+        const on = state.types.size === 0 || state.types.has(k.kind);
+        const count = (g.counts || {})[k.kind] || 0;
+        const chip = el("button", { type: "button", class: "ent-chip", "aria-pressed": String(on), title: `${ENTITY_KIND_LABEL[k.kind] || k.kind} (${count} in the fleet)` },
+          el("span", { class: "ent-chip-swatch", style: `background:${ENTITY_FAMILY_COLOR[k.family] || "#6b7278"}` }),
+          el("span", { text: ENTITY_KIND_LABEL[k.kind] || k.kind }),
+          el("span", { class: "ent-chip-count", text: String(count) }));
+        chip.addEventListener("click", () => {
+          // An empty set means "everything", so the first click has to
+          // materialize the full set before removing one from it.
+          if (state.types.size === 0) for (const kk of kinds) state.types.add(kk.kind);
+          if (state.types.has(k.kind)) state.types.delete(k.kind); else state.types.add(k.kind);
+          if (state.types.size === 0 || state.types.size === kinds.length) state.types.clear();
+          render();
+        });
+        return chip;
+      });
+      const filters = el("div", { class: "ent-filters" }, el("span", { class: "ent-filter-label", text: "Show" }), ...chips);
+      if (state.types.size) {
+        const reset = el("button", { type: "button", class: "ghost", text: "All kinds" });
+        reset.addEventListener("click", () => { state.types.clear(); render(); });
+        filters.appendChild(reset);
+      }
+      if (state.focus) {
+        const depth = el("select", { title: "How many hops from the focused entity" },
+          ...[1, 2, 3, 4].map((d) => el("option", { value: String(d), text: `${d} hop${d > 1 ? "s" : ""}` })));
+        depth.value = String(state.depth);
+        depth.addEventListener("change", () => { state.depth = Number(depth.value); render(); });
+        const clear = el("button", { type: "button", class: "ghost", text: "Whole fleet" });
+        clear.addEventListener("click", () => { state.focus = null; render(); });
+        filters.appendChild(el("span", { class: "ent-filter-label", text: "Within" }));
+        filters.appendChild(depth);
+        filters.appendChild(clear);
+      }
+      const tableToggle = el("button", { type: "button", class: "ghost", text: state.table ? "Hide table" : "Show table" });
+      tableToggle.addEventListener("click", () => { state.table = !state.table; render(); });
+      filters.appendChild(tableToggle);
+
+      // --- the graph itself
+      const svg = svgEl("svg", { viewBox: `0 0 ${g.width} ${g.height}`, class: "entity-graph", role: "img",
+        "aria-label": `Entity relationship map: ${g.nodes.length} entities, ${g.edges.length} relationships` });
+      const byID = {};
+      for (const n of g.nodes) byID[n.id] = n;
+
+      const edgesOf = {};   // node id -> edge elements touching it
+      for (const e of g.edges) {
+        const a = byID[e.from], b = byID[e.to];
+        if (!a || !b) continue;
+        const line = svgEl("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: `ent-edge ent-edge-${e.kind}` });
+        line.appendChild(svgEl("title", { text: `${a.label} ${ENTITY_EDGE_LABEL[e.kind] || e.kind} ${b.label}` }));
+        svg.appendChild(line);
+        (edgesOf[e.from] = edgesOf[e.from] || []).push(line);
+        (edgesOf[e.to] = edgesOf[e.to] || []).push(line);
+      }
+
+      // Direct labels are selective, and which ones fit was worked out
+      // server-side against the real geometry (see
+      // entitygraph.assignLabels) -- the focused node always gets one.
+      // Every name is in the tooltip and the table view regardless.
+      const wrap = el("div", { class: "entity-graph-wrap" });
+      const tip = el("div", { class: "ent-tip", style: "display:none" });
+
+      for (const n of g.nodes) {
+        const cls = ["ent-node", `ent-fam-${n.family}`, `ent-kind-${n.kind}`];
+        if (n.status) cls.push(`ent-status-${n.status}`);
+        if (state.focus === n.id) cls.push("ent-node-focused");
+        const grp = svgEl("g", { class: cls.join(" "), transform: `translate(${n.x},${n.y})`,
+          tabindex: "0", role: "button", "aria-label": `${ENTITY_KIND_LABEL[n.kind] || n.kind} ${n.label}${n.status ? ", " + n.status : ""}` });
+        grp.appendChild(entityShape(n.kind, n.r));
+        if (n.status) grp.appendChild(svgEl("circle", { r: n.r + 3.5, class: "ent-status-ring" }));
+        if (state.focus === n.id) grp.appendChild(svgEl("circle", { r: n.r + (n.status ? 8 : 5), class: "ent-focus-halo" }));
+        if (n.show_label || state.focus === n.id) {
+          // Where the label sits was decided server-side against the
+          // real geometry, so it lands in whichever direction was free.
+          const attrs = { class: "ent-label", text: truncate(n.label, 24) };
+          switch (n.label_anchor) {
+            case "above": attrs.y = -n.r - 6; attrs["text-anchor"] = "middle"; break;
+            case "right": attrs.x = n.r + 5; attrs.y = 4; attrs["text-anchor"] = "start"; break;
+            case "left": attrs.x = -n.r - 5; attrs.y = 4; attrs["text-anchor"] = "end"; break;
+            default: attrs.y = n.r + 12; attrs["text-anchor"] = "middle";
+          }
+          grp.appendChild(svgEl("text", attrs));
+        }
+
+        const describe = () => {
+          const parts = [el("div", { class: "ent-tip-kind", text: ENTITY_KIND_LABEL[n.kind] || n.kind }),
+            el("div", { text: n.label })];
+          if (n.sub) parts.push(el("div", { text: n.sub }));
+          if (n.status) parts.push(el("div", { text: `${n.status}${n.detail ? ": " + n.detail : ""}` }));
+          parts.push(el("div", { text: `${n.degree} relationship${n.degree === 1 ? "" : "s"}` }));
+          tip.replaceChildren(...parts);
+        };
+        const move = (ev) => {
+          const box = wrap.getBoundingClientRect();
+          tip.style.display = "block";
+          tip.style.left = `${Math.min(ev.clientX - box.left + 12, box.width - 270)}px`;
+          tip.style.top = `${ev.clientY - box.top + 12}px`;
+        };
+        grp.addEventListener("mouseenter", (ev) => {
+          describe(); move(ev);
+          for (const line of edgesOf[n.id] || []) line.classList.add("ent-edge-active");
+        });
+        grp.addEventListener("mousemove", move);
+        grp.addEventListener("mouseleave", () => {
+          tip.style.display = "none";
+          for (const line of edgesOf[n.id] || []) line.classList.remove("ent-edge-active");
+        });
+        const pivot = () => { state.focus = state.focus === n.id ? null : n.id; render(); };
+        grp.addEventListener("click", pivot);
+        grp.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); pivot(); } });
+        svg.appendChild(grp);
+      }
+      wrap.appendChild(svg);
+      wrap.appendChild(tip);
+
+      // --- legend: families by color, kinds by shape, status by ring
+      const shapeChip = (kind) => {
+        const mini = svgEl("svg", { width: 18, height: 18, viewBox: "-9 -9 18 18", class: `ent-fam-${famOf[kind] || "asset"}` });
+        mini.appendChild(entityShape(kind, 6));
+        return el("span", { class: "ent-legend-item" }, mini, el("span", { text: ENTITY_KIND_LABEL[kind] || kind }));
+      };
+      const ringChip = (status, text) => {
+        const mini = svgEl("svg", { width: 18, height: 18, viewBox: "-9 -9 18 18", class: `ent-fam-asset ent-status-${status}` });
+        mini.appendChild(svgEl("circle", { r: 4, class: "ent-node-shape" }));
+        mini.appendChild(svgEl("circle", { r: 7, class: "ent-status-ring" }));
+        return el("span", { class: "ent-legend-item" }, mini, el("span", { text }));
+      };
+      const legend = el("div", { class: "ent-legend" },
+        ...kinds.map((k) => shapeChip(k.kind)),
+        ringChip("warning", "needs attention"),
+        ringChip("critical", "critical"));
+
+      const shown = {};
+      for (const n of g.nodes) shown[n.kind] = (shown[n.kind] || 0) + 1;
+      const title = state.focus && byID[state.focus]
+        ? `Around ${byID[state.focus].label} (${g.nodes.length} entities, ${g.edges.length} relationships)`
+        : `Entity map (${g.nodes.length} entities, ${g.edges.length} relationships)`;
+
+      const notes = [];
+      notes.push(el("p", { class: "meta", text: "Color is the family (blue: what you own, orange: what's wrong with it, green: what you decided about it), shape is the kind, a ring is status, and size is how many things the entity touches. Click any entity to pivot the map around it; click it again to go back to the whole fleet." }));
+      notes.push(el("p", { class: "meta", text: "A package earns a place only when it is vulnerable, denied, shadow AI, or a licensed product; a certificate only when it is expiring or expired; an extension only when it is risky or on more than one host. Otherwise this would be thousands of packages and answer nothing." }));
+      if (g.edges.some((e) => e.kind === "indirect")) {
+        notes.push(el("p", { class: "meta", text: "Dotted lines are indirect: the entity that joined those two is filtered out of this view, so the path is shown contracted rather than dropped. Turn its kind back on to see the real hops." }));
+      }
+      if (g.omitted) {
+        notes.push(el("p", { class: "meta", text: `${g.omitted} lower-degree entities were left out to keep the map readable. Filter to a kind, or focus an entity, to see them.` }));
+      }
+
+      const parts = [el("h2", { text: title }), filters, legend, wrap, ...notes];
+      if (state.focus && byID[state.focus]) parts.push(entityDetail(byID[state.focus], g.relations || [], (id) => { state.focus = id; render(); }));
+      if (state.table) parts.push(entityTable(g, (id) => { state.focus = id; render(); }));
+      card.replaceChildren(...parts);
+    }
+
+    await render();
+  }
+
+  // entityDetail is the focused entity's own panel: what it is, and
+  // every relationship it has, in words.
+  function entityDetail(node, relations, onPivot) {
+    const head = el("div", {},
+      el("h3", { text: node.label }),
+      el("p", { class: "meta", text: [ENTITY_KIND_LABEL[node.kind] || node.kind, node.sub].filter(Boolean).join(" · ") }));
+    if (node.status) {
+      head.appendChild(el("p", {}, el("span", { class: `ent-pill ent-pill-${node.status}`, text: node.status }),
+        node.detail ? el("span", { text: " " + node.detail }) : null));
+    }
+    if (node.href) {
+      const open = el("a", { class: "back-link", href: node.href, text: "Open this host →" });
+      head.appendChild(el("p", {}, open));
+    }
+    const list = el("ul", { class: "ent-rel-list" });
+    for (const r of relations) {
+      const name = el("button", { type: "button", class: "ghost ent-rel-name", text: r.other.label });
+      name.addEventListener("click", () => onPivot(r.other.id));
+      list.appendChild(el("li", { class: "ent-rel" },
+        el("span", { class: "ent-rel-kind", text: ENTITY_EDGE_LABEL[r.kind] || r.kind }),
+        el("span", { class: "ent-rel-type", text: ENTITY_KIND_LABEL[r.other.kind] || r.other.kind }),
+        el("span", {}, name, r.other.status ? el("span", { class: `ent-pill ent-pill-${r.other.status}`, text: r.other.status }) : null,
+          r.other.sub ? el("span", { class: "meta", text: " " + r.other.sub }) : null)));
+    }
+    if (!relations.length) list.appendChild(el("li", { class: "ent-rel" }, el("span", { class: "meta", text: "No relationships in this view. Widen the hop count or turn more kinds back on." })));
+    return el("div", { class: "ent-detail" }, head, list);
+  }
+
+  // entityTable is the table view of the same graph -- the
+  // non-visual route to the same facts, and the reason the map's
+  // colors never have to carry a name on their own.
+  function entityTable(g, onPivot) {
+    const rows = [...g.nodes].sort((a, b) => (b.degree - a.degree) || a.label.localeCompare(b.label));
+    const body = rows.map((n) => {
+      const name = el("button", { type: "button", class: "ghost", text: n.label });
+      name.addEventListener("click", () => onPivot(n.id));
+      return el("tr", {},
+        el("td", {}, name),
+        el("td", { text: ENTITY_KIND_LABEL[n.kind] || n.kind }),
+        el("td", { text: n.sub || "" }),
+        el("td", {}, n.status ? el("span", { class: `ent-pill ent-pill-${n.status}`, text: n.status }) : el("span", { class: "meta", text: "ok" })),
+        el("td", { text: String(n.degree) }));
+    });
+    return el("div", { class: "ent-detail" },
+      el("h3", { text: "Every entity in this view" }),
+      el("table", { class: "ent-table" },
+        el("thead", {}, el("tr", {}, el("th", { text: "Entity" }), el("th", { text: "Kind" }), el("th", { text: "Detail" }), el("th", { text: "Status" }), el("th", { text: "Links" }))),
+        el("tbody", {}, ...body)));
+  }
+
   async function showCompliance() {
     const heading = el(
       "div", { class: "section-heading" },
@@ -2790,6 +3096,8 @@
       showFleet();
     } else if (hash === "#/agents") {
       showAgents();
+    } else if (hash === "#/entities") {
+      showEntities();
     } else if (hash === "#/compliance") {
       showCompliance();
     } else if (hash === "#/ask") {
@@ -2813,7 +3121,7 @@
 
   function updateNavUI() {
     const hash = location.hash || "#/";
-    const view = hash === "#/board" ? "board" : hash === "#/fleet" ? "fleet" : hash === "#/agents" ? "agents" : hash === "#/compliance" ? "compliance" : hash === "#/ask" ? "ask" : hash === "#/docs" ? "docs" : hash === "#/settings" ? "settings" : "hosts";
+    const view = hash === "#/board" ? "board" : hash === "#/fleet" ? "fleet" : hash === "#/agents" ? "agents" : hash === "#/entities" ? "entities" : hash === "#/compliance" ? "compliance" : hash === "#/ask" ? "ask" : hash === "#/docs" ? "docs" : hash === "#/settings" ? "settings" : "hosts";
     for (const a of document.querySelectorAll(".view-tabs a")) {
       a.classList.toggle("active", a.dataset.view === view);
     }

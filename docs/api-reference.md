@@ -210,6 +210,24 @@ not alphabetically.
   (`admin`, audited): with `-hibp-api-key`, every alias on the domain
   found in a breach; always, the public list of breaches of the domain
   itself, and a `mode` string saying which you got.
+- `GET /api/entities` -- the fleet's entity relationship map
+  (`readonly`): hosts, board groups, notable packages, CVEs, expiring
+  certificates, notable browser extensions and rules as typed nodes,
+  joined by typed edges, with positions and radii computed server-side.
+  Optional `types=host,cve,...` filters by entity kind (naming no valid
+  kind is a 400, not a silent full graph, and removing an intermediate
+  kind contracts the paths through it into `indirect` edges rather than
+  dropping the relationships); `focus=<node id>` with `depth=N`
+  (default 1, capped at 4) narrows to one entity's neighborhood and
+  also returns that node plus its relationships for a detail pane;
+  `max=N` overrides the node cap. `counts` always describes the whole
+  fleet rather than what survived the filter. Group-scoped keys see
+  only their own hosts and the entities those reach. See the Entity Map
+  doc page.
+- `GET /api/entities/kinds` -- the entity kinds, the family each
+  belongs to, the relationship types and the default node cap
+  (`readonly`), served from the binary so the dashboard's legend and
+  filter row cannot drift from what the builder produces.
 - `POST /api/scanner-import?format=nessus|qualys|generic` -- import a
   third-party scanner's CSV export (`admin`, strict, audited as
   `scanner-import`). The request body is the CSV itself, capped at

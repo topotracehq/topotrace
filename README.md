@@ -1244,6 +1244,105 @@ average mid-sized mixed fleet, not survey data and not a claim about any
 real industry. It's the seam a licensed or collected dataset would plug
 into.
 
+## Entity map
+
+```
+GET /api/entities?types=host,cve&focus=<node id>&depth=2   # readonly
+GET /api/entities/kinds                                    # readonly
+```
+
+Muster already knew every one of these relationships; what it could not
+do was show them together. A host page listed its vulnerabilities, the
+Compliance tab listed software violations, another card listed risky
+extensions, and nothing answered "which hosts share this CVE," "what
+does this rule actually touch," or "is that extension on one machine or
+half the fleet." Those are relationship questions and a list is the
+wrong shape for them.
+
+`internal/entitygraph` assembles the fleet into one traversable
+picture: hosts, board groups, notable packages, CVEs, expiring
+certificates, notable browser extensions and rules as typed nodes,
+joined by typed edges (`member`, `installs`, `affected-by`,
+`exposed-to`, `presents`, `governs`). Click any entity to pivot the map
+around it, adjust the hop count, and read its relationships in words in
+the detail pane. This is a different question from the Fleet tab's
+network map below, which is about topology, so both exist.
+
+![Entity map](docs/screenshots/entities-map.png)
+
+The hard part was noise, not drawing. Fifteen hosts carry thousands of
+installed packages, and a node per package per host is a hairball that
+answers nothing, so a package earns a node only by being notable:
+vulnerable, denied, shadow AI, or a licensed product in
+`internal/sprawl`'s catalog. Certificates appear only when expiring or
+expired, extensions only when risky or on more than one host. The rule
+is that a node has to be either something an operator would act on or
+something that links two hosts; a healthy certificate on one host is
+neither. That turns thousands of packages into about twenty, and the
+demo fleet into 62 entities and 82 relationships.
+
+Color is the entity family, shape is the kind, a ring is status, and
+size is how many things the entity touches. Three family colors rather
+than seven kind colors, and that was measured rather than chosen: in a
+node-link diagram any two nodes can end up side by side, so a palette
+has to separate every possible pair. The seven hues a kind-colored
+version needs fail a colorblind-separation check hard (worst pair 3.2
+against a floor of 8, and 12.9 against a normal-vision floor of 15);
+three hues pass comfortably (9.2 and 24.0). So nothing is identified by
+color alone, status keeps its own reserved red and amber as a ring
+rather than a fill, and every status is restated in words in the
+tooltip, the detail pane and the table view. That table is a real view,
+not a footnote:
+
+![Table view of the same graph](docs/screenshots/entities-table.png)
+
+Clicking a host shows what it is carrying and what governs it:
+
+![One host's neighborhood](docs/screenshots/entities-focus.png)
+
+Filtering has a subtlety the tab handles rather than hides. Ask for
+hosts and CVEs only and the packages that join them are gone, which
+would silently drop the very links the question was about, so a removed
+intermediate entity's surviving neighbors are joined by a dotted
+`indirect` edge instead. Only different families are joined, so a
+package on fifteen hosts does not explode into a hundred host-to-host
+edges.
+
+Layout is a fixed-iteration force-directed relaxation with no
+randomness at all (initial positions come from a stable sort, not a
+seed), so the same fleet always lays out identically, followed by a
+separation pass, a clamp and label assignment in that order. The
+separation pass is the only reason several fleet-wide rules are visible
+at all: four rules governing the same six groups are topologically
+identical and otherwise settle on one point. Label placement tries four
+positions per node, most-connected first, and skips a label rather than
+drawing it over a neighbor; the names that lose are in the tooltip and
+the table. See `docs/entity-graph.md`.
+
+## Data model
+
+```
+go run ./tools/erd           # regenerate docs/data-model.{md,svg}
+go run ./tools/erd -check    # fail if either is out of date
+```
+
+The static counterpart to the entity map: what Muster persists and how
+those shapes reference each other. Generated, because a hand-drawn ERD
+is wrong within a month.
+
+![Data model](docs/data-model.svg)
+
+Entities and their fields are parsed straight out of
+`internal/model/types.go`, so that page cannot drift from the code.
+Relationships cannot be parsed, since Go has no foreign keys and this
+project deliberately carries no ORM tags, so they are declared in the
+generator and then validated against the parsed types: a declaration
+naming a struct or field that no longer exists is a hard error, not a
+quietly wrong diagram. The `Document` kinds are checked the same way,
+against the packages that own them. `docs/data-model.md` has the full
+field tables, the relationship list with cardinality, and the
+document-kind table.
+
 ## Network map, "since last time", and the simulator
 
 ```

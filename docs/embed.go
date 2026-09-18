@@ -37,6 +37,8 @@ var Index = []struct {
 	{"security-model", "Security Model"},
 	{"compliance", "Compliance & Software Lists"},
 	{"scanner-import", "Scanner Import"},
+	{"entity-graph", "Entity Map"},
+	{"data-model", "Data Model"},
 	{"ask-muster", "Ask Muster"},
 	{"siem-integration", "SIEM Integration"},
 }
