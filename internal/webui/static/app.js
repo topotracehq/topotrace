@@ -1562,6 +1562,107 @@
       form, results);
   }
 
+  // graphCard draws GET /api/graph: hubs (subnets / groups) with their
+  // members around them, managed hosts colored by risk level, discovered
+  // assets dashed, and a "this discovered address is that host" edge
+  // where discovery matched an enrolled host.
+  async function graphCard() {
+    const card = el("div", { class: "fact-card" }, el("h2", { text: "Network & assets" }), el("p", { class: "meta", text: "Loading…" }));
+    try {
+      const g = await api("/api/graph");
+      const svg = svgEl("svg", { viewBox: `0 0 ${g.width} ${g.height}`, class: "asset-graph", role: "img", "aria-label": "Network and asset map" });
+      const byID = {};
+      for (const n of g.nodes) byID[n.id] = n;
+      for (const e of g.edges) {
+        const a = byID[e.from], b = byID[e.to];
+        if (!a || !b) continue;
+        svg.appendChild(svgEl("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: `graph-edge graph-edge-${e.kind}` }));
+      }
+      const levelColor = { low: "#6b7278", medium: "#d9a70f", high: "#c0392b", critical: "#c0392b", unknown: "#9aa3a8", known: "#2f6fb3" };
+      for (const n of g.nodes) {
+        const grp = svgEl("g", { class: `graph-node graph-node-${n.kind}`, transform: `translate(${n.x},${n.y})` });
+        if (n.kind === "hub") {
+          grp.appendChild(svgEl("circle", { r: 32, class: "graph-hub" }));
+          grp.appendChild(svgEl("text", { y: 3, class: "graph-hub-label", "text-anchor": "middle", text: n.label }));
+          grp.appendChild(svgEl("text", { y: 46, class: "graph-sub", "text-anchor": "middle", text: `${n.sub} · ${n.members}` }));
+        } else if (n.kind === "asset") {
+          grp.appendChild(svgEl("rect", { x: -9, y: -9, width: 18, height: 18, rx: 3, class: "graph-asset", stroke: levelColor[n.level] || "#9aa3a8" }));
+          grp.appendChild(svgEl("text", { y: 22, class: "graph-label", "text-anchor": "middle", text: n.label }));
+          if (n.sub) grp.appendChild(svgEl("text", { y: 34, class: "graph-sub", "text-anchor": "middle", text: n.sub }));
+        } else {
+          grp.appendChild(svgEl("circle", { r: 9, fill: levelColor[n.level] || "#6b7278", stroke: "#fff", "stroke-width": 2 }));
+          grp.appendChild(svgEl("text", { y: 22, class: "graph-label", "text-anchor": "middle", text: n.label }));
+          if (n.sub) grp.appendChild(svgEl("text", { y: 34, class: "graph-sub", "text-anchor": "middle", text: n.sub }));
+          if (n.href) grp.addEventListener("click", () => { location.hash = n.href; });
+          grp.appendChild(svgEl("title", { text: `${n.label}: risk ${n.score} (${n.level})` }));
+        }
+        svg.appendChild(grp);
+      }
+      const hosts = g.nodes.filter((n) => n.kind === "host").length, assets = g.nodes.filter((n) => n.kind === "asset").length, hubs = g.nodes.filter((n) => n.kind === "hub").length;
+      card.replaceChildren(el("h2", { text: `Network & assets (${hosts} managed, ${assets} discovered, ${hubs} subnets/groups)` }),
+        el("div", { class: "trend-legend" },
+          el("span", {}, el("span", { class: "trend-swatch", style: "background:#6b7278" }), "host, low risk"),
+          el("span", {}, el("span", { class: "trend-swatch", style: "background:#d9a70f" }), "medium"),
+          el("span", {}, el("span", { class: "trend-swatch", style: "background:#c0392b" }), "high / critical"),
+          el("span", {}, el("span", { class: "trend-swatch", style: "background:#fff;border:2px dashed #9aa3a8" }), "discovered, unmanaged"),
+          el("span", {}, el("span", { class: "trend-swatch", style: "background:#fff;border:2px solid #2f6fb3" }), "discovered, matches a host")),
+        svg,
+        el("p", { class: "meta", text: "Hosts sit on the /24 of their reported interface address (or their board group when the agent reports no interfaces); discovered assets sit on the subnet they were swept from. Click a host to open it." }));
+    } catch (err) {
+      card.replaceChildren(el("h2", { text: "Network & assets" }), el("p", { text: `Couldn't load graph: ${err.message}` }));
+    }
+    return card;
+  }
+
+  // bookmarksCard is "since last demo": snapshot now, then diff any
+  // saved snapshot against the live fleet.
+  async function bookmarksCard() {
+    const card = el("div", { class: "fact-card" }, el("h2", { text: "Since last time" }), el("p", { class: "meta", text: "Loading…" }));
+    async function render() {
+      try {
+        const list = await api("/api/bookmarks");
+        const nameInput = el("input", { type: "text", placeholder: "bookmark name, e.g. before the Island demo" });
+        const saveBtn = el("button", { type: "button", text: "Bookmark now" });
+        const msg = el("span", { class: "save-msg" });
+        saveBtn.addEventListener("click", async () => {
+          msg.textContent = "Saving…";
+          try { await api("/api/bookmarks", { method: "POST", body: { name: nameInput.value.trim() } }); msg.textContent = ""; render(); }
+          catch (err) { msg.textContent = `Error: ${err.message}`; }
+        });
+        const diffOut = el("div", {});
+        const rows = list.map((b) => {
+          const diffBtn = el("button", { type: "button", text: "What changed?" });
+          diffBtn.addEventListener("click", async () => {
+            diffOut.replaceChildren(el("p", { class: "meta", text: "Comparing…" }));
+            try {
+              const d = await api(`/api/bookmarks/${encodeURIComponent(b.id)}/diff`);
+              const items = d.changes.map((c) => el("li", { class: "change-row" },
+                el("span", { class: `change-action ${c.better ? "add" : c.worse ? "remove" : "update"}`, text: c.better ? "better" : c.worse ? "worse" : "changed" }),
+                el("span", { class: "change-detail" }, c.host ? el("a", { href: `#/host/${encodeURIComponent(c.host)}`, text: c.host }) : null, `${c.host ? ": " : ""}${c.detail}`)));
+              diffOut.replaceChildren(el("p", { text: d.summary }), items.length ? el("ul", { class: "changes-list" }, ...items) : el("p", { class: "meta", text: `Nothing changed (${d.unchanged_hosts} hosts identical).` }));
+            } catch (err) { diffOut.replaceChildren(el("p", { text: `Error: ${err.message}` })); }
+          });
+          const delBtn = el("button", { type: "button", class: "ghost", text: "Delete" });
+          delBtn.addEventListener("click", async () => {
+            if (!confirm(`Delete bookmark "${b.name}"?`)) return;
+            try { await api(`/api/bookmarks/${encodeURIComponent(b.id)}`, { method: "DELETE" }); render(); } catch (err) { msg.textContent = `Error: ${err.message}`; }
+          });
+          return el("li", { class: "policy-row" }, el("span", { class: "policy-name", text: b.name }),
+            el("span", { class: "policy-condition", text: `${b.hosts} hosts, posture ${b.avg_posture}, risk ${b.avg_risk}` }),
+            el("span", { class: "change-time", text: `${timeAgo(b.created_at)} by ${b.created_by}` }), diffBtn, delBtn);
+        });
+        card.replaceChildren(el("h2", { text: `Since last time (${list.length} bookmark${list.length === 1 ? "" : "s"})` }),
+          el("p", { class: "meta", text: "Snapshot the fleet's headline state now; later, ask what changed since -- hosts added or gone, scores up or down, findings new or fixed. Built for opening a repeat demo with \"here's what's new.\"" }),
+          el("div", { class: "editor-row" }, nameInput, saveBtn, msg),
+          rows.length ? el("ul", { class: "policy-list" }, ...rows) : el("p", { text: "No bookmarks yet." }), diffOut);
+      } catch (err) {
+        card.replaceChildren(el("h2", { text: "Since last time" }), el("p", { text: `Couldn't load bookmarks: ${err.message}` }));
+      }
+    }
+    await render();
+    return card;
+  }
+
   async function showFleet() {
     let summary;
     try {
@@ -1680,8 +1781,12 @@
     alertsCard().then((card) => alertsSlot.replaceChildren(card));
     const signalsSlot = el("div", {});
     signalsCard().then((card) => signalsSlot.replaceChildren(card));
+    const graphSlot = el("div", {});
+    graphCard().then((card) => graphSlot.replaceChildren(card));
+    const bookmarksSlot = el("div", {});
+    bookmarksCard().then((card) => bookmarksSlot.replaceChildren(card));
 
-    const nodes = [heading, stats, approvalsSlot, alertsSlot, signalsSlot, trendSlot, riskSlot, benchSlot, driftSlot, reportsCard(), platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
+    const nodes = [heading, stats, approvalsSlot, alertsSlot, signalsSlot, trendSlot, riskSlot, benchSlot, graphSlot, driftSlot, bookmarksSlot, reportsCard(), platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
 
     if (audit) {
       const auditList = audit.length
@@ -2371,7 +2476,34 @@
       ["Backend", s.siem.backend || null],
     ], siemForwardingEditor(s));
 
-    app.replaceChildren(heading, general, auth, vulnFeed, askMuster, webhooks, siem);
+    app.replaceChildren(heading, general, auth, vulnFeed, askMuster, webhooks, siem, demoCard());
+  }
+
+  // demoCard is the Settings page's simulator: fire synthetic events
+  // through the real audit/notification/SIEM paths on demand.
+  function demoCard() {
+    const msg = el("span", { class: "save-msg" });
+    const out = el("ul", { class: "posture-findings" });
+    const hostInput = el("input", { type: "text", placeholder: "host (optional)" });
+    const row = el("div", { class: "editor-row" }, el("label", { text: "Host" }), hostInput, msg);
+    const buttons = el("div", { class: "editor-row" });
+    api("/api/demo/scenarios").then((scenarios) => {
+      for (const [name, desc] of Object.entries(scenarios)) {
+        const b = el("button", { type: "button", text: name.replace(/_/g, " "), title: desc });
+        b.addEventListener("click", async () => {
+          msg.textContent = "Firing…";
+          try {
+            const r = await api("/api/demo/simulate", { method: "POST", body: { scenario: name, host: hostInput.value.trim() } });
+            msg.textContent = "";
+            out.replaceChildren(el("li", { text: `${r.scenario} on ${r.host}: fired ${r.fired.join(", ")} -- ${r.sinks} notification sink(s) in play. ${r.note}` }));
+          } catch (err) { msg.textContent = `Error: ${err.message}`; }
+        });
+        buttons.appendChild(b);
+      }
+    }).catch(() => buttons.appendChild(el("span", { class: "meta", text: "Scenarios unavailable." })));
+    return el("div", { class: "fact-card" }, el("h2", { text: "Demo / simulator" }),
+      el("p", { class: "meta", text: "Fire a synthetic finding through the same paths a real one takes -- audit trail (and SIEM forwarding), the notification queue, the behavioral signals -- so the \"it happened, it forwarded\" moment can be shown on demand. Entries are marked (simulated). Admin only." }),
+      row, buttons, out);
   }
 
   function complianceScoreBadge(score) {

@@ -1168,6 +1168,41 @@ average mid-sized mixed fleet, not survey data and not a claim about any
 real industry. It's the seam a licensed or collected dataset would plug
 into.
 
+## Network map, "since last time", and the simulator
+
+```
+GET  /api/graph                    # readonly
+POST /api/bookmarks                # remediate -- snapshot now
+GET  /api/bookmarks/{id}/diff      # readonly -- what changed since
+POST /api/demo/simulate            # admin -- fire a synthetic finding
+```
+
+**Network & assets.** `internal/graph` draws managed hosts (colored by
+risk level) and discovered-but-unmanaged assets around the /24 subnet
+each sits on (from the agent's `network_interfaces` fact, or the
+discovery sweep's CIDR), falling back to board group for hosts that
+report no interfaces, with a dashed edge from a discovered address to
+the enrolled host it turned out to be. Layout is deterministic and
+computed server-side; the Fleet tab just draws it and makes hosts
+clickable. One picture instead of two lists.
+
+![Network and assets](docs/screenshots/fleet-graph.png)
+
+**Since last time.** `internal/bookmark` snapshots every host's
+headline numbers under a name; later, "What changed?" diffs the
+snapshot against the live fleet -- hosts added or gone, scores up or
+down, findings new or fixed -- each line marked better or worse. Built
+for opening a repeat demo with "here's what's new," equally for "what
+did a week of patching actually change."
+
+**Simulator.** The Settings page's Demo card fires synthetic events
+through the same paths a real finding takes -- the audit trail (and so
+SIEM forwarding), the notification queue, the behavioral signals --
+so the "it happened, it forwarded to Slack, it opened a ticket" moment
+can be shown on demand instead of waiting for a real host to misbehave.
+Every synthetic entry is marked `(simulated)`; nothing touches host
+facts or rules.
+
 ## Reports & exports
 
 ```

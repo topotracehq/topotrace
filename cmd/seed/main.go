@@ -221,6 +221,17 @@ func certsFact(items ...map[string]any) map[string]any {
 	return map[string]any{"count": len(items), "items": items}
 }
 
+// ifaces builds a network_interfaces fact from IPv4 addresses the way
+// internal/cook.parseLinuxInterfaces produces it.
+func ifaces(addrs ...string) map[string]any {
+	items := make([]map[string]any, 0, len(addrs)+1)
+	items = append(items, map[string]any{"interface": "lo", "family": "inet", "address": "127.0.0.1"})
+	for i, a := range addrs {
+		items = append(items, map[string]any{"interface": fmt.Sprintf("eth%d", i), "family": "inet", "address": a})
+	}
+	return map[string]any{"count": len(items), "items": items}
+}
+
 func exts(items ...map[string]any) map[string]any {
 	return map[string]any{"count": len(items), "items": items}
 }
@@ -302,7 +313,8 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "web01.prod", Platform: "linux", Group: "prod", Tags: []string{"public", "nginx"},
 			LastCooked: now, age: 120 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": linuxSummary("Ubuntu", "22.04.4 LTS", "5.15.0-105-generic", "Intel Xeon Platinum 8259CL", 4, 8192, "45 days, 3:12"),
+				"system_summary":     linuxSummary("Ubuntu", "22.04.4 LTS", "5.15.0-105-generic", "Intel Xeon Platinum 8259CL", 4, 8192, "45 days, 3:12"),
+				"network_interfaces": ifaces("10.0.1.10"),
 				"installed_software": sw(
 					[3]string{"openssh-server", "9.6p1-3ubuntu1", "amd64"},
 					[3]string{"openssl", "3.0.13-0ubuntu3.4", "amd64"},
@@ -321,7 +333,8 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "web02.prod", Platform: "linux", Group: "prod", Tags: []string{"public", "nginx"},
 			LastCooked: now, age: 118 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": linuxSummary("Ubuntu", "22.04.4 LTS", "5.15.0-105-generic", "Intel Xeon Platinum 8259CL", 4, 8192, "45 days, 3:09"),
+				"system_summary":     linuxSummary("Ubuntu", "22.04.4 LTS", "5.15.0-105-generic", "Intel Xeon Platinum 8259CL", 4, 8192, "45 days, 3:09"),
+				"network_interfaces": ifaces("10.0.1.12"),
 				"installed_software": sw(
 					[3]string{"openssh-server", "9.6p1-3ubuntu1", "amd64"},
 					[3]string{"openssl", "3.0.13-0ubuntu3.4", "amd64"},
@@ -335,7 +348,8 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "api01.prod", Platform: "linux", Group: "prod", Tags: []string{"internal", "criticality:high"},
 			LastCooked: now, age: 95 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": linuxSummary("Ubuntu", "20.04.6 LTS", "5.4.0-190-generic", "Intel Xeon Platinum 8259CL", 4, 16384, "12 days, 0:41"),
+				"system_summary":     linuxSummary("Ubuntu", "20.04.6 LTS", "5.4.0-190-generic", "Intel Xeon Platinum 8259CL", 4, 16384, "12 days, 0:41"),
+				"network_interfaces": ifaces("10.0.1.11"),
 				"installed_software": sw(
 					// curl <= 7.83.1 is in internal/vuln.Dataset (CVE-2022-32221).
 					[3]string{"curl", "7.68.0-1ubuntu2.22", "amd64"},
@@ -364,7 +378,8 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "db01.prod", Platform: "linux", Group: "prod", Tags: []string{"database", "pii", "criticality:critical"},
 			LastCooked: now, age: 200 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": linuxSummary("Ubuntu", "24.04.1 LTS", "6.8.0-45-generic", "Intel Xeon Gold 6252", 8, 32768, "3 days, 7:55"),
+				"system_summary":     linuxSummary("Ubuntu", "24.04.1 LTS", "6.8.0-45-generic", "Intel Xeon Gold 6252", 8, 32768, "3 days, 7:55"),
+				"network_interfaces": ifaces("10.0.1.20"),
 				"installed_software": sw(
 					// sudo <= 1.9.5 and openssl <= 1.1.1n are both real
 					// entries in internal/vuln.Dataset.
@@ -393,7 +408,8 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "cache01.prod", Platform: "linux", Group: "prod", Tags: []string{"redis"},
 			LastCooked: now, age: 88 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": linuxSummary("Ubuntu", "22.04.4 LTS", "5.15.0-105-generic", "Intel Xeon Platinum 8259CL", 2, 4096, "60 days, 11:02"),
+				"system_summary":     linuxSummary("Ubuntu", "22.04.4 LTS", "5.15.0-105-generic", "Intel Xeon Platinum 8259CL", 2, 4096, "60 days, 11:02"),
+				"network_interfaces": ifaces("10.0.1.30"),
 				"installed_software": sw(
 					[3]string{"redis-server", "6.0.16-1ubuntu1.2", "amd64"},
 					[3]string{"openssl", "3.0.13-0ubuntu3.4", "amd64"},
@@ -408,7 +424,8 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "build01.eng", Platform: "linux", Group: "eng", Tags: []string{"ci"},
 			LastCooked: now, age: 60 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": linuxSummary("Ubuntu", "24.04.1 LTS", "6.8.0-45-generic", "AMD EPYC 7402P", 16, 65536, "6 days, 14:20"),
+				"system_summary":     linuxSummary("Ubuntu", "24.04.1 LTS", "6.8.0-45-generic", "AMD EPYC 7402P", 16, 65536, "6 days, 14:20"),
+				"network_interfaces": ifaces("10.0.2.10"),
 				"installed_software": sw(
 					// bash <= 4.3.25 (Shellshock, CVE-2014-6271) is the
 					// most severe entry in internal/vuln.Dataset.
@@ -432,7 +449,8 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "jump01.eng", Platform: "linux", Group: "eng", Tags: []string{"bastion"},
 			LastCooked: now, age: 210 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": linuxSummary("Debian", "12 (bookworm)", "6.1.0-18-amd64", "Intel Xeon E5-2650", 2, 4096, "90 days, 2:15"),
+				"system_summary":     linuxSummary("Debian", "12 (bookworm)", "6.1.0-18-amd64", "Intel Xeon E5-2650", 2, 4096, "90 days, 2:15"),
+				"network_interfaces": ifaces("10.0.2.5"),
 				"installed_software": sw(
 					[3]string{"openssh-server", "1:9.2p1-2+deb12u3", "amd64"},
 					[3]string{"fail2ban", "1.0.2-3", "amd64"},
@@ -445,7 +463,8 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "legacy01", Platform: "linux", Group: "", Tags: []string{"decommission-candidate"},
 			LastCooked: now.Add(-3 * day), age: 400 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": linuxSummary("Ubuntu", "18.04.6 LTS", "4.15.0-213-generic", "Intel Xeon E5-2680", 2, 4096, "180 days, 6:40"),
+				"system_summary":     linuxSummary("Ubuntu", "18.04.6 LTS", "4.15.0-213-generic", "Intel Xeon E5-2680", 2, 4096, "180 days, 6:40"),
+				"network_interfaces": ifaces("10.0.4.55"),
 				"installed_software": sw(
 					[3]string{"apache2", "2.4.29-1ubuntu4.27", "amd64"},
 					[3]string{"php7.2", "7.2.24-0ubuntu0.18.04.17", "amd64"},
@@ -463,7 +482,8 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "WIN-FIN02", Platform: "windows", Group: "finance", Tags: []string{"desktop"},
 			LastCooked: now, age: 150 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": windowsSummary("Microsoft Windows 11 Enterprise", "23H2", "22631", "Intel Core i7-1265U", 12, 16384, "2 days, 4:00"),
+				"system_summary":     windowsSummary("Microsoft Windows 11 Enterprise", "23H2", "22631", "Intel Core i7-1265U", 12, 16384, "2 days, 4:00"),
+				"network_interfaces": ifaces("10.0.3.31"),
 				"installed_software": winSW(
 					[2]string{"Microsoft 365 Apps for Enterprise", "16.0.17425"},
 					[2]string{"Adobe Acrobat Reader DC", "24.002.20736"},
@@ -476,7 +496,8 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "WIN-FIN03", Platform: "windows", Group: "finance", Tags: []string{"desktop"},
 			LastCooked: now, age: 140 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": windowsSummary("Microsoft Windows 11 Enterprise", "23H2", "22631", "Intel Core i7-1265U", 12, 16384, "14 days, 22:10"),
+				"system_summary":     windowsSummary("Microsoft Windows 11 Enterprise", "23H2", "22631", "Intel Core i7-1265U", 12, 16384, "14 days, 22:10"),
+				"network_interfaces": ifaces("10.0.3.32"),
 				"installed_software": winSW(
 					[2]string{"Microsoft 365 Apps for Enterprise", "16.0.17425"},
 					[2]string{"7-Zip", "23.01"},
@@ -489,7 +510,8 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "WIN-ENG01", Platform: "windows", Group: "eng", Tags: []string{"laptop"},
 			LastCooked: now, age: 70 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": windowsSummary("Microsoft Windows 11 Pro", "23H2", "22631", "Intel Core i9-13900H", 20, 32768, "0 days, 9:45"),
+				"system_summary":     windowsSummary("Microsoft Windows 11 Pro", "23H2", "22631", "Intel Core i9-13900H", 20, 32768, "0 days, 9:45"),
+				"network_interfaces": ifaces("10.0.2.101"),
 				"installed_software": winSW(
 					[2]string{"Visual Studio Code", "1.89.1"},
 					[2]string{"Docker Desktop", "4.29.0"},
@@ -514,7 +536,8 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "WIN-HR01", Platform: "windows", Group: "hr", Tags: []string{"desktop"},
 			LastCooked: now.Add(-4 * day), age: 300 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": windowsSummary("Microsoft Windows 10 Enterprise", "22H2", "19045", "Intel Core i5-8500", 6, 8192, "40 days, 1:30"),
+				"system_summary":     windowsSummary("Microsoft Windows 10 Enterprise", "22H2", "19045", "Intel Core i5-8500", 6, 8192, "40 days, 1:30"),
+				"network_interfaces": ifaces("10.0.3.21"),
 				"installed_software": winSW(
 					[2]string{"Microsoft 365 Apps for Enterprise", "16.0.17231"},
 					[2]string{"Zoom Workplace", "6.1.0"},
@@ -537,21 +560,24 @@ func demoHosts(now time.Time) []seedHost {
 			Name: "mac-eng01", Platform: "darwin", Group: "eng", Tags: []string{"laptop"},
 			LastCooked: now, age: 80 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": darwinSummary("macOS", "15.6", "24.6.0", "Apple M3 Pro", 12, 18432, "5 days, 2:10"),
+				"system_summary":     darwinSummary("macOS", "15.6", "24.6.0", "Apple M3 Pro", 12, 18432, "5 days, 2:10"),
+				"network_interfaces": ifaces("10.0.2.120"),
 			},
 		},
 		{
 			Name: "mac-eng02", Platform: "darwin", Group: "eng", Tags: []string{"laptop"},
 			LastCooked: now, age: 45 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": darwinSummary("macOS", "14.4.1", "23.4.0", "Apple M2", 8, 16384, "1 day, 19:05"),
+				"system_summary":     darwinSummary("macOS", "14.4.1", "23.4.0", "Apple M2", 8, 16384, "1 day, 19:05"),
+				"network_interfaces": ifaces("10.0.2.121"),
 			},
 		},
 		{
 			Name: "mac-design01", Platform: "darwin", Group: "design", Tags: []string{"laptop"},
 			LastCooked: now, age: 30 * day,
 			Facts: map[string]map[string]any{
-				"system_summary": darwinSummary("macOS", "15.6", "24.6.0", "Apple M3 Max", 16, 36864, "0 days, 6:50"),
+				"system_summary":     darwinSummary("macOS", "15.6", "24.6.0", "Apple M3 Max", 16, 36864, "0 days, 6:50"),
+				"network_interfaces": ifaces("10.0.5.40"),
 				"browser_extensions": exts(
 					ext("chrome", "aparker/Default", "gfbliohnnapiefjpjlpjnehglfpaknnc", "ColorZilla", "4.0", 3, []string{"storage", "activeTab"}, nil, true),
 					ext("chrome", "aparker/Default", "hoklmmgfnpapgjgcpechhaamimifchmp", "WhatFont", "2.1.4", 3, []string{"activeTab"}, nil, true),

@@ -818,3 +818,14 @@ main#app {
 .fact-card h3.subhead { font-size: 0.82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--mu-text-muted); margin: 14px 0 6px; }
 .editor-row input.wide { min-width: 360px; flex: 1; }
 .exec-summary p { margin: 6px 0; max-width: 78ch; }
+
+/* Network & asset graph (Fleet tab) */
+.asset-graph { width: 100%; height: auto; display: block; margin: 8px 0; background: var(--mu-page-bg); border-radius: var(--radius); }
+.graph-edge { stroke: var(--mu-border); stroke-width: 1.2; }
+.graph-edge-same-host { stroke: #2f6fb3; stroke-width: 2; stroke-dasharray: 4 3; }
+.graph-hub { fill: var(--mu-card-bg); stroke: var(--mu-black-soft); stroke-width: 2; }
+.graph-hub-label { font-size: 10px; font-weight: 700; fill: var(--mu-text); }
+.graph-label { font-size: 11px; font-weight: 600; fill: var(--mu-text); }
+.graph-sub { font-size: 9.5px; fill: var(--mu-text-muted); }
+.graph-asset { fill: var(--mu-card-bg); stroke-width: 2; stroke-dasharray: 3 2; }
+.graph-node-host { cursor: pointer; }

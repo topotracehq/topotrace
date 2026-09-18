@@ -165,6 +165,25 @@ not alphabetically.
 - `GET /api/auth/login`, `GET /api/auth/callback`, `POST /api/auth/logout`
   -- OAuth2/OIDC login for the web dashboard, if configured. See the
   Security Model page.
+- `GET /api/graph` -- the network/asset relationship picture, laid
+  out server-side (`internal/graph`): hub nodes per /24 subnet (from
+  `network_interfaces` facts and discovery CIDRs) or per board group,
+  managed hosts with their risk level, discovered assets, and
+  `same-host` edges where a discovered address matched an enrolled
+  host.
+- `GET/POST /api/bookmarks`, `GET /api/bookmarks/{id}/diff`,
+  `DELETE /api/bookmarks/{id}` -- "since last time": snapshot the
+  fleet's headline state (every host's posture/compliance/risk/vulns/
+  stale/group, rule and asset counts) under a name, then diff it
+  against the live fleet: hosts added/removed, scores up or down,
+  findings new or fixed, each marked better/worse. Create/delete are
+  `remediate`, strict, audited.
+- `GET /api/demo/scenarios`, `POST /api/demo/simulate` -- the
+  simulator: fire a synthetic policy violation, software violation,
+  proposed remediation, resolution, operator burst or admin-key
+  creation (or the whole story) through the real audit trail (and so
+  SIEM forwarding), the real notification queue and the behavioral
+  signals. Entries are marked `(simulated)`. `admin`, strict, audited.
 - `GET /api/trust/{host}?min=N` -- the device-trust verdict for an
   external access gate (`readonly`, so a gate can hold a key scoped to
   nothing else): `score` (100 minus the blended risk score), `level`
