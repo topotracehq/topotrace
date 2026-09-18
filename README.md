@@ -840,15 +840,43 @@ curl -X DELETE localhost:8080/api/policies/1 -H "Authorization: Bearer some-shar
 ```
 
 `internal/evaluator.Evaluator` runs this on a fixed interval (`-evaluator-
-interval`, default 5m; the loop no-ops entirely if no rules exist yet),
-evaluating every host against every scoped-in rule, recording an audit
-entry and firing a `policy_violation` webhook for anything that
-violates, and -- when the rule has `auto_remediate` set -- queuing the
-action, recording a second audit entry, and firing a
+interval`, default 5m; even with no rules it still records each host's
+score-history point), evaluating every host against every scoped-in
+rule, recording an audit entry and firing a `policy_violation` webhook
+for anything that violates, and -- when the rule has `auto_remediate`
+set -- queuing the action, recording a second audit entry, and firing a
 `remediation_executed` webhook, all without a human in the loop.
 Creating or deleting a policy always requires real auth (the same
 "never available in demo mode" gate as remediation itself, since a
 policy with `auto_remediate` set carries the same risk).
+
+**Alert dedup, snooze, and resolution.** The evaluator used to record
+the same violation to the audit trail and re-fire the same webhook every
+run -- every five minutes, forever -- which is the alert-fatigue failure
+mode every detection product eventually has to solve. `internal/alerts`
+now keeps the set of open (rule, host) violations between runs: a
+violation is announced once when it opens, again every 24 hours while
+it stays open, and once more (`policy-resolved` /
+`software-violation-resolved` audit entries, a `violation_resolved`
+webhook) when it clears. An auto-remediation is queued when the
+violation is first announced, not re-queued every run. `GET /api/alerts`
+is the deduplicated "what's wrong right now" list with first-seen and
+occurrence counts; `POST /api/alerts/snooze` quiets one for N hours
+(`remediate` role, audited). The Fleet tab's "Open violations" card
+shows both.
+
+**Approval gate.** A rule with `auto_remediate` can also set
+`require_approval`. Instead of queuing the action, the evaluator parks
+it as a pending approval (one per rule+host, however long the violation
+persists), records a `remediation-proposed` audit entry and fires a
+`remediation_proposed` webhook. `GET /api/approvals` lists them; `POST
+/api/approvals/{id}/approve` queues the action exactly as proposed,
+through the same `remediate.Validate` allow-list gate as every other
+path, and `.../reject` drops it -- both `remediate` role, both audited.
+The rule still detects and proposes; a person decides. The Fleet tab's
+"Pending approvals" card is that decision.
+
+![Approvals and open violations](docs/screenshots/fleet-approvals.png)
 
 ## Audit trail
 
@@ -874,7 +902,8 @@ go run ./cmd/muster -webhook-url "https://example.com/hooks/muster,https://examp
 ```
 
 A minimal generic outbound notifier (`internal/webhook`): on a
-`policy_violation` or `remediation_executed` event, POST a small JSON
+`policy_violation`, `software_violation`, `violation_resolved`,
+`remediation_proposed` or `remediation_executed` event, POST a small JSON
 payload (`{"type", "host", "detail", "timestamp"}`) to every configured
 URL. One attempt, one retry after a short delay, every failure logged --
 not a durable queue, not exactly-once delivery, just best effort, and

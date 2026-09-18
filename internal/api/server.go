@@ -182,6 +182,10 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/hosts/{host}/baseline", s.handleCaptureBaseline)
 	mux.HandleFunc("DELETE /api/hosts/{host}/baseline", s.handleDeleteBaseline)
 	mux.HandleFunc("GET /api/drift", s.handleFleetDrift)
+	mux.HandleFunc("GET /api/alerts", s.handleListAlerts)
+	mux.HandleFunc("POST /api/alerts/snooze", s.handleSnoozeAlert)
+	mux.HandleFunc("GET /api/approvals", s.handleListApprovals)
+	mux.HandleFunc("POST /api/approvals/{id}/{decision}", s.handleDecideApproval)
 	mux.HandleFunc("GET /api/benchmark", s.handleBenchmark)
 	mux.HandleFunc("GET /api/reports/executive", s.handleReportHTML)
 	mux.HandleFunc("GET /api/reports/{name}", s.handleReportCSV)
@@ -1603,6 +1607,7 @@ type policyRequest struct {
 	Category         string `json:"category"`
 	AutoRemediate    string `json:"auto_remediate"`
 	AutoRemediateArg string `json:"auto_remediate_arg"`
+	RequireApproval  bool   `json:"require_approval"`
 }
 
 // handleListPolicies is GET /api/policies -- readable at "readonly",
@@ -1647,6 +1652,7 @@ func (s *Server) handleCreatePolicy(w http.ResponseWriter, r *http.Request) {
 	created, err := s.Store.CreateRule(r.Context(), model.Rule{
 		Name: req.Name, Group: req.Group, Kind: req.Kind, Threshold: req.Threshold,
 		Category: req.Category, AutoRemediate: req.AutoRemediate, AutoRemediateArg: req.AutoRemediateArg,
+		RequireApproval: req.RequireApproval,
 	})
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "creating policy")

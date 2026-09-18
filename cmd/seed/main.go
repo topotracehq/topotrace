@@ -535,15 +535,18 @@ func demoSoftwareRules() []model.SoftwareRule {
 	}
 }
 
-// demoPolicyRules seeds a couple of model.Rule policies the background
-// evaluator (internal/evaluator) will pick up on its next tick -- none
-// with AutoRemediate set, since there's no real agent connected in a
-// demo to actually deliver/execute a queued action against.
+// demoPolicyRules seeds a few model.Rule policies the background
+// evaluator (internal/evaluator) will pick up on its next tick. The one
+// with AutoRemediate set also sets RequireApproval, so instead of
+// queuing an action no demo agent will ever execute, it parks a
+// proposal in the approvals queue -- which is the change-control flow
+// worth showing anyway.
 func demoPolicyRules() []model.Rule {
 	return []model.Rule{
 		{Name: "Prod posture floor", Group: "prod", Kind: "score_below", Threshold: 80},
 		{Name: "Fleet-wide vulnerability watch", Kind: "vulnerabilities_found"},
 		{Name: "Reporting freshness", Kind: "stale"},
+		{Name: "Stale hosts: apply pending updates", Kind: "stale", AutoRemediate: "apply-updates", RequireApproval: true},
 	}
 }
 

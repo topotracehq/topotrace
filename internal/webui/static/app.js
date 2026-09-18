@@ -931,12 +931,14 @@
       el("option", { value: "apply-updates", text: "Auto: apply-updates" })
     );
     const remediateArgInput = el("input", { type: "text", placeholder: "service name (restart-service only)" });
+    const approvalBox = el("input", { type: "checkbox", title: "Park the auto-remediation as a pending approval instead of queuing it immediately" });
     const msg = el("span", { class: "save-msg" });
     const form = el(
       "form",
       { class: "editor-row" },
       el("label", { text: "New policy rule" }),
       nameInput, kindSelect, thresholdInput, categoryInput, groupInput, remediateSelect, remediateArgInput,
+      el("label", { text: "Require approval" }), approvalBox,
       el("button", { type: "submit", text: "Create" }),
       msg
     );
@@ -956,6 +958,7 @@
             group: groupInput.value.trim(),
             auto_remediate: remediateSelect.value,
             auto_remediate_arg: remediateArgInput.value.trim(),
+            require_approval: approvalBox.checked,
           },
         });
         msg.textContent = "";
@@ -980,7 +983,7 @@
       el("span", { class: "policy-condition", text: ruleSummary(rule) }),
     ];
     if (rule.auto_remediate) {
-      parts.push(el("span", { class: "tag-pill", text: `auto: ${rule.auto_remediate}${rule.auto_remediate_arg ? " " + rule.auto_remediate_arg : ""}` }));
+      parts.push(el("span", { class: "tag-pill", text: `${rule.require_approval ? "proposes" : "auto"}: ${rule.auto_remediate}${rule.auto_remediate_arg ? " " + rule.auto_remediate_arg : ""}${rule.require_approval ? " (needs approval)" : ""}` }));
     }
     if (onDelete) {
       const delBtn = el("button", { type: "button", class: "ghost", text: "Delete" });
@@ -1310,6 +1313,75 @@
         msg));
   }
 
+  // approvalsCard is the Fleet tab's change-control queue: every
+  // auto-remediation a require_approval rule has proposed, with
+  // Approve (queues it) / Reject (drops it) -- see internal/alerts.
+  async function approvalsCard() {
+    const card = el("div", { class: "fact-card" }, el("h2", { text: "Pending approvals" }), el("p", { class: "meta", text: "Loading…" }));
+    async function render() {
+      try {
+        const list = await api("/api/approvals");
+        const msg = el("span", { class: "save-msg" });
+        const rows = list.map((a) => {
+          const approve = el("button", { type: "button", text: "Approve" });
+          const reject = el("button", { type: "button", class: "ghost", text: "Reject" });
+          const decide = async (d) => {
+            msg.textContent = `${d === "approve" ? "Approving" : "Rejecting"}…`;
+            try { await api(`/api/approvals/${encodeURIComponent(a.id)}/${d}`, { method: "POST" }); msg.textContent = ""; render(); }
+            catch (err) { msg.textContent = `Error: ${err.message}`; }
+          };
+          approve.addEventListener("click", () => decide("approve"));
+          reject.addEventListener("click", () => decide("reject"));
+          return el("li", { class: "policy-row" },
+            el("a", { href: `#/host/${encodeURIComponent(a.host)}`, class: "policy-name", text: a.host }),
+            el("span", { class: "tag-pill", text: `${a.verb}${a.arg ? " " + a.arg : ""}` }),
+            el("span", { class: "policy-condition", text: `rule "${a.rule_name}": ${a.reason}` }),
+            el("span", { class: "change-time", text: timeAgo(a.created_at) }),
+            approve, reject);
+        });
+        card.replaceChildren(el("h2", { text: `Pending approvals (${list.length})` }),
+          el("p", { class: "meta", text: "Remediations proposed by rules marked \"require approval\". Approve queues the action for the host's agent exactly as proposed; reject drops it (the rule will propose again if the violation persists)." }),
+          rows.length ? el("ul", { class: "policy-list" }, ...rows) : el("p", { text: "Nothing waiting for approval." }), msg);
+      } catch (err) {
+        card.replaceChildren(el("h2", { text: "Pending approvals" }), el("p", { text: `Couldn't load approvals: ${err.message}` }));
+      }
+    }
+    await render();
+    return card;
+  }
+
+  // alertsCard is the Fleet tab's deduplicated "what's wrong right now"
+  // list: one row per open (rule, host) violation the evaluator is
+  // tracking, however many runs it's persisted, with snooze controls.
+  async function alertsCard() {
+    const card = el("div", { class: "fact-card" }, el("h2", { text: "Open violations" }), el("p", { class: "meta", text: "Loading…" }));
+    async function render() {
+      try {
+        const d = await api("/api/alerts");
+        const msg = el("span", { class: "save-msg" });
+        const rows = d.violations.map((v) => {
+          const snooze = el("button", { type: "button", class: "ghost", text: v.snoozed ? "Unsnooze" : "Snooze 24h" });
+          snooze.addEventListener("click", async () => {
+            try { await api("/api/alerts/snooze", { method: "POST", body: { key: v.key, hours: v.snoozed ? 0 : 24 } }); render(); }
+            catch (err) { msg.textContent = `Error: ${err.message}`; }
+          });
+          return el("li", { class: "policy-row" },
+            el("a", { href: `#/host/${encodeURIComponent(v.host)}`, class: "policy-name", text: v.host }),
+            el("span", { class: "policy-condition", text: `${v.rule_name}: ${v.reason}` }),
+            el("span", { class: "change-time", text: `open ${timeAgo(v.first_seen)}, seen ${v.occurrences}×${v.snoozed ? `, snoozed until ${new Date(v.snoozed_until).toLocaleString()}` : ""}` }),
+            snooze);
+        });
+        card.replaceChildren(el("h2", { text: `Open violations (${d.open}${d.snoozed ? `, ${d.snoozed} snoozed` : ""})` }),
+          el("p", { class: "meta", text: `One row per open finding, however many evaluator runs it has persisted through -- announced to the audit trail and webhooks once when it opens, again every ${d.realert_after_hours}h while open, and once when it clears. Snoozing quiets the re-announcements.` }),
+          rows.length ? el("ul", { class: "policy-list" }, ...rows) : el("p", { text: "No open violations." }), msg);
+      } catch (err) {
+        card.replaceChildren(el("h2", { text: "Open violations" }), el("p", { text: `Couldn't load: ${err.message}` }));
+      }
+    }
+    await render();
+    return card;
+  }
+
   async function showFleet() {
     let summary;
     try {
@@ -1420,8 +1492,12 @@
     benchmarkCard().then((card) => benchSlot.replaceChildren(card));
     const driftSlot = el("div", {});
     driftCard().then((card) => driftSlot.replaceChildren(card));
+    const approvalsSlot = el("div", {});
+    approvalsCard().then((card) => approvalsSlot.replaceChildren(card));
+    const alertsSlot = el("div", {});
+    alertsCard().then((card) => alertsSlot.replaceChildren(card));
 
-    const nodes = [heading, stats, trendSlot, riskSlot, benchSlot, driftSlot, reportsCard(), platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
+    const nodes = [heading, stats, approvalsSlot, alertsSlot, trendSlot, riskSlot, benchSlot, driftSlot, reportsCard(), platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
 
     if (audit) {
       const auditList = audit.length

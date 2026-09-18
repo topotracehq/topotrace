@@ -619,12 +619,12 @@ func (s *Store) DeleteAPIKey(ctx context.Context, id string) error {
 	return nil
 }
 
-const ruleColumns = `id, name, group_name, kind, threshold, category, auto_remediate, auto_remediate_arg, created_at`
+const ruleColumns = `id, name, group_name, kind, threshold, category, auto_remediate, auto_remediate_arg, require_approval, created_at`
 
 func scanRule(row interface{ Scan(...any) error }) (model.Rule, error) {
 	var r model.Rule
 	var id int64
-	if err := row.Scan(&id, &r.Name, &r.Group, &r.Kind, &r.Threshold, &r.Category, &r.AutoRemediate, &r.AutoRemediateArg, &r.CreatedAt); err != nil {
+	if err := row.Scan(&id, &r.Name, &r.Group, &r.Kind, &r.Threshold, &r.Category, &r.AutoRemediate, &r.AutoRemediateArg, &r.RequireApproval, &r.CreatedAt); err != nil {
 		return model.Rule{}, err
 	}
 	r.ID = strconv.FormatInt(id, 10)
@@ -634,11 +634,11 @@ func scanRule(row interface{ Scan(...any) error }) (model.Rule, error) {
 // CreateRule persists a new policy rule.
 func (s *Store) CreateRule(ctx context.Context, rule model.Rule) (model.Rule, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO rules (name, group_name, kind, threshold, category, auto_remediate, auto_remediate_arg, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO rules (name, group_name, kind, threshold, category, auto_remediate, auto_remediate_arg, require_approval, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING `+ruleColumns,
 		rule.Name, rule.Group, rule.Kind, rule.Threshold, rule.Category,
-		rule.AutoRemediate, rule.AutoRemediateArg, time.Now().UTC())
+		rule.AutoRemediate, rule.AutoRemediateArg, rule.RequireApproval, time.Now().UTC())
 	r, err := scanRule(row)
 	if err != nil {
 		return model.Rule{}, fmt.Errorf("pgstore: creating rule %q: %w", rule.Name, err)

@@ -115,15 +115,22 @@ type APIKey struct {
 // that violates this rule; leave it empty for a rule that only reports
 // findings without acting on them.
 type Rule struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	Group            string    `json:"group,omitempty"` // "" means every host, regardless of group
-	Kind             string    `json:"kind"`
-	Threshold        int       `json:"threshold,omitempty"`
-	Category         string    `json:"category,omitempty"`
-	AutoRemediate    string    `json:"auto_remediate,omitempty"`
-	AutoRemediateArg string    `json:"auto_remediate_arg,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	Group            string `json:"group,omitempty"` // "" means every host, regardless of group
+	Kind             string `json:"kind"`
+	Threshold        int    `json:"threshold,omitempty"`
+	Category         string `json:"category,omitempty"`
+	AutoRemediate    string `json:"auto_remediate,omitempty"`
+	AutoRemediateArg string `json:"auto_remediate_arg,omitempty"`
+	// RequireApproval, when set on a rule with AutoRemediate, makes the
+	// evaluator park the action as a pending approval (see
+	// internal/alerts) instead of queuing it straight away -- an
+	// operator approves or rejects it from the dashboard. Change
+	// control for automation: the rule still detects and proposes, a
+	// person decides.
+	RequireApproval bool      `json:"require_approval,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 // Enrollment is a named, single-host, revocable credential used only to

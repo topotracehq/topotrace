@@ -18,6 +18,7 @@ import (
 	"log/slog"
 	"time"
 
+	"muster/internal/alerts"
 	"muster/internal/allowlist"
 	"muster/internal/compliance"
 	"muster/internal/history"
@@ -88,12 +89,42 @@ func (e *Evaluator) runOnce(ctx context.Context) {
 	}
 
 	now := time.Now().UTC()
+	state, err := alerts.Load(ctx, e.Store)
+	if err != nil {
+		e.log().Error("evaluator: loading alert state, starting fresh", "err", err)
+	}
+	run := &runState{state: &state, seen: map[string]bool{}}
 	for _, h := range hosts {
-		e.evaluateHost(ctx, h, rules, softwareRules, now)
+		e.evaluateHost(ctx, h, rules, softwareRules, now, run)
+	}
+	// Anything open before this run that no host reproduced has cleared:
+	// announce that once, then forget it.
+	for _, v := range state.Resolve(run.seen) {
+		action := "policy-resolved"
+		if v.Kind == "software" {
+			action = "software-violation-resolved"
+		}
+		detail := fmt.Sprintf("rule %q no longer violated (open since %s)", v.RuleName, v.FirstSeen.Format(time.RFC3339))
+		e.log().Info("evaluator: violation resolved", "host", v.Host, "rule", v.RuleName)
+		if _, err := e.Store.RecordAudit(ctx, "system", action, v.Host, detail); err != nil {
+			e.log().Error("evaluator: recording audit entry", "err", err)
+		}
+		if e.Webhooks != nil {
+			go e.Webhooks.Send(webhook.Event{Type: "violation_resolved", Host: v.Host, Detail: detail})
+		}
+	}
+	if err := alerts.Save(ctx, e.Store, state); err != nil {
+		e.log().Error("evaluator: saving alert state", "err", err)
 	}
 }
 
-func (e *Evaluator) evaluateHost(ctx context.Context, h model.Host, rules []model.Rule, softwareRules []model.SoftwareRule, now time.Time) {
+// runState carries the alert bookkeeping through one evaluator run.
+type runState struct {
+	state *alerts.State
+	seen  map[string]bool
+}
+
+func (e *Evaluator) evaluateHost(ctx context.Context, h model.Host, rules []model.Rule, softwareRules []model.SoftwareRule, now time.Time, run *runState) {
 	facts, err := e.Store.ListFacts(ctx, h.Name)
 	if err != nil {
 		e.log().Error("evaluator: listing facts", "host", h.Name, "err", err)
@@ -115,7 +146,7 @@ func (e *Evaluator) evaluateHost(ctx context.Context, h model.Host, rules []mode
 		e.log().Error("evaluator: recording score history", "host", h.Name, "err", err)
 	}
 
-	e.evaluateSoftware(ctx, h, softwareRules, byCategory)
+	e.evaluateSoftware(ctx, h, softwareRules, byCategory, now, run)
 
 	for _, rule := range rules {
 		if rule.Group != "" && rule.Group != h.Group {
@@ -126,16 +157,21 @@ func (e *Evaluator) evaluateHost(ctx context.Context, h model.Host, rules []mode
 			continue
 		}
 
-		e.log().Info("evaluator: rule violated", "host", h.Name, "rule", rule.Name, "reason", reason)
-		if _, err := e.Store.RecordAudit(ctx, "system", "policy-violation", h.Name, fmt.Sprintf("rule %q: %s", rule.Name, reason)); err != nil {
-			e.log().Error("evaluator: recording audit entry", "err", err)
-		}
-		if e.Webhooks != nil {
-			go e.Webhooks.Send(webhook.Event{
-				Type:   "policy_violation",
-				Host:   h.Name,
-				Detail: fmt.Sprintf("rule %q: %s", rule.Name, reason),
-			})
+		key := alerts.PolicyKey(rule.ID, h.Name)
+		run.seen[key] = true
+		decision := run.state.Observe(key, "policy", rule.ID, rule.Name, h.Name, reason, now)
+		if decision == alerts.Announce {
+			e.log().Info("evaluator: rule violated", "host", h.Name, "rule", rule.Name, "reason", reason)
+			if _, err := e.Store.RecordAudit(ctx, "system", "policy-violation", h.Name, fmt.Sprintf("rule %q: %s", rule.Name, reason)); err != nil {
+				e.log().Error("evaluator: recording audit entry", "err", err)
+			}
+			if e.Webhooks != nil {
+				go e.Webhooks.Send(webhook.Event{
+					Type:   "policy_violation",
+					Host:   h.Name,
+					Detail: fmt.Sprintf("rule %q: %s", rule.Name, reason),
+				})
+			}
 		}
 
 		if rule.AutoRemediate == "" {
@@ -144,6 +180,29 @@ func (e *Evaluator) evaluateHost(ctx context.Context, h model.Host, rules []mode
 		if err := remediate.Validate(h.Platform, rule.AutoRemediate, rule.AutoRemediateArg); err != nil {
 			e.log().Warn("evaluator: rule's auto-remediate action isn't valid for this host, skipping", "host", h.Name, "rule", rule.Name, "err", err)
 			continue
+		}
+		if rule.RequireApproval {
+			// Change control: propose, don't act. One pending approval
+			// per (rule, host), however many runs the violation persists.
+			created, err := alerts.ProposeApproval(ctx, e.Store, alerts.Approval{
+				Host: h.Name, RuleID: rule.ID, RuleName: rule.Name,
+				Verb: rule.AutoRemediate, Arg: rule.AutoRemediateArg, Reason: reason, CreatedAt: now,
+			})
+			if err != nil {
+				e.log().Error("evaluator: proposing approval", "host", h.Name, "rule", rule.Name, "err", err)
+			} else if created {
+				detail := fmt.Sprintf("rule %q proposed %s %s -- waiting for approval", rule.Name, rule.AutoRemediate, rule.AutoRemediateArg)
+				if _, err := e.Store.RecordAudit(ctx, "system", "remediation-proposed", h.Name, detail); err != nil {
+					e.log().Error("evaluator: recording audit entry", "err", err)
+				}
+				if e.Webhooks != nil {
+					go e.Webhooks.Send(webhook.Event{Type: "remediation_proposed", Host: h.Name, Detail: detail})
+				}
+			}
+			continue
+		}
+		if decision != alerts.Announce {
+			continue // already queued when the violation was first announced; don't re-queue every run
 		}
 		action, err := e.Store.QueueAction(ctx, h.Name, rule.AutoRemediate, rule.AutoRemediateArg)
 		if err != nil {
@@ -201,7 +260,7 @@ func (e *Evaluator) violates(rule model.Rule, facts map[string]model.Fact, stale
 // the software-allowlist counterpart to violates()'s policy-rule path,
 // kept separate since model.SoftwareRule has no AutoRemediate/Threshold
 // fields of its own to share a code path with.
-func (e *Evaluator) evaluateSoftware(ctx context.Context, h model.Host, softwareRules []model.SoftwareRule, facts map[string]model.Fact) {
+func (e *Evaluator) evaluateSoftware(ctx context.Context, h model.Host, softwareRules []model.SoftwareRule, facts map[string]model.Fact, now time.Time, run *runState) {
 	if len(softwareRules) == 0 {
 		return
 	}
@@ -227,6 +286,11 @@ func (e *Evaluator) evaluateSoftware(ctx context.Context, h model.Host, software
 			detail = fmt.Sprintf("denied software %q (rule %q): %s %s", v.Package, v.Rule, v.Package, v.Version)
 		} else {
 			detail = fmt.Sprintf("unauthorized software not on allowlist: %s %s", v.Package, v.Version)
+		}
+		key := alerts.SoftwareKey(v.Rule, h.Name, v.Package)
+		run.seen[key] = true
+		if run.state.Observe(key, "software", "", v.Rule, h.Name, detail, now) != alerts.Announce {
+			continue
 		}
 		e.log().Info("evaluator: software rule violated", "host", h.Name, "detail", detail)
 		if _, err := e.Store.RecordAudit(ctx, "system", "software-violation", h.Name, detail); err != nil {

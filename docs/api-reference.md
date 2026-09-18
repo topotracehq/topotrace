@@ -71,8 +71,22 @@ not alphabetically.
 
 ## Policies & remediation
 
+- `GET /api/alerts` -- the deduplicated set of currently open
+  policy/software violations the evaluator tracks between runs: key,
+  rule, host, reason, first/last seen, occurrence count, snooze state.
+- `POST /api/alerts/snooze` -- `{"key": "...", "hours": N}` quiets one
+  open violation's re-announcements for N hours (0 clears). `remediate`,
+  strict, audited as `alert-snoozed`.
+- `GET /api/approvals` -- auto-remediations parked by rules with
+  `require_approval`, oldest first.
+- `POST /api/approvals/{id}/approve` / `.../reject` -- queue the
+  proposed action (through `remediate.Validate`) or drop it.
+  `remediate`, strict, audited as `remediation-approved` /
+  `remediation-rejected`.
 - `GET/POST /api/policies`, `DELETE /api/policies/{id}` -- background
-  evaluator rules (`admin` to write).
+  evaluator rules (`admin` to write). A rule with `auto_remediate` may
+  also set `require_approval: true` to park each proposed action in
+  the approvals queue instead of queuing it.
 - `POST /api/hosts/{host}/actions` -- queue a remediation action
   (`remediate` or higher).
 - `GET /api/hosts/{host}/actions` -- action history.
