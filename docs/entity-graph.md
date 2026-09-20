@@ -1,6 +1,6 @@
 # Entity map
 
-Muster already knew every one of these relationships. What it could not
+TopoTrace already knew every one of these relationships. What it could not
 do was show them together.
 
 A host's page listed its vulnerabilities. The Compliance tab listed
@@ -26,7 +26,7 @@ still exist because they answer different questions.
 | host | asset | circle | every enrolled host |
 | group | asset | rounded square | the distinct values of `Host.Group`, plus a synthetic `(ungrouped)` |
 | package | asset | hexagon | notable entries in `installed_software` (see below) |
-| cve | finding | diamond | `vuln.Finding`, both Muster's own package matches and imported scanner findings |
+| cve | finding | diamond | `vuln.Finding`, both TopoTrace's own package matches and imported scanner findings |
 | certificate | finding | triangle | `tls_certificates` entries that are expiring or expired |
 | extension | finding | pentagon | browser extensions that are risky or on more than one host |
 | rule | policy | square | every `model.Rule` and `model.SoftwareRule` |
@@ -152,7 +152,7 @@ are assigned.
 
 ## Data model
 
-For the static version of this picture, the shapes Muster persists and
+For the static version of this picture, the shapes TopoTrace persists and
 how they reference each other, see `docs/data-model.md`. That page and
 its diagram are generated from `internal/model/types.go` by
 `tools/erd`, so they cannot drift from the code:
@@ -163,7 +163,7 @@ go run ./tools/erd -check    # fail if either is out of date
 ```
 
 Entities and fields are parsed straight out of the Go source.
-Relationships cannot be, since Go has no foreign keys and Muster
+Relationships cannot be, since Go has no foreign keys and TopoTrace
 carries no ORM tags, so they are declared in the generator and then
 checked against the parsed types: a declaration naming a struct or
 field that no longer exists is a hard error rather than a quietly wrong

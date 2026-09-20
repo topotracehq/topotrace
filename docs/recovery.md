@@ -11,7 +11,7 @@ backups with restricted access: they may contain credentials and private invento
    startup command, storage backend, data directory, and external database name.
    Use your deployed paths; the bundled systemd defaults are `/etc/muster` and
    `/var/lib/muster/data`.
-2. Schedule a maintenance interval and stop Muster before copying a memstore
+2. Schedule a maintenance interval and stop TopoTrace before copying a memstore
    snapshot. Copy the **entire data directory**, including `muster.json`, raw
    packets, and `settings-overrides.json`, preserving ownership and permissions.
    Keep the deployed binary, service launcher/unit, environment files, and TLS
@@ -19,7 +19,7 @@ backups with restricted access: they may contain credentials and private invento
 3. For PostgreSQL, use your database backup procedure in addition to the data and
    settings files. A filesystem copy of a running database is not a substitute for
    a database-consistent backup. Record the database version and restore procedure.
-4. Record hashes of the backup files, keep an off-server copy, and restart Muster.
+4. Record hashes of the backup files, keep an off-server copy, and restart TopoTrace.
    Verify `/healthz` and a known host before closing the maintenance interval.
 
 ## Restore without overwriting the only working copy

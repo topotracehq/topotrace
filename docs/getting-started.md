@@ -1,7 +1,7 @@
 # Getting started
 
-Muster is a hardware/software/configuration inventory tool: agents
-report facts about a host, Muster stores and diffs them over time, and
+TopoTrace is a hardware/software/configuration inventory tool: agents
+report facts about a host, TopoTrace stores and diffs them over time, and
 scores/policies/webhooks act on what changed.
 
 ## Running the server
@@ -32,7 +32,7 @@ Pick the path that matches what you're inventorying:
   README and this doc set's "Agents & Enrollment" page's air-gapped
   section: it runs the same local fact collection, then hands you a
   base64 blob to paste into the dashboard from a machine that *can*
-  reach Muster.
+  reach TopoTrace.
 - **A cloud account (AWS/Azure/GCP)** -- see `agent/aws`, `agent/azure`,
   `agent/gcp`: read-only, credential-scoped scanners that report
   compute instances as hosts, the same way an OS agent reports a
@@ -59,7 +59,7 @@ discovered-device review. Switch between live inventory and the **Demo showcase*
 ## Presenting a demo
 
 The **Tools** page includes presentation mode, branded live/demo reports,
-configuration backup and recovery, and notification controls. The **About Muster**
+configuration backup and recovery, and notification controls. The **About TopoTrace**
 footer link shows the installed version and support guidance. See **Workspace
 Tools & Presentation** in Docs for all eight additions and their limits.
 

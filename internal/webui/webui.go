@@ -38,6 +38,15 @@ func CompanyLogo() string {
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(b)
 }
 
+// ProductLogo keeps the TopoTrace mark available in offline HTML reports.
+func ProductLogo() string {
+	b, err := embedded.ReadFile("static/img/topotrace-mark.png")
+	if err != nil {
+		return ""
+	}
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(b)
+}
+
 // Handler serves the dashboard's static assets (index.html at "/", plus
 // style.css, app.js, and the brand images under img/) directly from the
 // compiled binary.

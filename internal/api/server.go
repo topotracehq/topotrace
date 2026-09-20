@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         server.go
- * @brief        Package api is Muster's read side: a small REST API over whatever the cook pipeline has stored, using only net/http (Go 1.22+'s pattern-based ServeMux is enough for a handful of routes -- no router dependency needed).
- * @project      Muster
+ * @brief        Package api is TopoTrace's read side: a small REST API over whatever the cook pipeline has stored, using only net/http (Go 1.22+'s pattern-based ServeMux is enough for a handful of routes -- no router dependency needed).
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-14
@@ -11,7 +11,7 @@
  * Licensed under the MIT License -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package api is Muster's read side: a small REST API over whatever the
+// Package api is TopoTrace's read side: a small REST API over whatever the
 // cook pipeline has stored, using only net/http (Go 1.22+'s pattern-based
 // ServeMux is enough for a handful of routes -- no router dependency
 // needed).
@@ -113,7 +113,7 @@ type Server struct {
 	// OAuth -- cmd/muster constructs one iff -oauth-* flags parsed.
 	Sessions *oauth.SessionStore
 
-	// AIQuery is "Ask Muster"'s Anthropic credential/model (see
+	// AIQuery is "Ask TopoTrace"'s Anthropic credential/model (see
 	// -ai-api-key/-ai-model), held in a mutable ConfigStore so
 	// PATCH /api/settings can reconfigure or disable it on a running
 	// server with no restart -- handleAsk calls AIQuery.Get() on every
@@ -158,7 +158,7 @@ type Server struct {
 
 	// SettingsOverridePath, when non-empty, is where PATCH
 	// /api/settings persists the live edits it accepts (SIEM HEC
-	// URL/token, Ask Muster API key/model) via internal/settingsstore,
+	// URL/token, Ask TopoTrace API key/model) via internal/settingsstore,
 	// so they survive a process restart. Left empty (e.g. in tests),
 	// PATCH /api/settings still updates the live in-memory state, it
 	// just won't be there after a restart.
@@ -287,7 +287,7 @@ func (s *Server) Handler() http.Handler {
 // handleListDocs is GET /api/docs -- unauthenticated, like the agent
 // downloads: documentation isn't sensitive, and gating it behind a
 // token would just make the Docs tab useless to someone evaluating
-// Muster before they've set one up.
+// TopoTrace before they've set one up.
 func (s *Server) handleListDocs(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, docs.Index)
 }
@@ -326,7 +326,7 @@ type settingsVulnFeed struct {
 	Interval string `json:"interval,omitempty"`
 }
 
-// settingsAskMuster is GET /api/settings's Ask Muster (AI query) slice
+// settingsAskMuster is GET /api/settings's Ask TopoTrace (AI query) slice
 // -- never AIQuery.APIKey itself.
 type settingsAskMuster struct {
 	Configured bool     `json:"configured"`
@@ -469,7 +469,7 @@ func (s *Server) settingsSnapshot() settingsResponse {
 // enforce) since internal/siemforward.Dynamic doesn't expose its
 // current URL/token to merge a partial update against -- deliberately,
 // since that value is a live secret this endpoint otherwise never
-// hands back. Ask Muster's two fields can be set independently: the
+// hands back. Ask TopoTrace's two fields can be set independently: the
 // model alone (keeping the existing key) is a common edit, and
 // internal/aiquery.ConfigStore's current Config is readable
 // server-side for exactly that merge.
@@ -572,7 +572,7 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case req.AIDisable:
 		if s.AIQuery == nil {
-			s.writeError(w, http.StatusServiceUnavailable, "Ask Muster is not available on this server")
+			s.writeError(w, http.StatusServiceUnavailable, "Ask TopoTrace is not available on this server")
 			return
 		}
 		s.AIQuery.Set(aiquery.Config{})
@@ -583,7 +583,7 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 		actions = append(actions, "ask muster disabled")
 	case req.AIAPIKey != nil || req.AIModel != nil || req.AIBackend != nil || req.AIBaseURL != nil:
 		if s.AIQuery == nil {
-			s.writeError(w, http.StatusServiceUnavailable, "Ask Muster is not available on this server")
+			s.writeError(w, http.StatusServiceUnavailable, "Ask TopoTrace is not available on this server")
 			return
 		}
 		cur := s.AIQuery.Get()
@@ -616,7 +616,7 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 				s.writeError(w, http.StatusBadRequest, "ai_base_url is required for the openai-compatible backend (e.g. https://router.huggingface.co/v1, or http://your-host:11434/v1 for a local Ollama)")
 				return
 			}
-			s.writeError(w, http.StatusBadRequest, "ai_api_key is required to enable Ask Muster (or set ai_disable to turn it off)")
+			s.writeError(w, http.StatusBadRequest, "ai_api_key is required to enable Ask TopoTrace (or set ai_disable to turn it off)")
 			return
 		}
 		if backend == aiquery.BackendOpenAI && newModel == "" {
@@ -838,7 +838,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var b strings.Builder
-	b.WriteString("# HELP muster_hosts_total Total number of hosts Muster has ever received a report from.\n")
+	b.WriteString("# HELP muster_hosts_total Total number of hosts TopoTrace has ever received a report from.\n")
 	b.WriteString("# TYPE muster_hosts_total gauge\n")
 	fmt.Fprintf(&b, "muster_hosts_total %d\n", len(hosts))
 
@@ -1288,7 +1288,7 @@ func (s *Server) handleGetVulnerabilities(w http.ResponseWriter, r *http.Request
 		}
 	}
 	// Findings imported from a third-party scanner live in their own
-	// fact and show up here alongside Muster's own matches, the same way
+	// fact and show up here alongside TopoTrace's own matches, the same way
 	// internal/signals merges them for compliance and risk.
 	if sf, ok, err := s.Store.GetFact(r.Context(), name, "scanner_findings"); err == nil && ok {
 		findings = append(findings, scanner.FromFact(sf.Data["items"])...)
@@ -1625,7 +1625,7 @@ type askContext struct {
 // buildAskContext gathers everything askContext needs from the Store,
 // reusing complianceInput -- the same per-host posture/vulnerability/
 // allowlist computation handleGetCompliance and handleComplianceSummary
-// already do -- so Ask Muster's answers are grounded in exactly the same
+// already do -- so Ask TopoTrace's answers are grounded in exactly the same
 // numbers the rest of the dashboard shows, never a separately computed
 // (and possibly inconsistent) view of the same facts.
 func (s *Server) buildAskContext(r *http.Request) (askContext, error) {
@@ -1735,7 +1735,7 @@ type askRequest struct {
 	Question string `json:"question"`
 }
 
-// handleAsk is POST /api/ask -- "Ask Muster": a natural-language query
+// handleAsk is POST /api/ask -- "Ask TopoTrace": a natural-language query
 // over the fleet data this server already holds, gated at "readonly"
 // (the same tier as every other read-only endpoint -- asking a question
 // about the fleet isn't a write). Every question and its answer are
@@ -1776,7 +1776,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 			s.writeError(w, http.StatusServiceUnavailable, err.Error())
 			return
 		}
-		s.writeError(w, http.StatusBadGateway, "Ask Muster: "+err.Error())
+		s.writeError(w, http.StatusBadGateway, "Ask TopoTrace: "+err.Error())
 		return
 	}
 
@@ -2392,10 +2392,10 @@ func (s *Server) handleDeleteDiscoveredAsset(w http.ResponseWriter, r *http.Requ
 // airgapReportRequest is the body of POST /api/airgap-report: the same
 // gzip-compressed tar payload the TCP ingest protocol carries as raw
 // bytes, base64-encoded so it can travel through channels that aren't a
-// direct socket to Muster at all -- pasted as text, carried on removable
+// direct socket to TopoTrace at all -- pasted as text, carried on removable
 // media, or (for small payloads) scanned as a QR code. This is the
 // delivery path for agent/airgap/: a host with no network route to the
-// Muster server whatsoever, where a human has to move the report by
+// TopoTrace server whatsoever, where a human has to move the report by
 // hand.
 type airgapReportRequest struct {
 	Platform   string `json:"platform"`

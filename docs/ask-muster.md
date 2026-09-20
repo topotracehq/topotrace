@@ -1,15 +1,15 @@
-# Ask Muster
+# Ask TopoTrace
 
 A natural-language query surface over your fleet data, built on the
 Anthropic Messages API -- but the pitch here isn't "there's a chatbot,"
 it's **governed AI**: every question that gets asked, and the answer
-Muster gave, is recorded to the same audit log every other privileged
+TopoTrace gave, is recorded to the same audit log every other privileged
 action in this project already goes through
 (`Store.RecordAudit`, `GET /api/audit`).
 
 ## Choosing a model backend
 
-Ask Muster speaks two API shapes, selected with `-ai-backend`
+Ask TopoTrace speaks two API shapes, selected with `-ai-backend`
 (`MUSTER_AI_BACKEND`):
 
 | Backend | Reaches | Needs |
@@ -58,7 +58,7 @@ API key is needed for a local server, and none is sent: an empty
 rather than sent empty, which some servers reject.
 
 **This is the option worth taking seriously for this product.** Ask
-Muster sends real fleet context with every question: host names,
+TopoTrace sends real fleet context with every question: host names,
 addresses, installed software, CVE findings, policy rules. Sending that
 to a third-party API is exactly the objection a security-conscious
 buyer raises, and it is a fair objection. A model running on hardware
@@ -75,7 +75,7 @@ non-AI paths, so the floor is safe; the ceiling is lower.
 
 A reasoning model (Qwen3, DeepSeek-R1 and similar) writes a hidden
 scratchpad before its visible answer, and that scratchpad is charged
-against the same token budget. Point Ask Muster at one and the whole
+against the same token budget. Point Ask TopoTrace at one and the whole
 budget can be spent thinking, leaving an empty answer and
 `finish_reason=length`.
 
@@ -97,11 +97,11 @@ and the job is to summarize them accurately.
 
 ### Switching without a restart
 
-All of the above can also be set from the Settings page's Ask Muster
+All of the above can also be set from the Settings page's Ask TopoTrace
 card, or with `PATCH /api/settings` (`ai_backend`, `ai_base_url`,
 `ai_model`, `ai_api_key`, `ai_disable`), and takes effect immediately.
 Values saved that way persist to `<data-dir>/settings-overrides.json`
-at mode 0600. As everywhere else in Muster, an explicit flag or env var
+at mode 0600. As everywhere else in TopoTrace, an explicit flag or env var
 beats a saved override, so a value pinned at deploy time cannot be
 changed from the dashboard.
 
@@ -121,7 +121,7 @@ with no credential.
    compliance score, plus the configured policy rules, software rules,
    and discovered-but-unmanaged assets. This reuses the exact same
    `complianceInput` computation the Compliance tab and
-   `/api/hosts/{host}/compliance` already use, so Ask Muster's answers
+   `/api/hosts/{host}/compliance` already use, so Ask TopoTrace's answers
    are grounded in the same numbers the rest of the dashboard shows.
 3. **Call the model.** `internal/aiquery.Ask` POSTs that context plus
    the question to the Anthropic Messages API (stdlib `net/http` only,
@@ -137,14 +137,14 @@ with no credential.
 
 Not a general-purpose chatbot, not a tool-use agent, not a place to
 paste arbitrary data -- one request in, one answer out, no
-conversation state kept server-side (the browser's Ask Muster panel
+conversation state kept server-side (the browser's Ask TopoTrace panel
 keeps a client-side transcript purely for display; the audit log is
 the real record). No memory across questions today: each question is
 answered from a fresh snapshot, not a running conversation.
 
 ## Beyond questions: drafting policies and writing the summary
 
-Two more things Ask Muster does, both built so the AI proposes and a
+Two more things Ask TopoTrace does, both built so the AI proposes and a
 person decides:
 
 - **Draft a policy rule from a description.** On the Fleet tab's policy
@@ -165,6 +165,6 @@ person decides:
 
 Both go through `aiquery.Complete`, the one place that knows the
 Messages API wire format, and both record an audit entry like every
-other Ask Muster call. Neither has been exercised against a live
+other Ask TopoTrace call. Neither has been exercised against a live
 Anthropic key from this environment; the heuristic and template paths
 were.

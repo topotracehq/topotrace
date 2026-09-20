@@ -1,19 +1,19 @@
 # Importing third-party scanner findings
 
-Muster has its own vulnerability view: `internal/vuln` matches the
+TopoTrace has its own vulnerability view: `internal/vuln` matches the
 versions in a host's `installed_software` fact against a small curated
 dataset (optionally augmented by an OSV.dev feed). That is honest about
 what it is -- a demonstration that inventory plus a CVE source equals a
 per-host finding list -- but nobody runs a security program on it. Any
-organization that would deploy Muster already owns a scanner.
+organization that would deploy TopoTrace already owns a scanner.
 
-So Muster imports that scanner's output instead of pretending to
+So TopoTrace imports that scanner's output instead of pretending to
 replace it. A CSV export goes in, findings come out attached to the
 right host records, and from there they flow through exactly the same
-paths Muster's own findings do: the host's Vulnerabilities card, the
+paths TopoTrace's own findings do: the host's Vulnerabilities card, the
 `no-known-vulnerabilities` compliance check and its HIPAA/NIST
 equivalents, the risk score's `vulnerabilities` factor, the fleet
-summary counts, the vulnerabilities CSV, and the Ask Muster context.
+summary counts, the vulnerabilities CSV, and the Ask TopoTrace context.
 
 ## Supported formats
 
@@ -39,15 +39,15 @@ low; 1 is informational and dropped.
 ## Host matching
 
 Scanners identify a host however they happened to reach it: a short
-hostname, an FQDN, or a bare IP. Muster tries, in order, the full name
+hostname, an FQDN, or a bare IP. TopoTrace tries, in order, the full name
 as given, the name up to the first dot, and any IPv4 address from the
 host's `network_interfaces` fact. So a Nessus row for `10.0.1.10`
 lands on `web01.prod` if that is the address the agent reported, and a
 Qualys row whose DNS column says `db01.prod` lands there by name.
 
-Findings for hosts Muster does not know come back in the response's
+Findings for hosts TopoTrace does not know come back in the response's
 `unmatched` map and are *not* stored. That is deliberate: the scanner
-seeing something Muster has never enrolled is itself worth knowing
+seeing something TopoTrace has never enrolled is itself worth knowing
 about (it is the same shadow-asset question `GET /api/graph` answers
 from cloud discovery), and silently inventing host records from a CSV
 would be worse than reporting the gap.
@@ -92,12 +92,12 @@ tracking, and exported like anything else. `internal/signals.FromFacts`
 reads that fact back and appends it to the host's `VulnFindings`, which
 is the single place every downstream consumer already looks.
 
-Findings carry a `source` (`nessus`, `qualys`, `generic`) that Muster's
+Findings carry a `source` (`nessus`, `qualys`, `generic`) that TopoTrace's
 own matches leave empty, so the two are always distinguishable. The
 compliance detail line says so explicitly -- "2 known-vulnerable
 package(s); 1 imported nessus finding(s)" -- the host card tags the row
 "(imported from nessus)", and the vulnerabilities CSV has a `source`
-column that reads `muster` for Muster's own matches.
+column that reads `muster` for TopoTrace's own matches.
 
 One import replaces that host's whole `scanner_findings` fact, the same
 way a fresh agent report replaces a host's `installed_software`. An
@@ -112,7 +112,7 @@ Compliance tab, "Import scanner findings": pick a format, choose the
 CSV, and the browser reads the file and POSTs its contents. The result
 lists matched hosts with counts and names the unmatched scanner hosts.
 Each host's own page then shows the imported findings inline with
-Muster's own, tagged with the scanner they came from. Screenshots of
+TopoTrace's own, tagged with the scanner they came from. Screenshots of
 both are in the repository README.
 
 ## What is verified

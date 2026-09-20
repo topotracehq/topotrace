@@ -1,10 +1,10 @@
 # SIEM integration
 
-Muster can forward its own audit trail to a real SIEM, so events that
+TopoTrace can forward its own audit trail to a real SIEM, so events that
 already get recorded to `GET /api/audit` (policy violations,
-remediation, Ask Muster queries, enrollment/key management, OAuth
+remediation, Ask TopoTrace queries, enrollment/key management, OAuth
 logins, and every other authenticated write) also reach an operator's
-existing security tooling -- not just Muster's own dashboard.
+existing security tooling -- not just TopoTrace's own dashboard.
 
 This is built on a small `Forwarder` interface
 (`internal/siemforward.Forwarder`, `Send(ctx, event) error`) with three
@@ -74,7 +74,7 @@ and a token; the other two take a URL alone.
 
 Every backend receives the identical `SIEMEvent` -- one audit entry,
 flattened -- so switching backends changes the transport and nothing
-about what Muster says.
+about what TopoTrace says.
 
 ## Sumo Logic
 
@@ -84,7 +84,7 @@ Source](https://help.sumologic.com/docs/send-data/hosted-collectors/http-source/
 Sumo's classic HTTP sources embed a unique key in the URL, so the URL
 alone is the credential; newer token-authenticated sources also take an
 `X-Sumo-Token` header, which is what `-siem-hec-token` supplies when
-set. Muster sends `X-Sumo-Category: muster/audit` so the events land
+set. TopoTrace sends `X-Sumo-Category: muster/audit` so the events land
 under a predictable source category.
 
 ## LogRhythm
@@ -94,7 +94,7 @@ LogRhythm Open Collector webhook beat (by default a JSON-over-HTTP
 listener on port 8085), which normalizes the JSON into LogRhythm's own
 schema on the collector side. The beat is unauthenticated on a trusted
 network; when it sits behind an authenticating proxy, a token set on
-Muster's side is sent as `Authorization: Bearer <token>`.
+TopoTrace's side is sent as `Authorization: Bearer <token>`.
 
 ## What is and is not verified
 

@@ -1,4 +1,10 @@
-# Muster
+# TopoTrace
+
+**Turn Infrastructure Into Insight**
+
+![TopoTrace](internal/webui/static/img/topotrace-lockup-light.svg)
+
+Formerly Muster. See the [brand guide](docs/brand-guide.md) for assets and compatibility details.
 
 A hardware/software/configuration inventory system: lightweight agents
 report data from managed hosts, a Go server ingests and parses it, and a
@@ -120,7 +126,7 @@ Open `http://localhost:8080/` for the dashboard, or hit `/api/*` directly.
 - **`internal/webui`** — the web dashboard: a dependency-free single-page
   app (plain HTML/CSS/JS, no build step, no framework) embedded into the
   binary via `embed.FS` and served from the same port as the API.
-  Branded with the real Muster logo/icon assets (cropped and
+  Branded with the real TopoTrace logo/icon assets (cropped and
   color-matched from source artwork, see `static/img/`). Three views:
   - **Hosts** (`#/`) — the grid, with per-platform icons, a host detail
     page, and a search bar over `/api/query`.
@@ -289,7 +295,7 @@ in the "prod" column.
 
 `demoagent` above proves the pipeline end to end with one host; to see
 the dashboard the way a populated fleet actually looks -- for a demo,
-or to try out Fleet/Compliance/Ask Muster with real variety on hand --
+or to try out Fleet/Compliance/Ask TopoTrace with real variety on hand --
 `cmd/seed` writes a realistic, varied synthetic fleet straight into the
 Store: 15 hosts across Linux/Windows/macOS, a mix of compliant and
 non-compliant posture, real-looking vulnerability findings against
@@ -328,7 +334,7 @@ to override), and needs nothing beyond what Windows already ships with
 the full parameter list and design notes.
 
 **Verified against a real machine:** this script has been run for real
-against a live Windows 11 machine, reporting through a live Muster
+against a live Windows 11 machine, reporting through a live TopoTrace
 server on Kubernetes -- not just proven end to end via `demoagent`
 against synthetic fixtures (see `internal/cook/windows_test.go` and
 `testdata/windows-demo-host/`, which is how the wire protocol and
@@ -352,7 +358,7 @@ to override), and needs nothing beyond bash, `tar`, and `gzip` -- see
 the script's own header comment (or `--help`) for the full option list.
 
 Unlike the Windows script, this one has been run for real: verified end
-to end against a live Muster server, collecting actual `/proc/cpuinfo`,
+to end against a live TopoTrace server, collecting actual `/proc/cpuinfo`,
 `/proc/meminfo`, `uname -a`, `/etc/os-release`, and `uptime` output and
 confirming via the API that it parsed into accurate CPU/memory/kernel/
 distribution facts.
@@ -655,8 +661,8 @@ A category that was never collected is never penalized -- "unknown" and
 never has to reverse-engineer a bare number.
 
 
-Three frameworks ship today: **Muster Baseline** (six checks from
-Muster's own signals), plus illustrative mappings onto the **HIPAA
+Three frameworks ship today: **TopoTrace Baseline** (six checks from
+TopoTrace's own signals), plus illustrative mappings onto the **HIPAA
 Security Rule** and a **NIST SP 800-53** subset, each check named after
 the control it draws evidence from -- there to prove the framework
 abstraction is pluggable, not to claim a certified mapping. Pick one on
@@ -718,8 +724,8 @@ POST /api/scanner-import?format=nessus   # or qualys, generic; body is the CSV e
 ```
 
 The version matching above is honest about being a demonstration.
-Anyone who would actually deploy Muster already owns a scanner, so
-Muster imports its output rather than pretending to replace it
+Anyone who would actually deploy TopoTrace already owns a scanner, so
+TopoTrace imports its output rather than pretending to replace it
 (`internal/scanner`): a Nessus, Qualys or generic CSV export goes in,
 and each finding is matched to a host by full name, short name, or an
 IPv4 address from that host's `network_interfaces` fact. Matched
@@ -727,14 +733,14 @@ findings are stored as a `scanner_findings` fact -- an ordinary
 `model.Fact`, so it is versioned and visible like any agent-collected
 category -- which `internal/signals` merges into the host's findings,
 so they flow through the identical compliance checks, risk factors,
-fleet summary counts, CSV export and Ask Muster context as Muster's own
+fleet summary counts, CSV export and Ask TopoTrace context as TopoTrace's own
 matches. Imported findings carry the scanner they came from, so a
 compliance detail reads "2 known-vulnerable package(s); 1 imported
 nessus finding(s)" rather than blurring the two.
 
-Findings for hosts Muster has never enrolled are reported back as
+Findings for hosts TopoTrace has never enrolled are reported back as
 unmatched and deliberately not stored -- the scanner seeing an asset
-Muster does not know is the interesting part, and inventing host
+TopoTrace does not know is the interesting part, and inventing host
 records from a CSV would be worse than naming the gap. One import
 replaces that host's previous `scanner_findings` fact, so re-importing
 after a rescan is how it stays current.
@@ -762,7 +768,7 @@ Alongside the operator-defined software allow/deny lists above,
 `internal/allowlist` ships a **built-in, pre-seeded ruleset**
 (`ShadowAIPatterns`) flagging known AI desktop apps, CLI tools, and
 browser-extension packages found in a host's
-`installed_software` fact. No configuration required: every Muster
+`installed_software` fact. No configuration required: every TopoTrace
 deployment can answer "do we have unauthorized AI tooling anywhere"
 on day one, the same "invisible SaaS/tool sprawl" problem enterprise
 browser security products (this mirrors [Island](https://island.io)'s
@@ -782,7 +788,7 @@ field -- never lumped into the generic `violations` list -- at
 `GET /api/hosts/{host}/software-violations`, as their own card on a
 host's detail page in the dashboard, as a
 `hosts_with_shadow_ai`/`total_shadow_ai_findings` stat tile on the
-Fleet tab (`GET /api/summary`), and as their own Muster Baseline
+Fleet tab (`GET /api/summary`), and as their own TopoTrace Baseline
 compliance check (`no-shadow-ai`, see "Compliance frameworks" in the
 in-app Docs tab).
 
@@ -814,12 +820,12 @@ location = /_muster_trust {
 ```
 
 **Behavioral signals.** `internal/ueba` runs explainable heuristics over
-Muster's own audit trail -- the one dataset it already has about its
+TopoTrace's own audit trail -- the one dataset it already has about its
 operators: writes outside business hours or on weekends, a burst of
 writes, a run of remediations, mass deletes, a new admin-role API key,
 a settings change, an actor nobody's seen before. Each signal names
 the rule, the actor, the count and the audit entries. It's the UEBA
-idea applied to Muster's own users, and the doc comment says what a
+idea applied to TopoTrace's own users, and the doc comment says what a
 real product adds on top (per-user baselines, peer groups, a scoring
 model). Fleet tab, admin only.
 
@@ -844,7 +850,7 @@ GET /api/hosts/{host}/sbom        # readonly -- CycloneDX 1.5 JSON download
 GET /api/software/sprawl          # readonly -- fleet license/SaaS rollup
 ```
 
-Four more answers from the inventory Muster already has:
+Four more answers from the inventory TopoTrace already has:
 
 - **OS end of life** (`internal/eol`): a built-in table of vendor
   end-of-support dates (Ubuntu, Debian, Windows client and Server,
@@ -889,7 +895,7 @@ Change history records every diff since the last report; policy and
 compliance judge a host against rules. Neither answers "how far is this
 box from the state we approved?" `internal/baseline` does: an operator
 captures a host's facts as its golden baseline when it's known-good,
-and from then on Muster reports drift against it -- packages added or
+and from then on TopoTrace reports drift against it -- packages added or
 removed, versions moved, services and ports changed, firewall flipped
 -- item by item for list-shaped categories, so "vsftpd added" is one
 line rather than a stringified array. Host page: capture/recapture/
@@ -920,7 +926,7 @@ extensions` compliance check. See `docs/compliance.md`.
 
 ![Browser extensions](docs/screenshots/host-browser-extensions.png)
 
-## Ask Muster
+## Ask TopoTrace
 
 ```
 go run ./cmd/muster -ai-api-key "sk-ant-..."                     # Anthropic
@@ -931,7 +937,7 @@ POST /api/ask   {"question": "which prod hosts have known vulnerabilities?"}
 
 A natural-language query surface over the fleet data above -- but the
 pitch is **governed AI**, not "there's a chatbot": every question asked
-and the answer Muster gave are recorded to the same audit trail every
+and the answer TopoTrace gave are recorded to the same audit trail every
 other privileged action in this project already goes through
 (`Store.RecordAudit`, truncated, actor-attributed the same way a board
 write or a policy change is). `POST /api/ask` is gated at `readonly`
@@ -948,7 +954,7 @@ text-generation-inference server on your own hardware, changing only
 `-ai-base-url`. Either is switchable live from the Settings page with
 no restart.
 
-That second option is the one that matters here. Ask Muster sends real
+That second option is the one that matters here. Ask TopoTrace sends real
 fleet context with every question: host names, addresses, installed
 software, CVE findings, policy rules. Handing that to a third-party API
 is precisely the objection a security-conscious buyer raises, and it is
@@ -963,7 +969,7 @@ still burns the lot thinking, says so plainly instead of returning a
 blank. A non-reasoning build (Qwen3's `-instruct-2507` tags on Ollama)
 avoids the problem and is faster besides.
 
-![Ask Muster backend selection](docs/screenshots/settings-ai-backend.png)
+![Ask TopoTrace backend selection](docs/screenshots/settings-ai-backend.png)
 
 `internal/aiquery` builds a compact JSON snapshot straight from the
 Store -- fleet summary, every host's posture score/findings, known
@@ -971,13 +977,13 @@ vulnerabilities, software-allowlist and shadow-AI violations,
 compliance score, plus the configured policy rules, software rules,
 and discovered-but-unmanaged assets, reusing the exact same
 `complianceInput` computation the Compliance tab already uses so Ask
-Muster's answers are grounded in the same numbers the rest of the
+TopoTrace's answers are grounded in the same numbers the rest of the
 dashboard shows -- then calls the configured backend (stdlib
 `net/http` only, no SDK, same integration style as `internal/vuln`'s
 OSV.dev client and `internal/oauth`'s token exchange) with that
 context plus the question, instructing the model to answer only from
 the supplied snapshot rather than invent hosts or findings. A small
-chat-style panel on the dashboard's **Ask Muster** tab is wired to the
+chat-style panel on the dashboard's **Ask TopoTrace** tab is wired to the
 endpoint directly.
 
 **Unverified note, stated plainly:** this was built and reviewed
@@ -989,7 +995,7 @@ documented contract and exercised against the "not configured" path
 question before relying on it.
 
 
-Ask Muster also **drafts policy rules from plain English** (the Fleet
+Ask TopoTrace also **drafts policy rules from plain English** (the Fleet
 tab's "Or describe it" row fills the policy form for you to review and
 create -- never creates on its own) and **writes the executive summary**
 (a button on the Reports card, four paragraphs from the same data as the
@@ -1144,9 +1150,9 @@ go run ./cmd/muster -siem-hec-url https://splunk.example.com:8088 -siem-hec-toke
 # or: MUSTER_SIEM_HEC_URL=... MUSTER_SIEM_HEC_TOKEN=... go run ./cmd/muster
 ```
 
-Forwards Muster's entire audit trail (`internal/siemforward`) -- every
+Forwards TopoTrace's entire audit trail (`internal/siemforward`) -- every
 `Store.RecordAudit` call, so every policy violation, remediation, Ask
-Muster query, enrollment/key management action, and OAuth login, the
+TopoTrace query, enrollment/key management action, and OAuth login, the
 same events `GET /api/audit` shows -- to a real SIEM, fire-and-forget
 with a 5-second timeout so a slow or unreachable SIEM can never block or
 fail the request that triggered the event. Built on a small `Forwarder`
@@ -1184,7 +1190,7 @@ PATCH /api/settings   # admin, checked strictly
 `GET` is a one-stop snapshot of what this server is actually running
 with -- storage backend (memstore/postgres, never the DSN), listen
 addresses, evaluator interval, and whether auth/OAuth (plus its
-role-map)/the vuln feed/Ask Muster (plus its model)/webhooks (plus a
+role-map)/the vuln feed/Ask TopoTrace (plus its model)/webhooks (plus a
 count)/SIEM forwarding (plus which backend) are configured. Never a
 secret value itself -- `MUSTER_AUTH_TOKEN`, `MUSTER_POSTGRES_DSN`,
 `MUSTER_AI_API_KEY`, the OAuth client secret, and the SIEM HEC token are
@@ -1194,7 +1200,7 @@ each. Exists because today all of this lives in CLI flags/env vars with
 nothing surfaced in the dashboard -- there was no single place to see
 server-level config at a glance.
 
-`PATCH` lets an admin credential turn SIEM forwarding and Ask Muster on,
+`PATCH` lets an admin credential turn SIEM forwarding and Ask TopoTrace on,
 off, or reconfigure them from the Settings tab, with no restart:
 `internal/siemforward.Dynamic` and `internal/aiquery.ConfigStore` are
 swappable at runtime, and cmd/muster always wires both in (even when
@@ -1217,7 +1223,7 @@ GET /api/history?days=30            # readonly
 GET /api/hosts/{host}/history       # readonly
 ```
 
-Every score in Muster used to be computed fresh per request and then
+Every score in TopoTrace used to be computed fresh per request and then
 forgotten -- a host was compliant or it wasn't, right now, with no way
 to say whether the fleet was getting better. The background evaluator
 (`internal/evaluator`) now records one `internal/history` point per host
@@ -1283,7 +1289,7 @@ GET /api/entities?types=host,cve&focus=<node id>&depth=2   # readonly
 GET /api/entities/kinds                                    # readonly
 ```
 
-Muster already knew every one of these relationships; what it could not
+TopoTrace already knew every one of these relationships; what it could not
 do was show them together. A host page listed its vulnerabilities, the
 Compliance tab listed software violations, another card listed risky
 extensions, and nothing answered "which hosts share this CVE," "what
@@ -1358,7 +1364,7 @@ go run ./tools/erd           # regenerate docs/data-model.{md,svg}
 go run ./tools/erd -check    # fail if either is out of date
 ```
 
-The static counterpart to the entity map: what Muster persists and how
+The static counterpart to the entity map: what TopoTrace persists and how
 those shapes reference each other. Generated, because a hand-drawn ERD
 is wrong within a month.
 
@@ -1493,7 +1499,7 @@ DELETE /api/enrollments/{id}     # admin
 GET    /api/agents/download/{platform}   # unauthenticated -- linux, macos, or windows
 ```
 
-Rather than Muster reaching out and pushing agents onto remote hosts
+Rather than TopoTrace reaching out and pushing agents onto remote hosts
 (which would mean this server holding SSH/WinRM credentials and running
 arbitrary remote code -- a materially bigger trust boundary than
 anything else here), "deploy an agent from the interface" means
@@ -1501,7 +1507,7 @@ anything else here), "deploy an agent from the interface" means
 mints a named, host-scoped, revocable token, the operator copies a
 one-line install command (or a mobile app's setup values) onto that
 host themselves, and the host reports in under its own steam from then
-on -- the same trust model the rest of Muster already uses for the
+on -- the same trust model the rest of TopoTrace already uses for the
 `-auth-token` credential, just narrowed to one host.
 
 An enrollment token is deliberately **narrower** than the master
@@ -1650,7 +1656,7 @@ since three gauges don't justify a dependency (and it keeps `go.mod`'s
 "nothing needs the network to build" story simple, see the vendoring
 note above). It reports:
 
-- `muster_hosts_total` -- total hosts Muster has ever received a report
+- `muster_hosts_total` -- total hosts TopoTrace has ever received a report
   from.
 - `muster_hosts_stale_total` -- hosts that haven't reported within the
   staleness threshold (`internal/policy.StaleAfter`, 24h) -- the same
@@ -1776,10 +1782,10 @@ And a fifth phase, aimed squarely at a security-company interview demo:
 built-in shadow AI detection layered onto the existing software
 allow/deny lists (`internal/allowlist.ShadowAIPatterns`, its own
 labeled category everywhere the dashboard shows allowlist violations),
-and "Ask Muster" (`POST /api/ask`, `internal/aiquery`, a governed-AI
+and "Ask TopoTrace" (`POST /api/ask`, `internal/aiquery`, a governed-AI
 natural-language query surface over the fleet data with every
 question+answer recorded to the audit log) -- see "Shadow AI
-detection" and "Ask Muster" above, and "Demo seed data" under "Running
+detection" and "Ask TopoTrace" above, and "Demo seed data" under "Running
 it." Unlike the fourth phase above, this one *was* built with a real
 Go toolchain on hand: every new and changed file passes `go build
 ./...` and `go vet ./...`, `go test ./...` still passes (including a
@@ -1790,7 +1796,7 @@ smoke-tested end to end against a real running server. The one piece
 that couldn't be verified live: `internal/aiquery`'s actual call to
 `api.anthropic.com` -- built with no real Anthropic API key in hand
 this pass, so only its request/response shapes and the "not
-configured" error path are proven; see "Ask Muster"'s own unverified
+configured" error path are proven; see "Ask TopoTrace"'s own unverified
 note above.
 
 And a sixth round: a fix for the Docs tab (a JSON key-casing mismatch
@@ -1841,7 +1847,7 @@ Deliberately not done yet, in rough priority order:
   thing to do before trusting any of it: `go build ./...`, `go vet
   ./...`, and a live run against a real host, a real (or sandboxed)
   cloud account, and a real identity provider.
-- **A live call through Ask Muster with a real Anthropic API key** --
+- **A live call through Ask TopoTrace with a real Anthropic API key** --
   see the fifth-phase paragraph above. `-ai-api-key`/`MUSTER_AI_API_KEY`
   needs to actually be set to something real before this pitch is
   proven end to end, not just reviewed.
@@ -1857,7 +1863,7 @@ Deliberately not done yet, in rough priority order:
   run for real, the same status the Windows/Ubuntu agents carried before
   they were verified against real hardware.
 - **Remote-push agent deployment** — enrollment is self-service
-  (a host reports in using a token an operator pastes onto it); Muster
+  (a host reports in using a token an operator pastes onto it); TopoTrace
   never holds SSH/WinRM credentials and never pushes an agent onto a
   remote host or runs code on your behalf. A deliberate scope boundary,
   not a gap to close later — see "Agent enrollment & the Agents tab".

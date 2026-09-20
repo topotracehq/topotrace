@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         app.js
- * @brief        Muster dashboard -- a small hash-routed SPA, no build step, no framework.
- * @project      Muster
+ * @brief        TopoTrace dashboard -- a small hash-routed SPA, no build step, no framework.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-14
@@ -11,7 +11,7 @@
  * Licensed under the MIT License -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Muster dashboard -- a small hash-routed SPA, no build step, no
+// TopoTrace dashboard -- a small hash-routed SPA, no build step, no
 // framework. Talks to the JSON API in internal/api over fetch().
 (() => {
   "use strict";
@@ -273,9 +273,9 @@
     return el(
       "div",
       { class: "empty-state" },
-      el("img", { src: "img/muster-mark.svg", alt: "Muster" }),
+      el("img", { src: "img/muster-mark.svg", alt: "TopoTrace" }),
       el("h2", { text: "No hosts reporting yet" }),
-      el("p", { text: "Muster is up and waiting for its first packet. Send one with the bundled demo agent:" }),
+      el("p", { text: "TopoTrace is up and waiting for its first packet. Send one with the bundled demo agent:" }),
       el("p", {}, el("code", { text: "go run ./cmd/demoagent -host demo01" })),
       el("p", { text: "or, running in Docker:" }),
       el("p", {}, el("code", { text: "docker compose --profile demo run --rm demoagent" }))
@@ -512,7 +512,7 @@
         "div",
         { class: "fact-card" },
         el("h2", { text: "Vulnerabilities" }),
-        el("p", { text: "No known-vulnerable packages found against Muster's curated dataset (not a live CVE feed)." })
+        el("p", { text: "No known-vulnerable packages found against TopoTrace's curated dataset (not a live CVE feed)." })
       );
     }
     const list = el("ul", { class: "vuln-list" });
@@ -1075,7 +1075,7 @@
     // the fields above get filled in for review. The draft is never
     // created on its own; Create is still the operator's click.
     const descInput = el("input", { type: "text", class: "wide", placeholder: "e.g. flag prod hosts below 80 posture and restart nginx after I approve" });
-    const draftBtn = el("button", { type: "button", text: "Draft with Ask Muster" });
+    const draftBtn = el("button", { type: "button", text: "Draft with Ask TopoTrace" });
     const draftMsg = el("span", { class: "save-msg" });
     draftBtn.addEventListener("click", async () => {
       const description = descInput.value.trim();
@@ -1092,7 +1092,7 @@
         remediateSelect.value = d.auto_remediate || "";
         remediateArgInput.value = d.auto_remediate_arg || "";
         approvalBox.checked = !!d.require_approval;
-        draftMsg.textContent = `${d.source === "heuristic" ? "Drafted by keyword rules (Ask Muster not configured)" : "Drafted by Ask Muster"}: ${d.explanation}${r.validation_error ? ` -- needs a fix: ${r.validation_error}` : ""}. Review the fields, then Create.`;
+        draftMsg.textContent = `${d.source === "heuristic" ? "Drafted by keyword rules (Ask TopoTrace not configured)" : "Drafted by Ask TopoTrace"}: ${d.explanation}${r.validation_error ? ` -- needs a fix: ${r.validation_error}` : ""}. Review the fields, then Create.`;
       } catch (err) {
         draftMsg.textContent = `Error: ${err.message}`;
       }
@@ -1411,7 +1411,7 @@
       const reportWindow = window.open(url, "_blank");
       if (!reportWindow) {
         URL.revokeObjectURL(url);
-        throw new Error("Your browser blocked the report window. Allow pop-ups for Muster and try again.");
+        throw new Error("Your browser blocked the report window. Allow pop-ups for TopoTrace and try again.");
       }
     } else {
       const a = el("a", { href: url, download: filename });
@@ -1435,7 +1435,7 @@
     };
     const today = new Date().toISOString().slice(0, 10);
     const summaryOut = el("div", { class: "exec-summary" });
-    const summaryBtn = el("button", { type: "button", text: "Executive summary (Ask Muster)" });
+    const summaryBtn = el("button", { type: "button", text: "Executive summary (Ask TopoTrace)" });
     summaryBtn.addEventListener("click", async () => {
       msg.textContent = "Writing…";
       summaryOut.replaceChildren();
@@ -1444,7 +1444,7 @@
         msg.textContent = "";
         const paras = r.summary.text.split(/\n\s*\n/).map((p) => el("p", { text: p }));
         summaryOut.replaceChildren(
-          el("p", { class: "meta", text: r.summary.source === "template" ? "Written from a template because Ask Muster isn't configured (set an API key on the Settings page for a model-written summary)." : "Written by Ask Muster from the same data as the executive report; recorded to the audit trail." }),
+          el("p", { class: "meta", text: r.summary.source === "template" ? "Written from a template because Ask TopoTrace isn't configured (set an API key on the Settings page for a model-written summary)." : "Written by Ask TopoTrace from the same data as the executive report; recorded to the audit trail." }),
           ...paras);
       } catch (err) {
         msg.textContent = `Error: ${err.message}`;
@@ -1555,7 +1555,7 @@
   // scannerImportCard is the Compliance tab's third-party scanner
   // import: a Nessus/Qualys/generic CSV export is read in the browser
   // and POSTed to /api/scanner-import, which matches each finding to a
-  // Muster host by name or IP and stores it as a scanner_findings fact.
+  // TopoTrace host by name or IP and stores it as a scanner_findings fact.
   function scannerImportCard() {
     const file = el("input", { type: "file", accept: ".csv,text/csv" });
     const format = el("select", {},
@@ -1581,7 +1581,7 @@
         }
         const un = Object.keys(d.unmatched || {});
         if (un.length) {
-          parts.push(el("p", { class: "meta", text: `${un.length} scanner host(s) not enrolled in Muster (nothing stored for them): ${un.slice(0, 12).join(", ")}` }));
+          parts.push(el("p", { class: "meta", text: `${un.length} scanner host(s) not enrolled in TopoTrace (nothing stored for them): ${un.slice(0, 12).join(", ")}` }));
         }
         results.replaceChildren(...parts);
       } catch (err) {
@@ -1590,7 +1590,7 @@
       }
     });
     return el("div", { class: "fact-card" }, el("h2", { text: "Import scanner findings" }),
-      el("p", { class: "meta", text: "Muster's own vulnerability view matches installed package versions against a static dataset. A real program already has a scanner; this imports its CSV export so those findings land on the same host records and flow into compliance, risk, and the summary. Findings are matched by hostname, short hostname, or an IPv4 address from the host's network_interfaces fact. Admin only." }),
+      el("p", { class: "meta", text: "TopoTrace's own vulnerability view matches installed package versions against a static dataset. A real program already has a scanner; this imports its CSV export so those findings land on the same host records and flow into compliance, risk, and the summary. Findings are matched by hostname, short hostname, or an IPv4 address from the host's network_interfaces fact. Admin only." }),
       form, results);
   }
 
@@ -1924,9 +1924,9 @@
           `Token:       ${token}`,
           "",
           enrollment.platform === "android"
-            ? "Enter these three values in the Muster Android app's setup screen (agent/android/ -- build it in Android Studio first)."
+            ? "Enter these three values in the TopoTrace Android app's setup screen (agent/android/ -- build it in Android Studio first)."
             : enrollment.platform === "chromeos"
-            ? "Push these three values as chrome.storage.managed policy (serverUrl/hostName/token) for the Muster extension via the Google Admin console -- see agent/chromeos/README.md."
+            ? "Push these three values as chrome.storage.managed policy (serverUrl/hostName/token) for the TopoTrace extension via the Google Admin console -- see agent/chromeos/README.md."
             : "Enter these three values while building the Shortcuts automation in agent/ios/README.md.",
         ].join("\n");
     }
@@ -1956,7 +1956,7 @@
   // copyToClipboard tries the modern Clipboard API first, then falls back
   // to the old execCommand("copy") trick via a hidden textarea.
   // navigator.clipboard is only defined in secure contexts (https, or
-  // localhost) -- Muster is routinely reached over plain
+  // localhost) -- TopoTrace is routinely reached over plain
   // http://<lan-ip>:8080 (see the dashboard's own address bar), where
   // navigator.clipboard is undefined, not merely rejecting, so the old
   // try/await/catch here never even reached the catch block; it threw
@@ -2070,7 +2070,7 @@
 
   // airgapImportCard is the paste-in counterpart to a host running
   // muster-agent.sh/.ps1 with --airgap-out on a machine with no route to
-  // Muster at all: carry the JSON blob it produces here by hand (USB
+  // TopoTrace at all: carry the JSON blob it produces here by hand (USB
   // drive, retyped, a QR scan -- see agent/airgap/README.md) and submit
   // it from wherever the dashboard itself is reachable. No file upload,
   // just a text box -- that's the whole point of a format small/plain
@@ -2111,7 +2111,7 @@
     return el(
       "div", { class: "fact-card" },
       el("h2", { text: "Air-gapped import" }),
-      el("p", { class: "meta", text: "Paste the JSON blob produced by running an agent script with --airgap-out on a host that has no network route to Muster." }),
+      el("p", { class: "meta", text: "Paste the JSON blob produced by running an agent script with --airgap-out on a host that has no network route to TopoTrace." }),
       form
     );
   }
@@ -2227,7 +2227,7 @@
   // settingsCardWithForm renders a settingsTable's rows plus an editor
   // form beneath them, in one fact-card -- same shape settingsTable
   // itself produces, just with a form appended, so the SIEM Forwarding
-  // and Ask Muster sections read the same as the other four (General,
+  // and Ask TopoTrace sections read the same as the other four (General,
   // Authentication, Vulnerability feed, Webhooks) but are actually
   // editable.
   function settingsCardWithForm(title, rows, form) {
@@ -2318,7 +2318,7 @@
     return form;
   }
 
-  // askMusterEditor is the Ask Muster card's edit form -- PATCH
+  // askMusterEditor is the Ask TopoTrace card's edit form -- PATCH
   // /api/settings, live (no restart) via internal/aiquery.ConfigStore,
   // persisted via internal/settingsstore when the server was started
   // with a data dir. Unlike the SIEM form, the model field is
@@ -2388,7 +2388,7 @@
           }
           if (!model) { msg.textContent = "Error: a model name is required for this backend"; return; }
         } else if (!key && (switching || !s.ask_muster.configured)) {
-          msg.textContent = "Error: an API key is required to enable Ask Muster";
+          msg.textContent = "Error: an API key is required to enable Ask TopoTrace";
           return;
         }
         if (key) body.ai_api_key = key;
@@ -2448,7 +2448,7 @@
       ["Interval", s.vuln_feed.interval || null],
     ]);
 
-    const askMuster = settingsCardWithForm("Ask Muster", [
+    const askMuster = settingsCardWithForm("Ask TopoTrace", [
       ["Configured", boolLabel(s.ask_muster.configured)],
       ["Backend", s.ask_muster.backend || null],
       ["Model", s.ask_muster.model || null],
@@ -2929,7 +2929,7 @@
   }
 
   // askHistory persists across navigation (module-level, not per-render)
-  // so switching tabs and coming back to Ask Muster doesn't lose the
+  // so switching tabs and coming back to Ask TopoTrace doesn't lose the
   // conversation -- purely client-side display state, not synced with
   // the server (the server's own record of every question+answer is the
   // audit log, GET /api/audit, which is the source of truth).
@@ -2939,14 +2939,14 @@
     return el(
       "div", { class: "ask-turn" },
       el("div", { class: "ask-question" }, el("strong", { text: "You: " }), question),
-      el("div", { class: "ask-answer" }, el("strong", { text: "Muster: " }), answerNode)
+      el("div", { class: "ask-answer" }, el("strong", { text: "TopoTrace: " }), answerNode)
     );
   }
 
   async function showAskMuster() {
     const heading = el(
       "div", { class: "section-heading" },
-      el("h1", { text: "Ask Muster" }),
+      el("h1", { text: "Ask TopoTrace" }),
       el("span", { class: "meta", text: "Natural-language questions over your real fleet data -- every question and answer is recorded to the audit log (governed AI, not a generic chatbot)." })
     );
 

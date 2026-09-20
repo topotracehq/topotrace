@@ -1,6 +1,6 @@
 # Dashboard navigation and document reader
 
-Muster's dashboard uses a shared visual system for navigation, forms, evidence
+TopoTrace's dashboard uses a shared visual system for navigation, forms, evidence
 tables, reports, and documentation. This interface refresh is included in release
 2026.09.18.5. It changes presentation and navigation, not permissions or the scope
 of collected data.
@@ -13,7 +13,7 @@ The sidebar keeps page names visible and groups them by task:
 |---|---|---|
 | Overview | Fleet, Hosts, Visibility, Entity map | Understand inventory, reporting, and relationships |
 | Operations | Work queue, Board, Compliance, Agents | Prioritize findings, organize devices, and manage enrollment |
-| Workspace | Ask Muster, Tools, Docs, Settings | Ask evidence questions and manage your workspace |
+| Workspace | Ask TopoTrace, Tools, Docs, Settings | Ask evidence questions and manage your workspace |
 
 The header shows your current section. Inventory search appears on Hosts. Account
 opens the existing token controls; this is the same authentication mechanism as
@@ -53,7 +53,7 @@ unchanged.
 
 ## Update an existing installation
 
-Install the new server binary and restart Muster, then refresh the browser with
+Install the new server binary and restart TopoTrace, then refresh the browser with
 Ctrl+F5. The dashboard and its documentation are embedded in that binary; copying
 the source files alone does not update the running application. Existing URLs,
 saved views, credentials, and workflow records continue to work.

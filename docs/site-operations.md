@@ -1,6 +1,6 @@
 # Discovery & remote deployment
 
-Muster supports site-local workers for scheduled TCP discovery and staged installation of agents on new Linux or Windows hosts. Workers poll the central API; the dashboard does not need inbound administrative access to each site.
+TopoTrace supports site-local workers for scheduled TCP discovery and staged installation of agents on new Linux or Windows hosts. Workers poll the central API; the dashboard does not need inbound administrative access to each site.
 
 ## Register a worker
 
@@ -33,7 +33,7 @@ Example configuration (replace every example destination and path):
 }
 ```
 
-The API connection requires HTTPS with normal certificate validation. `allow_http: true` is an explicit option for a protected lab network; bearer credentials would then travel without transport encryption. Agent reports use the existing Muster ingest protocol; protect that path with your existing private network or TLS transport. The worker checks both its local address allowlist and its pinned ingest destination before installation.
+The API connection requires HTTPS with normal certificate validation. `allow_http: true` is an explicit option for a protected lab network; bearer credentials would then travel without transport encryption. Agent reports use the existing TopoTrace ingest protocol; protect that path with your existing private network or TLS transport. The worker checks both its local address allowlist and its pinned ingest destination before installation.
 
 ## Discovery workflow
 
@@ -66,7 +66,7 @@ Installation credentials remain local. Per-host enrollment tokens are generated 
 
 A lost or expired lease becomes **uncertain** and is never automatically rerun. A worker retries delivery of its result, not execution of the install. A failed job stops the rollout. Cancellation stops future dispatch only and is refused while an operation is leased. It does not uninstall an agent or revoke its enrollment. Revoke enrollment credentials separately in Agents when necessary.
 
-If installation partially completed, inspect the target and reconcile it manually. This version intentionally has no automated retry/reinstall; do not create replacement jobs to bypass an uncertain state. Cancelling a job releases reservations only for targets that have never received an enrollment token, so a corrected preflight-only job can be drafted again. Targets with dispatched enrollment credentials remain reserved. Back up the full server store: jobs, worker credential hashes, and sightings are not part of the limited workspace configuration export. Run one active Muster server per store; multi-replica job claiming needs transactional storage before it is supported.
+If installation partially completed, inspect the target and reconcile it manually. This version intentionally has no automated retry/reinstall; do not create replacement jobs to bypass an uncertain state. Cancelling a job releases reservations only for targets that have never received an enrollment token, so a corrected preflight-only job can be drafted again. Targets with dispatched enrollment credentials remain reserved. Back up the full server store: jobs, worker credential hashes, and sightings are not part of the limited workspace configuration export. Run one active TopoTrace server per store; multi-replica job claiming needs transactional storage before it is supported.
 
 ## Permissions and endpoints
 

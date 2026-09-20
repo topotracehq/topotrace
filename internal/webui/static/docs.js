@@ -69,7 +69,7 @@ window.MusterDocs = function ({api, el, app}) {
       const headings=[...body.querySelectorAll("h3")];
       if(headings.length){const links=headings.map((h,i)=>{h.id=`doc-section-${i}`;const link=el("a",{href:`#${h.id}`,text:h.textContent});link.addEventListener("click",e=>{e.preventDefault();h.scrollIntoView({block:"start"});h.tabIndex=-1;h.focus({preventScroll:true});});return el("li",{},link);});const toc=el("details",{class:"docs-toc"},el("summary",{text:"On this page"}),el("ul",{},...links));body.querySelector("h2")?.after(toc);}
       if(selected.name==="getting-started"){
-        const flow=el("div",{class:"docs-flow","aria-label":"Muster workflow"},...[['01','Collect evidence','Agents and imports report device facts.'],['02','Prioritize work','Review changes, coverage, and findings.'],['03','Verify outcomes','Assign work and check newer evidence.']].map(([step,title,description])=>el("div",{},el("span",{text:step}),el("strong",{text:title}),el("p",{text:description}))));body.querySelector(".docs-toc")?.after(flow);
+        const flow=el("div",{class:"docs-flow","aria-label":"TopoTrace workflow"},...[['01','Collect evidence','Agents and imports report device facts.'],['02','Prioritize work','Review changes, coverage, and findings.'],['03','Verify outcomes','Assign work and check newer evidence.']].map(([step,title,description])=>el("div",{},el("span",{text:step}),el("strong",{text:title}),el("p",{text:description}))));body.querySelector(".docs-toc")?.after(flow);
       }
     }catch(e){if(root.isConnected)body.replaceChildren(el("p",{text:e.message,role:"alert"}));}
   }

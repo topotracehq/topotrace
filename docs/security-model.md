@@ -1,6 +1,6 @@
 # Security model
 
-Muster's authorization model layers three kinds of credential, each
+TopoTrace's authorization model layers three kinds of credential, each
 narrower than the last, and access controls now extend that with an
 optional OAuth2/OIDC login for humans using the dashboard.
 

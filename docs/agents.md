@@ -29,7 +29,7 @@ sample presentation of these states.
 
 ## Tracked enrollment
 
-Muster never pushes an agent onto a remote host or holds credentials to
+TopoTrace never pushes an agent onto a remote host or holds credentials to
 log into one -- "deploy from the interface" means **self-service,
 tracked enrollment**: the **Agents** tab mints a named, host-scoped,
 revocable token; you paste the install command it gives you onto the
@@ -76,14 +76,14 @@ record (IP, open ports, best-guess service banners, first/last seen)
 meant to answer "what's on this network that isn't inventoried yet,"
 not to carry full fact history. Promoting a discovered asset into a
 real enrolled host is a manual step (create an enrollment for it,
-install an agent) -- Muster doesn't do that automatically.
+install an agent) -- TopoTrace doesn't do that automatically.
 
 ## Air-gapped hosts
 
 `agent/airgap/`'s tool runs the exact same local fact-collection
 commands the Linux/macOS/Windows scripts do, then gzip+base64-encodes
 the result instead of sending it over a network the host doesn't have.
-Carry that text blob to a machine that *can* reach Muster (a USB
+Carry that text blob to a machine that *can* reach TopoTrace (a USB
 stick, retyping it, whatever your air-gap's sneakernet allows) and
 paste it into the Agents tab's **Air-gapped import** panel, or `POST`
 it directly to `/api/airgap-report`. There's no image/QR decoding on
@@ -109,12 +109,12 @@ implements just enough of its cloud's auth scheme by hand:
 
 Each one prints what it found to stdout/stderr and, unless run with
 `-dry-run`, POSTs a report to `-server`'s `/api/cloud-report` using
-`-token`. That token must be Muster's **server master token**, not a
+`-token`. That token must be TopoTrace's **server master token**, not a
 per-host enrollment token -- see "Tracked enrollment" above for why.
 Credentials the agent itself needs (AWS keys, the Azure service
 principal secret, the GCP service-account JSON) belong to that cloud
-provider, not to Muster, and are supplied via flags or the provider's
-usual environment variables; Muster never sees or stores them.
+provider, not to TopoTrace, and are supplied via flags or the provider's
+usual environment variables; TopoTrace never sees or stores them.
 
 ```
 go run ./agent/aws   -region us-east-1 -server http://localhost:8080 -token <master-token>

@@ -30,7 +30,7 @@ next steps, and the copyright notice. The logo is embedded so saved reports work
 offline. Use the report's **Print / save as PDF** button or browser print command.
 Reports are evidence snapshots, not a certification or guarantee of security.
 
-The footer's **About Muster** link shows the release version, build revision,
+The footer's **About TopoTrace** link shows the release version, build revision,
 company information, and support guidance. No support email address is invented;
 contact the administrator of your deployment.
 

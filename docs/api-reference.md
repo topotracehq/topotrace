@@ -160,7 +160,7 @@ verification endpoints, see **Work Queue & Governed Changes** in Docs.
 - `POST /api/discover-report` -- ingest a network-discovery sweep's
   results as `DiscoveredAsset` records.
 
-## Ask Muster
+## Ask TopoTrace
 
 - `POST /api/ask` -- `{"question": "..."}`, `readonly` or higher.
 - `POST /api/ask/draft-policy` -- `{"description": "..."}` in plain
@@ -172,14 +172,14 @@ verification endpoints, see **Work Queue & Governed Changes** in Docs.
   operator reviews and posts it. `readonly`; audited as `ask-muster`.
 - `POST /api/ask/summary` -- a four-paragraph plain-English executive
   summary of the fleet from the same data as the executive report,
-  written by Ask Muster or (no key) filled from a template; `source`
+  written by Ask TopoTrace or (no key) filled from a template; `source`
   says which. `readonly`; audited.
   Answers a natural-language question about the fleet using the
   Anthropic Messages API, grounded in a compact JSON snapshot built
   from the Store (never a live model call with no context). Returns
   `503` with a clear message if `-ai-api-key`/`MUSTER_AI_API_KEY` isn't
   set. Every question and answer (truncated) is recorded to the audit
-  log as an `ask-muster` entry. See the Ask Muster doc page.
+  log as an `ask-muster` entry. See the Ask TopoTrace doc page.
 
 ## Fleet, audit, keys, auth
 
@@ -272,8 +272,8 @@ verification endpoints, see **Work Queue & Governed Changes** in Docs.
   IPv4 address from the host's `network_interfaces` fact, then stored
   as a `scanner_findings` fact per host so they merge into the same
   compliance checks, risk factors, summary counts, CSV export and Ask
-  Muster context as Muster's own package-version matches, tagged with
-  the scanner they came from. Findings for hosts Muster does not know
+  TopoTrace context as TopoTrace's own package-version matches, tagged with
+  the scanner they came from. Findings for hosts TopoTrace does not know
   come back under `unmatched` and are not stored. One import replaces
   that host's previous `scanner_findings` fact. See the Scanner Import
   doc page.
@@ -289,15 +289,15 @@ verification endpoints, see **Work Queue & Governed Changes** in Docs.
   strict, audited as `notification-test`.
 - `GET /api/settings` -- server-level configuration snapshot (`admin`):
   storage backend, listen addresses, evaluator interval, and whether
-  auth/OAuth/the vuln feed/Ask Muster/webhooks/SIEM forwarding are
+  auth/OAuth/the vuln feed/Ask TopoTrace/webhooks/SIEM forwarding are
   configured, with non-secret metadata (mode, counts, intervals, model
   name, OAuth role-map) for each -- never a token, DSN, API key, or
   webhook/OAuth URL itself.
 - `PATCH /api/settings` -- live-reconfigure SIEM forwarding and/or Ask
-  Muster (`admin`, always checked strictly -- this endpoint refuses to
+  TopoTrace (`admin`, always checked strictly -- this endpoint refuses to
   run with no `-auth-token` set, unlike the `GET`). Takes effect
   immediately, no restart: SIEM forwarding is backed by a
-  `siemforward.Dynamic` and Ask Muster by an `aiquery.ConfigStore`,
+  `siemforward.Dynamic` and Ask TopoTrace by an `aiquery.ConfigStore`,
   both swappable at runtime. Also persisted to
   `<data-dir>/settings-overrides.json` (0600) so the change survives a
   restart, unless the process was started with a `-siem-hec-*` /
@@ -328,8 +328,8 @@ verification endpoints, see **Work Queue & Governed Changes** in Docs.
     `http://your-host:11434/v1` for a local Ollama. Either the `/v1`
     root or the full `/v1/chat/completions` URL is accepted. Reported
     back redacted to scheme and host, and only while that backend is
-    selected. See the Ask Muster doc page.
-  - `ai_disable` -- `true` turns Ask Muster off.
+    selected. See the Ask TopoTrace doc page.
+  - `ai_disable` -- `true` turns Ask TopoTrace off.
 
   Returns the same shape as `GET /api/settings`, reflecting the change.
   Every accepted edit is written to the audit trail (`settings_updated`),
@@ -357,7 +357,7 @@ verification endpoints, see **Work Queue & Governed Changes** in Docs.
   findings. `-public-status=false` turns it off.
 - `GET /metrics` -- Prometheus text format.
 - `GET /#/...` -- the web dashboard itself (Hosts, Board, Fleet,
-  Compliance, Ask Muster, Agents, Docs).
+  Compliance, Ask TopoTrace, Agents, Docs).
 ## Fleet workspace and site operations
 
 The new [fleet workspace API](fleet-workspace.md) covers overview, scoped

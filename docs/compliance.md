@@ -19,7 +19,7 @@ violations already leave.
 
 ## Shadow AI detection
 
-Alongside operator-defined software rules, Muster ships a built-in,
+Alongside operator-defined software rules, TopoTrace ships a built-in,
 pre-seeded ruleset (`internal/allowlist.ShadowAIPatterns`) flagging
 known AI desktop apps, CLI tools, and browser extensions
 found in a host's `installed_software` fact. No setup
@@ -39,7 +39,7 @@ Shadow AI detections show up as their own labeled `shadow_ai` field at
 `GET /api/hosts/{host}/software-violations` (next to, never mixed
 into, the generic `violations` list), as their own card on a host's
 detail page, as a `hosts_with_shadow_ai`/`total_shadow_ai_findings`
-pair on `GET /api/summary` and the Fleet tab, and as their own Muster
+pair on `GET /api/summary` and the Fleet tab, and as their own TopoTrace
 Baseline compliance check (`no-shadow-ai`).
 
 ## Browser extension inventory
@@ -70,13 +70,13 @@ operator-maintained sanctioned-extensions list synced from a feed.
 Findings surface at `GET /api/hosts/{host}/browser-extensions`, as a
 card on the host page, as `hosts_with_risky_extensions` /
 `total_risky_extensions` on `GET /api/summary` and a Fleet tile, as a
-factor in the blended risk score, and as the Muster Baseline check
+factor in the blended risk score, and as the TopoTrace Baseline check
 `no-risky-browser-extensions`.
 
 ## Compliance frameworks
 
 A `compliance.Framework` is a small, fixed set of named checks scored
-as a percentage. **Muster Baseline**, the one built in today, checks:
+as a percentage. **TopoTrace Baseline**, the one built in today, checks:
 reporting recently (not stale), a posture score of at least 70, no
 known-vulnerable packages, no denied/unauthorized software, a
 vendor-supported OS (`internal/eol`), no expired or expiring server
@@ -85,7 +85,7 @@ above), and no unauthorized AI tools detected (shadow AI, see above).
 
 This is explicitly **not** a certified mapping to CIS Benchmarks,
 SOC 2, PCI DSS, or any other real standard -- it's built entirely from
-signals Muster already computes for real, the same "small, honest
+signals TopoTrace already computes for real, the same "small, honest
 illustration" spirit as the static vulnerability dataset. Treat it as
 the foundation a real control mapping could sit on, not a substitute
 for one.

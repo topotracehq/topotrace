@@ -1,0 +1,11 @@
+/* TopoTrace identity. Legacy --mu-* names remain compatible with feature styles. */
+:root{--mu-black:#0b1f33;--mu-black-soft:#163b63;--mu-page-bg:#f4f7fa;--mu-text:#0b1f33;--mu-text-muted:#536779;--mu-border:#d9e2eb;--mu-yellow:#f97316;--mu-yellow-dark:#c65309;--mu-accent:#9a3e08;--mu-accent-soft:#fff2e8}
+.sidebar{background:linear-gradient(165deg,#163b63 0%,#0b1f33 38%)}
+.brand{padding-left:0;padding-right:0;gap:8px}
+.brand-mark{width:40px;height:44px;flex:none}
+.brand-word{font-size:23px;letter-spacing:-.045em}
+.brand-trace{color:#f97316}
+.brand-tagline{font-size:9px;letter-spacing:0;color:#c7dce9;white-space:normal}
+.view-tabs a.active{background:#f973161a;border-left-color:#f97316}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline-color:#167c8a}
+.product-tabs a[aria-current="page"]{background:var(--mu-accent);border-color:var(--mu-accent)}

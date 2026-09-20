@@ -30,9 +30,9 @@ window.MusterShell = (() => {
     let selected=null;
     document.querySelectorAll(".view-tabs a").forEach(a=>{const active=a.dataset.view===key;a.classList.toggle("active",active);if(active){a.setAttribute("aria-current","page");selected=a;}else a.removeAttribute("aria-current");});
     const extra={collections:"Collections",compare:"Compare",integrations:"Integration health",onboarding:"Getting started"};
-    const title=key==="about"?"About Muster":extra[key]||selected?.textContent.trim()||"Hosts";
+    const title=key==="about"?"About TopoTrace":extra[key]||selected?.textContent.trim()||"Hosts";
     document.getElementById("nav-current").textContent=title;
     document.getElementById("nav-section").textContent=selected?.closest(".nav-section").querySelector(".nav-label").textContent||"Workspace";
-    document.title=`${title} · Muster`;close();
+    document.title=`${title} · TopoTrace`;close();
   }};
 })();

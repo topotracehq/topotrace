@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         embed.go
- * @brief        Package docs embeds Muster's in-app documentation pages, so the web dashboard's Docs tab (GET /api/docs, GET /api/docs/{name}) can serve them straight from the compiled binary -- the same "one source of truth, no separate copy that can d...
- * @project      Muster
+ * @brief        Package docs embeds TopoTrace's in-app documentation pages, so the web dashboard's Docs tab (GET /api/docs, GET /api/docs/{name}) can serve them straight from the compiled binary -- the same "one source of truth, no separate copy that can d...
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17
@@ -11,7 +11,7 @@
  * Licensed under the MIT License -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package docs embeds Muster's in-app documentation pages, so the web
+// Package docs embeds TopoTrace's in-app documentation pages, so the web
 // dashboard's Docs tab (GET /api/docs, GET /api/docs/{name}) can serve
 // them straight from the compiled binary -- the same "one source of
 // truth, no separate copy that can drift" reasoning agent/embed.go
@@ -47,6 +47,6 @@ var Index = []struct {
 	{"scanner-import", "Scanner Import"},
 	{"entity-graph", "Entity Map"},
 	{"data-model", "Data Model"},
-	{"ask-muster", "Ask Muster"},
+	{"ask-muster", "Ask TopoTrace"},
 	{"siem-integration", "SIEM Integration"},
 }

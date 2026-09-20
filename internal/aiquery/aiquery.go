@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         aiquery.go
- * @brief        Package aiquery is "Ask Muster": a natural-language query surface over the fleet data Muster already collects, backed by the Anthropic Messages API.
- * @project      Muster
+ * @brief        Package aiquery is "Ask TopoTrace": a natural-language query surface over the fleet data TopoTrace already collects, backed by the Anthropic Messages API.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17
@@ -11,8 +11,8 @@
  * Licensed under the MIT License -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package aiquery is "Ask Muster": a natural-language query surface
-// over the fleet data Muster already collects, backed by the Anthropic
+// Package aiquery is "Ask TopoTrace": a natural-language query surface
+// over the fleet data TopoTrace already collects, backed by the Anthropic
 // Messages API. Deliberately narrow, matching the rest of this
 // project's outbound-integration style (internal/vuln's OSV.dev client,
 // internal/oauth's token exchange): stdlib net/http only, no SDK, one
@@ -45,7 +45,7 @@ const apiURL = "https://api.anthropic.com/v1/messages"
 const anthropicVersion = "2023-06-01"
 
 // Config is the operator-supplied Anthropic credential/model for Ask
-// Muster -- see cmd/muster's -ai-api-key flag / MUSTER_AI_API_KEY env
+// TopoTrace -- see cmd/muster's -ai-api-key flag / MUSTER_AI_API_KEY env
 // var. A zero-value Config (empty APIKey) means the feature is
 // configured off: Ask returns ErrNotConfigured rather than making a
 // request with no credential or panicking on a nil client.
@@ -77,7 +77,7 @@ const (
 // same backend reaches Hugging Face's Inference Providers router,
 // a local LM Studio or Ollama, and a self-hosted vLLM or TGI, by
 // changing only BaseURL. That matters for this product specifically --
-// Ask Muster sends real fleet context (host names, addresses,
+// Ask TopoTrace sends real fleet context (host names, addresses,
 // installed software, CVEs) with every question, and plenty of
 // operators will not send that to anyone else's API. A model they host
 // themselves is not a lesser option here, it is the point.
@@ -112,10 +112,10 @@ var ErrNotConfigured = errors.New("aiquery: no model backend configured (set -ai
 
 // systemPrompt frames the model's role and, critically, tells it to
 // answer only from the supplied fleet context -- the "governed" half of
-// "governed AI": Ask Muster is meant to answer questions about this
+// "governed AI": Ask TopoTrace is meant to answer questions about this
 // fleet's real, current data, not free-associate about security topics
 // in general or invent hosts/findings that aren't in the snapshot.
-const systemPrompt = `You are "Ask Muster," a governed-AI assistant built into the Muster fleet inventory and compliance-posture platform. You are given a compact JSON snapshot of the operator's real fleet data below (hosts, posture scores, vulnerability findings, software/shadow-AI violations, discovered-but-unmanaged assets, and policy rules) plus a question. Answer using ONLY that snapshot. Be concise and specific -- cite host names, scores, package names, and CVE IDs when relevant. If the snapshot doesn't contain enough information to answer, say so plainly rather than guessing or inventing data. This is a security/compliance tool: every question and answer is recorded to Muster's audit log, so keep answers factual and grounded in the provided context.`
+const systemPrompt = `You are "Ask TopoTrace," a governed-AI assistant built into the TopoTrace fleet inventory and compliance-posture platform. You are given a compact JSON snapshot of the operator's real fleet data below (hosts, posture scores, vulnerability findings, software/shadow-AI violations, discovered-but-unmanaged assets, and policy rules) plus a question. Answer using ONLY that snapshot. Be concise and specific -- cite host names, scores, package names, and CVE IDs when relevant. If the snapshot doesn't contain enough information to answer, say so plainly rather than guessing or inventing data. This is a security/compliance tool: every question and answer is recorded to TopoTrace's audit log, so keep answers factual and grounded in the provided context.`
 
 // Ask sends question, plus a compact JSON encoding of fleetContext, to
 // the configured model API and returns its text answer.

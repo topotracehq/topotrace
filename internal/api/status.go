@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         status.go
- * @brief        Part of the Muster api module.
- * @project      Muster
+ * @brief        Part of the TopoTrace api module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18
@@ -96,7 +96,7 @@ func (s *Server) buildStatus(r *http.Request) statusData {
 		{"Notifications", on(s.Webhooks.Count() > 0)},
 		{"SIEM forwarding", on(s.SIEMForwarder != nil && s.SIEMForwarder.Configured())},
 		{"Vulnerability feed", on(s.VulnFeed != nil)},
-		{"Ask Muster", on(s.AIQuery != nil && s.AIQuery.Get().Enabled())},
+		{"Ask TopoTrace", on(s.AIQuery != nil && s.AIQuery.Get().Enabled())},
 	}
 	switch {
 	case d.TotalHosts > 0 && d.AvgCompliance < 50:
@@ -145,7 +145,7 @@ var statusTemplate = template.Must(template.New("status").Funcs(template.FuncMap
 		return t.UTC().Format("Jan 2, 2006 15:04 UTC")
 	},
 }).Parse(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Muster status</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><title>TopoTrace status</title><meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   body { font: 15px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #23272a; background: #f4f3ef; margin: 0; }
   main { max-width: 720px; margin: 40px auto; padding: 0 20px; }
@@ -158,9 +158,9 @@ var statusTemplate = template.Must(template.New("status").Funcs(template.FuncMap
   li { display: flex; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid #e4e1d8; } li:last-child { border-bottom: none; }
   .on { color: #1e6b32; font-weight: 600; } .off { color: #6b7278; }
   footer { margin-top: 28px; font-size: 12px; color: #6b7278; }
-  body{background:#f4f6f8;color:#233440;line-height:1.65}main{max-width:860px;background:white;border:1px solid #dfe5e9;border-top:3px solid #9e2435;border-radius:12px;padding:32px;margin:40px auto}h1{font-size:28px;letter-spacing:-.035em}.grid{gap:14px}.stat{padding:20px;border-color:#dfe5e9;background:#f8fafb}.stat b{font-size:30px;letter-spacing:-.03em}.overall{margin:24px 0;border-radius:8px}.meta,footer{color:#60717d}ul{border-color:#dfe5e9}li{gap:16px;flex-wrap:wrap;padding:14px 18px}footer{border-top:1px solid #dfe5e9;padding-top:18px}@media(max-width:600px){main{margin:16px;padding:22px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  body{background:#f4f6f8;color:#233440;line-height:1.65}main{max-width:860px;background:white;border:1px solid #dfe5e9;border-top:3px solid #f97316;border-radius:12px;padding:32px;margin:40px auto}h1{font-size:28px;letter-spacing:-.035em}.grid{gap:14px}.stat{padding:20px;border-color:#dfe5e9;background:#f8fafb}.stat b{font-size:30px;letter-spacing:-.03em}.overall{margin:24px 0;border-radius:8px}.meta,footer{color:#60717d}ul{border-color:#dfe5e9}li{gap:16px;flex-wrap:wrap;padding:14px 18px}footer{border-top:1px solid #dfe5e9;padding-top:18px}@media(max-width:600px){main{margin:16px;padding:22px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style></head><body><main>
-<h1>Muster fleet status</h1>
+<h1>TopoTrace fleet status</h1>
 <div class="meta">Generated {{date .GeneratedAt}}{{if .Uptime}} · server up {{.Uptime}}{{end}} · refreshes every minute</div>
 <div class="overall {{.Overall}}">{{if eq .Overall "operational"}}All systems operational{{else if eq .Overall "degraded"}}Degraded -- see below{{else}}Needs attention{{end}}</div>
 <div class="grid">
@@ -175,6 +175,6 @@ var statusTemplate = template.Must(template.New("status").Funcs(template.FuncMap
 {{range .Integrations}}<li><span>{{.Name}}</span><span class="{{.Status}}">{{if eq .Status "on"}}operational{{else}}not configured{{end}}</span></li>{{end}}
 <li><span>Last evaluation run</span><span>{{date .LastEvaluated}}</span></li>
 </ul>
-<footer>Aggregate figures only -- this page never lists hosts, findings, or people. Scores are Muster's own illustrative computations, not a certified assessment. Operators: the full dashboard is at <a href="/">/</a>.</footer>
+<footer>Aggregate figures only -- this page never lists hosts, findings, or people. Scores are TopoTrace's own illustrative computations, not a certified assessment. Operators: the full dashboard is at <a href="/">/</a>.</footer>
 <footer>&copy; 2022–2026 McGinnis Technologies, LLC. &middot; <a href="/legal.html">Disclaimer &amp; Responsible Use</a></footer>
 </main></body></html>`))
