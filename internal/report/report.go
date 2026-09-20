@@ -7,7 +7,7 @@
  * @date         2026-09-18
  * @version      1.0.0
  *
- * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Copyright (c) 2026 TopoTrace LLC. All rights reserved.
  * Licensed under the MIT License -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
@@ -256,7 +256,7 @@ var execTemplate = template.Must(template.New("exec").Funcs(funcs).Parse(`<!doct
 </style></head><body>
 <main class="report-page">
 <button class="print" onclick="window.print()">Print / save as PDF</button>
-<header class="report-head"><img class="report-logo" src="{{.Logo}}" alt="TopoTrace" width="120" height="120"><div><span class="eyebrow">TopoTrace / {{if .Technical}}Technical{{else}}Executive{{end}} report</span><h1>Fleet posture report</h1><p class="meta">McGinnis Technologies, LLC · Turn Infrastructure Into Insight</p></div></header>
+<header class="report-head"><img class="report-logo" src="{{.Logo}}" alt="TopoTrace" width="120" height="120"><div><span class="eyebrow">TopoTrace / {{if .Technical}}Technical{{else}}Executive{{end}} report</span><h1>Fleet posture report</h1><p class="meta">TopoTrace LLC · Turn Infrastructure Into Insight</p></div></header>
 {{if .ScopeNote}}<p class="meta">{{.ScopeNote}}</p>{{end}}
 {{if .Demo}}<p class="demo-note">DEMO DATA — Fictional devices; not an assessment of live systems.</p>{{end}}
 <div class="meta">Generated {{date .GeneratedAt}} by TopoTrace · {{.TotalHosts}} managed hosts · illustrative checks, not a certified audit</div>
@@ -295,5 +295,5 @@ var execTemplate = template.Must(template.New("exec").Funcs(funcs).Parse(`<!doct
 </table>{{end}}
 
 <p class="meta" style="margin-top:28px">Scores are TopoTrace's own illustrative computations (see docs/compliance.md); this report is a snapshot of the dashboard's data at generation time, not a certified assessment.</p>
-<footer class="meta" style="margin-top:28px;border-top:1px solid #e4e1d8;padding-top:14px">&copy; 2022–2026 McGinnis Technologies, LLC. Provided without warranty to the extent permitted by law. Verify findings and maintain backups before making changes. See Disclaimer &amp; Responsible Use in the TopoTrace dashboard.</footer>
+<footer class="meta" style="margin-top:28px;border-top:1px solid #e4e1d8;padding-top:14px">&copy; 2026 TopoTrace LLC. Provided without warranty to the extent permitted by law. Verify findings and maintain backups before making changes. See Disclaimer &amp; Responsible Use in the TopoTrace dashboard.</footer>
 </main></body></html>`))

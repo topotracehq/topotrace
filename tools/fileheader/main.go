@@ -1,18 +1,18 @@
 /*******************************************************************************
  * @file         main.go
- * @brief        Command fileheader stamps every source file in the repository with the McGinnis Technologies, LLC file header (see headerFor for the exact text per language) -- idempotent, so it can be re-run after adding files: a file that already carries the header is left alone.
+ * @brief        Command fileheader stamps every source file in the repository with the TopoTrace LLC file header (see headerFor for the exact text per language) -- idempotent, so it can be re-run after adding files: a file that already carries the header is left alone.
  * @project      Muster
  *
  * @author       Michael McGinnis
  * @date         2026-09-18
  * @version      1.0.0
  *
- * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Copyright (c) 2026 TopoTrace LLC. All rights reserved.
  * Licensed under the MIT License -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
 // Command fileheader stamps every source file in the repository with the
-// McGinnis Technologies, LLC file header (see headerFor for the exact
+// TopoTrace LLC file header (see headerFor for the exact
 // text per language) -- idempotent, so it can be re-run after adding
 // files: a file that already carries the header is left alone.
 //
@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	company = "McGinnis Technologies, LLC"
+	company = "TopoTrace LLC"
 	project = "Muster"
 	author  = "Michael McGinnis"
 	version = "1.0.0"

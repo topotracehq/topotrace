@@ -1,6 +1,6 @@
 # TopoTrace brand guide
 
-**Turn Infrastructure Into Insight** is the official tagline. Use **Infrastructure Into Insight** in compact navigation. Product spelling is TopoTrace; the company remains McGinnis Technologies, LLC.
+**Turn Infrastructure Into Insight** is the official tagline. Use **Infrastructure Into Insight** in compact navigation. Product spelling is TopoTrace; the company is TopoTrace LLC.
 
 ## Identity
 

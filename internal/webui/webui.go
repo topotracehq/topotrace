@@ -7,7 +7,7 @@
  * @date         2026-09-14
  * @version      1.0.0
  *
- * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Copyright (c) 2026 TopoTrace LLC. All rights reserved.
  * Licensed under the MIT License -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
@@ -28,15 +28,6 @@ import (
 
 //go:embed static
 var embedded embed.FS
-
-// CompanyLogo returns an embedded data URL so downloaded reports remain branded offline.
-func CompanyLogo() string {
-	b, err := embedded.ReadFile("static/img/mcginnis-technologies.png")
-	if err != nil {
-		return ""
-	}
-	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(b)
-}
 
 // ProductLogo keeps the TopoTrace mark available in offline HTML reports.
 func ProductLogo() string {

@@ -69,7 +69,7 @@ func (s *Server) handleAbout(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	s.writeJSON(w, 200, map[string]any{"product": "TopoTrace", "version": releaseVersion, "revision": revision, "company": "McGinnis Technologies, LLC", "copyright": "© 2022–2026 McGinnis Technologies, LLC.", "support": "Contact the administrator who manages your TopoTrace deployment. Include this version and a description of the issue; do not include passwords or API tokens."})
+	s.writeJSON(w, 200, map[string]any{"product": "TopoTrace", "version": releaseVersion, "revision": revision, "company": "TopoTrace LLC", "copyright": "© 2026 TopoTrace LLC.", "support": "Contact the administrator who manages your TopoTrace deployment. Include this version and a description of the issue; do not include passwords or API tokens."})
 }
 func (s *Server) handleSavedViews(w http.ResponseWriter, r *http.Request) {
 	actor, ok := s.requireRoleStrict(w, r, "readonly")

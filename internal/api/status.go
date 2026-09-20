@@ -7,7 +7,7 @@
  * @date         2026-09-18
  * @version      1.0.0
  *
- * Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+ * Copyright (c) 2026 TopoTrace LLC. All rights reserved.
  * Licensed under the MIT License -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
@@ -176,5 +176,5 @@ var statusTemplate = template.Must(template.New("status").Funcs(template.FuncMap
 <li><span>Last evaluation run</span><span>{{date .LastEvaluated}}</span></li>
 </ul>
 <footer>Aggregate figures only -- this page never lists hosts, findings, or people. Scores are TopoTrace's own illustrative computations, not a certified assessment. Operators: the full dashboard is at <a href="/">/</a>.</footer>
-<footer>&copy; 2022–2026 McGinnis Technologies, LLC. &middot; <a href="/legal.html">Disclaimer &amp; Responsible Use</a></footer>
+<footer>&copy; 2026 TopoTrace LLC. &middot; <a href="/legal.html">Disclaimer &amp; Responsible Use</a></footer>
 </main></body></html>`))

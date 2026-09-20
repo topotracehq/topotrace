@@ -1,12 +1,12 @@
 # Copyright and responsible use
 
 The dashboard footer, public status page, HTML report, and disclaimer page display
-**© 2022–2026 McGinnis Technologies, LLC.** The shared dashboard footer covers all
+**© 2026 TopoTrace LLC.** The shared dashboard footer covers all
 views, including embedded documentation and the demo showcase.
 
 Open **Disclaimer & Responsible Use** from the footer, or visit
 [/legal.html](/legal.html). This page is available without an API token and uses
-the McGinnis Technologies logo. It covers operator responsibility, backups and
+the TopoTrace logo. It covers operator responsibility, backups and
 testing, warranty and liability limitations, independent verification of results,
 third-party integrations, and demo data. Limitations are subject to applicable law
 and any separate binding agreement.

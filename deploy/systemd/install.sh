@@ -8,7 +8,7 @@
 # @date         2026-09-17
 # @version      1.0.0
 #
-# Copyright (c) 2026 McGinnis Technologies, LLC. All rights reserved.
+# Copyright (c) 2026 TopoTrace LLC. All rights reserved.
 # Licensed under the MIT License -- see the LICENSE file at the repository root.
 ################################################################################
 

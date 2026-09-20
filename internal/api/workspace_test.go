@@ -176,7 +176,7 @@ func TestDemoRecoveryAndBrandedReport(t *testing.T) {
 	r.Header.Set("Authorization", "Bearer master")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
-	for _, text := range []string{"DEMO DATA", "data:image/png;base64,", "Executive summary", "Recommended next steps", "McGinnis Technologies"} {
+	for _, text := range []string{"DEMO DATA", "data:image/png;base64,", "Executive summary", "Recommended next steps", "TopoTrace LLC"} {
 		if !strings.Contains(w.Body.String(), text) {
 			t.Errorf("missing report element %s", text)
 		}
