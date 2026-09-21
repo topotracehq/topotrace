@@ -42,6 +42,7 @@ import (
 	"muster/internal/evaluator"
 	"muster/internal/ingest"
 	"muster/internal/oauth"
+	"muster/internal/pluginhost"
 	"muster/internal/settingsstore"
 	"muster/internal/siemforward"
 	"muster/internal/store"
@@ -94,6 +95,8 @@ func main() {
 		snowURL         = flag.String("servicenow-url", os.Getenv("MUSTER_SERVICENOW_URL"), "ServiceNow instance URL (e.g. https://dev12345.service-now.com) to open one incident per policy/software violation or proposed remediation in. Requires -servicenow-user and -servicenow-password. Also read from MUSTER_SERVICENOW_URL.")
 		snowUser        = flag.String("servicenow-user", os.Getenv("MUSTER_SERVICENOW_USER"), "ServiceNow basic-auth user for -servicenow-url. Also read from MUSTER_SERVICENOW_USER.")
 		snowPassword    = flag.String("servicenow-password", os.Getenv("MUSTER_SERVICENOW_PASSWORD"), "ServiceNow basic-auth password for -servicenow-url. Also read from MUSTER_SERVICENOW_PASSWORD.")
+
+		pluginDir = flag.String("plugin-dir", os.Getenv("MUSTER_PLUGIN_DIR"), "directory of out-of-process plugin executables to load at startup (internal/pluginhost, docs/plugins.md). Empty (default) disables plugins entirely. Also read from MUSTER_PLUGIN_DIR.")
 
 		publicStatus = flag.Bool("public-status", true, "serve an unauthenticated aggregate-only status page at /status (and /status.json): host count, percent compliant, average scores, open findings, which integrations are on. Never host names or findings. Set false to disable.")
 		hibpAPIKey   = flag.String("hibp-api-key", os.Getenv("MUSTER_HIBP_API_KEY"), "Have I Been Pwned API key for account-level breach exposure lookups (GET /api/breaches?domain=). Without it, only the public breaches-of-a-domain lookup works. Also read from MUSTER_HIBP_API_KEY.")
@@ -307,6 +310,11 @@ func main() {
 		Breach:               breach.New(*hibpAPIKey),
 		PublicStatus:         *publicStatus,
 	}
+	pluginMgr := pluginhost.NewManager(*pluginDir, logger.With("component", "pluginhost"))
+	pluginMgr.Load(ctx)
+	defer pluginMgr.Shutdown()
+	apiSrv.Plugins = pluginMgr
+
 	api.StartedAt = time.Now().UTC()
 	apiSrv.Register(mux)
 	mux.Handle("/", webHandler)

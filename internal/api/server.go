@@ -55,6 +55,7 @@ import (
 	"muster/internal/model"
 	"muster/internal/oauth"
 	"muster/internal/operations"
+	"muster/internal/pluginhost"
 	"muster/internal/policy"
 	"muster/internal/remediate"
 	"muster/internal/scanner"
@@ -173,6 +174,12 @@ type Server struct {
 	// /status.json (aggregates only -- see status.go). cmd/muster's
 	// -public-status flag, default true.
 	PublicStatus bool
+
+	// Plugins is the pluginhost manager for out-of-process plugins
+	// (internal/pluginhost, docs/plugins.md). Nil (the default) means
+	// no -plugin-dir was configured -- GET /api/plugins then reports an
+	// empty list and no plugin routes are mounted.
+	Plugins *pluginhost.Manager
 }
 
 func (s *Server) log() *slog.Logger {
@@ -226,6 +233,10 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/bookmarks", s.handleListBookmarks)
 	mux.HandleFunc("POST /api/bookmarks", s.handleCreateBookmark)
 	mux.HandleFunc("GET /api/bookmarks/{id}/diff", s.handleBookmarkDiff)
+	mux.HandleFunc("GET /api/plugins", s.handleListPlugins)
+	if s.Plugins != nil {
+		s.Plugins.Mount(mux)
+	}
 	mux.HandleFunc("DELETE /api/bookmarks/{id}", s.handleDeleteBookmark)
 	mux.HandleFunc("GET /api/demo/scenarios", s.handleDemoScenarios)
 	mux.HandleFunc("POST /api/demo/simulate", s.handleDemoSimulate)
