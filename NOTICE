@@ -1,0 +1,12 @@
+TopoTrace
+Copyright 2026 TopoTrace LLC
+
+This product includes software developed by TopoTrace LLC
+(https://topotrace.com).
+
+"TopoTrace" and the TopoTrace logo are trademarks of TopoTrace LLC. The
+Apache License, Version 2.0 does not grant permission to use them (see
+section 6 of the LICENSE).
+
+Third-party code vendored under vendor/ remains under its own license; see
+the LICENSE files in each vendored package.

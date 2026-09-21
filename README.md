@@ -1677,7 +1677,7 @@ Every source file (Go, JS, CSS, HTML, shell, PowerShell, SQL, Kotlin,
 YAML) carries a TopoTrace LLC header -- file, one-line
 brief drawn from the file's own leading comment, project, author, the
 file's first-commit date, version, and the copyright line. The code is
-still MIT-licensed (see `LICENSE`); the header says so rather than
+Apache 2.0-licensed (see `LICENSE` and `NOTICE`); the header says so rather than
 claiming the code is confidential. `go run ./tools/fileheader` stamps
 any new file that's missing it (idempotent), and `go run
 ./tools/fileheader -check` exits non-zero if one is, for CI.

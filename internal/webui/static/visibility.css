@@ -1,2 +1,15 @@
+/*******************************************************************************
+ * @file         visibility.css
+ * @brief        Part of the Muster static module.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 TopoTrace LLC. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 .visibility-page{max-width:1400px;margin:auto}.visibility-toolbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:16px 0}.visibility-toolbar input[type=search]{min-width:260px;flex:1}.visibility-toolbar input{max-width:100%}.visibility-toolbar button[aria-pressed=true]{background:#174c52;color:white}.visibility-demo{padding:18px;border:2px solid #af741b;border-radius:8px;background:#fff5d9;color:#53380b;font-weight:600}.visibility-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0}.visibility-stats>div{border:1px solid #bdcdd0;border-radius:10px;padding:20px;background:#fff}.visibility-stats strong{display:block;font-size:2rem;color:#174c52}.visibility-stats span{font-size:.9rem}.visibility-table-wrap{overflow:auto}.visibility-table{width:100%;border-collapse:collapse;text-align:left}.visibility-table th,.visibility-table td{padding:14px;border-bottom:1px solid #dae2e3;vertical-align:top;max-width:360px;overflow-wrap:anywhere;white-space:pre-wrap}.visibility-table th{font-size:.85rem;background:#f0f5f5}.visibility-table p{margin:7px 0}.visibility-badge{display:inline-block;padding:4px 10px;border-radius:14px;background:#edf0f1;font-weight:600;font-size:.85rem;text-transform:capitalize}.visibility-healthy,.visibility-managed,.visibility-approved{background:#dcefe4;color:#215639}.visibility-failing,.visibility-missing,.visibility-unauthorized{background:#fce0df;color:#842f2a}.visibility-late,.visibility-needs_review{background:#fff0cd;color:#744a0b}.visibility-page ol li{margin:10px 0;line-height:1.6}.visibility-page details p{font-size:.85rem}.visibility-page .fact-card{margin:16px 0}@media(max-width:700px){.visibility-stats{grid-template-columns:repeat(2,1fr)}.visibility-toolbar input[type=search]{min-width:0;width:100%}}
 .visibility-page button{font:inherit;padding:9px 14px;border:1px solid #c5a11b;border-radius:6px;background:#ffce28;color:#1b2425;cursor:pointer}.visibility-page button:disabled{opacity:.55;cursor:wait}.visibility-page input,.visibility-page select{font:inherit;padding:9px 12px;border:1px solid #b8c4c6;border-radius:6px;background:white;color:#1b2425}.visibility-page a.ghost{padding:9px 12px;border:1px solid #bac7c9;border-radius:6px;text-decoration:none}.visibility-page button:focus-visible,.visibility-page a:focus-visible{outline:3px solid #26767e;outline-offset:3px}

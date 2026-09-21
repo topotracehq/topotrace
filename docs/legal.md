@@ -11,7 +11,7 @@ testing, warranty and liability limitations, independent verification of results
 third-party integrations, and demo data. Limitations are subject to applicable law
 and any separate binding agreement.
 
-The notice supplements the existing MIT License; it does not replace the LICENSE
+The notice supplements the Apache License, Version 2.0; it does not replace the LICENSE
 file or third-party notices. The source license's existing attribution is retained.
 The disclaimer is a general draft for legal review, not a guarantee that a court
 will enforce every provision.

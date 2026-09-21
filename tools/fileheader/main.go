@@ -8,7 +8,7 @@
  * @version      1.0.0
  *
  * Copyright (c) 2026 TopoTrace LLC. All rights reserved.
- * Licensed under the MIT License -- see the LICENSE file at the repository root.
+ * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
 // Command fileheader stamps every source file in the repository with the
@@ -158,7 +158,7 @@ func headerFor(path string, src []byte, st style) string {
 		"@version      " + version,
 		"",
 		marker + ". All rights reserved.",
-		"Licensed under the MIT License -- see the LICENSE file at the repository root.",
+		"Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.",
 	}
 	var b strings.Builder
 	b.WriteString(st.open + "\n")

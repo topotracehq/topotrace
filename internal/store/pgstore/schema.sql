@@ -8,7 +8,7 @@
 -- @version      1.0.0
 --
 -- Copyright (c) 2026 TopoTrace LLC. All rights reserved.
--- Licensed under the MIT License -- see the LICENSE file at the repository root.
+-- Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
 --------------------------------------------------------------------------------
 
 -- This file is no longer used. pgstore now applies its schema via a

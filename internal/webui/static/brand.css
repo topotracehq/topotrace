@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         brand.css
+ * @brief        TopoTrace identity.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-20
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 TopoTrace LLC. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 /* TopoTrace identity. Legacy --mu-* names remain compatible with feature styles. */
 :root{--mu-black:#0b1f33;--mu-black-soft:#163b63;--mu-page-bg:#f4f7fa;--mu-text:#0b1f33;--mu-text-muted:#536779;--mu-border:#d9e2eb;--mu-yellow:#f97316;--mu-yellow-dark:#c65309;--mu-accent:#9a3e08;--mu-accent-soft:#fff2e8}
 .sidebar{background:linear-gradient(165deg,#163b63 0%,#0b1f33 38%)}

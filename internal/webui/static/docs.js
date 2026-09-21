@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         docs.js
+ * @brief        Part of the Muster static module.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 TopoTrace LLC. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 "use strict";
 // A deliberately small, text-safe renderer for the bundled documentation.
 // It creates DOM nodes, never inserts document content as HTML.

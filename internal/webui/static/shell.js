@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         shell.js
+ * @brief        Part of the Muster static module.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 TopoTrace LLC. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 "use strict";
 window.MusterShell = (() => {
   const menu = document.querySelector(".mobile-menu"), sidebar = document.querySelector(".sidebar"), scrim = document.querySelector(".nav-scrim");

@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         operations.css
+ * @brief        Part of the Muster static module.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 TopoTrace LLC. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 .work-page { max-width: 1200px; margin: auto; }
 .work-page .section-heading { flex-wrap: wrap; }
 .work-page button, .work-page input, .work-page select { font: inherit; border: 1px solid #77889977; border-radius: 5px; padding: .5rem .65rem; }

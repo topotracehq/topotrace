@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         design.css
+ * @brief        Shared visual system.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 TopoTrace LLC. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 /* Shared visual system. Loaded after feature styles so every surface uses the same scale. */
 :root{--mu-black:#18252e;--mu-black-soft:#2d404c;--mu-page-bg:#f4f6f8;--mu-border:#dfe5e9;--mu-text:#233440;--mu-text-muted:#60717d;--mu-accent:#9e2435;--mu-accent-soft:#faeff1;--radius:12px;--sidebar-width:232px}
 html{scroll-behavior:smooth}body{font-size:14px;line-height:1.55}button,input,select,textarea{font:inherit}button,a,input,select,textarea,summary{touch-action:manipulation}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.5}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid #327baf;outline-offset:3px}a{ text-underline-offset:3px}h1,h2,h3{line-height:1.25}h1{letter-spacing:-.035em}p{max-width:90ch}svg{vertical-align:middle}img{max-width:100%}[hidden]{display:none!important}

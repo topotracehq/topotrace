@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * @file         visibility.js
+ * @brief        Part of the Muster static module.
+ * @project      Muster
+ *
+ * @author       Michael McGinnis
+ * @date         2026-09-18
+ * @version      1.0.0
+ *
+ * Copyright (c) 2026 TopoTrace LLC. All rights reserved.
+ * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
+ ******************************************************************************/
+
 "use strict";
 window.MusterVisibility = function ({ api, el, app, timeAgo, workspaceUI }) {
   let generation = 0;
