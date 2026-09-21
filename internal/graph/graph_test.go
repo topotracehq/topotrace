@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         graph_test.go
- * @brief        Tests for the Muster graph package.
+ * @brief        Tests for the TopoTrace graph package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -16,9 +16,9 @@ package graph
 import (
 	"testing"
 
-	"muster/internal/compliance"
-	"muster/internal/model"
-	"muster/internal/policy"
+	"topotrace/internal/compliance"
+	"topotrace/internal/model"
+	"topotrace/internal/policy"
 )
 
 func iface(addrs ...string) model.Fact {

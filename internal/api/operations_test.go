@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         operations_test.go
- * @brief        Tests for the Muster api package.
+ * @brief        Tests for the TopoTrace api package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -16,12 +16,12 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"muster/internal/model"
-	"muster/internal/store/memstore"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+	"topotrace/internal/model"
+	"topotrace/internal/store/memstore"
 )
 
 func TestWorkScopeWritesAndAIContext(t *testing.T) {

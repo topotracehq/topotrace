@@ -32,7 +32,7 @@ now -- that's future work, out of scope for this round.
    stdout:
 
    ```
-   MUSTER_PLUGIN_MAGIC_COOKIE_V1|1|/tmp/muster-plugin-xxxx/plugin.sock
+   TOPOTRACE_PLUGIN_MAGIC_COOKIE_V1|1|/tmp/topotrace-plugin-xxxx/plugin.sock
    ```
 
    cookie (proves it's actually a TopoTrace plugin) | protocol version
@@ -68,10 +68,10 @@ socket-serving boilerplate for free (see `plugins/ai-governance`).
 ## Running plugins
 
 ```
-muster -plugin-dir /etc/muster/plugins ...
+topotrace -plugin-dir /etc/topotrace/plugins ...
 ```
 
-or `MUSTER_PLUGIN_DIR=/etc/muster/plugins`. Default is empty --
+or `TOPOTRACE_PLUGIN_DIR=/etc/topotrace/plugins`. Default is empty --
 plugins are opt-in, so a default Community install is unaffected.
 Every executable file found directly under that directory is launched
 as a plugin.

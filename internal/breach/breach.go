@@ -48,7 +48,7 @@ const baseURL = "https://haveibeenpwned.com/api/v3"
 
 // ErrNotConfigured is returned by BreachedDomain when the client has no
 // API key.
-var ErrNotConfigured = errors.New("breach: no HIBP API key configured (set -hibp-api-key or MUSTER_HIBP_API_KEY)")
+var ErrNotConfigured = errors.New("breach: no HIBP API key configured (set -hibp-api-key or TOPOTRACE_HIBP_API_KEY)")
 
 // Client talks to HIBP.
 type Client struct {
@@ -60,13 +60,13 @@ type Client struct {
 
 // New returns a Client (APIKey may be empty for public lookups only).
 func New(apiKey string) *Client {
-	return &Client{APIKey: apiKey, UserAgent: "muster-fleet-inventory", BaseURL: baseURL, HTTP: &http.Client{Timeout: 15 * time.Second}}
+	return &Client{APIKey: apiKey, UserAgent: "topotrace-fleet-inventory", BaseURL: baseURL, HTTP: &http.Client{Timeout: 15 * time.Second}}
 }
 
 // Configured reports whether account-level lookups are possible.
 func (c *Client) Configured() bool { return c != nil && c.APIKey != "" }
 
-// Breach is one HIBP breach record (the fields Muster surfaces).
+// Breach is one HIBP breach record (the fields TopoTrace surfaces).
 type Breach struct {
 	Name        string   `json:"Name"`
 	Title       string   `json:"Title"`

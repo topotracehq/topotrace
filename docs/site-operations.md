@@ -14,20 +14,20 @@ Example configuration (replace every example destination and path):
 
 ```json
 {
-  "server": "https://muster.example.com",
-  "token_env": "MUSTER_SITE_TOKEN",
+  "server": "https://topotrace.example.com",
+  "token_env": "TOPOTRACE_SITE_TOKEN",
   "allowed_cidrs": ["10.20.30.0/24"],
-  "ingest_host": "muster.example.com",
+  "ingest_host": "topotrace.example.com",
   "ingest_port": 9090,
   "profiles": {
     "linux-office": {
       "user": "deployment",
-      "identity_file": "/etc/muster-worker/id_ed25519",
-      "known_hosts": "/etc/muster-worker/known_hosts"
+      "identity_file": "/etc/topotrace-worker/id_ed25519",
+      "known_hosts": "/etc/topotrace-worker/known_hosts"
     },
     "windows-office": {
       "user": "DOMAIN\\deployment",
-      "password_env": "MUSTER_WINDOWS_PASSWORD"
+      "password_env": "TOPOTRACE_WINDOWS_PASSWORD"
     }
   }
 }
@@ -52,9 +52,9 @@ Results retain first/last seen timestamps and open ports. Repeated observations 
 5. Wait for the server to verify the enrollment and a report newer than the dispatch time. Command success remains **awaiting-report**.
 6. Only after all pilot devices report can you **Promote remaining devices**.
 
-Linux uses OpenSSH with BatchMode, strict known-host checking, a local identity file, and noninteractive sudo. Provision and verify host keys ahead of time. The deployment account must be permitted to run the installer as root. It installs a root-only agent wrapper in `/opt/muster-site-agent`, plus `muster-site-agent.service` and `.timer`. The timer runs every 15 minutes. The service currently runs as root, which gives it administrative collection and remediation privileges; choose the existing manual unprivileged installer if that is unsuitable.
+Linux uses OpenSSH with BatchMode, strict known-host checking, a local identity file, and noninteractive sudo. Provision and verify host keys ahead of time. The deployment account must be permitted to run the installer as root. It installs a root-only agent wrapper in `/opt/topotrace-site-agent`, plus `topotrace-site-agent.service` and `.timer`. The timer runs every 15 minutes. The service currently runs as root, which gives it administrative collection and remediation privileges; choose the existing manual unprivileged installer if that is unsuitable.
 
-Windows deployment requires a Windows worker with Windows PowerShell and a target configured for WinRM HTTPS, a trusted valid certificate matching its address, and administrative remoting credentials. Certificate verification and TrustedHosts are not weakened. It installs protected files under `%ProgramData%\MusterSiteAgent` and a `MusterSiteAgent` scheduled task running as SYSTEM every 15 minutes. PowerShell execution policy must permit the agent. The worker does not change execution policy.
+Windows deployment requires a Windows worker with Windows PowerShell and a target configured for WinRM HTTPS, a trusted valid certificate matching its address, and administrative remoting credentials. Certificate verification and TrustedHosts are not weakened. It installs protected files under `%ProgramData%\TopoTraceSiteAgent` and a `TopoTraceSiteAgent` scheduled task running as SYSTEM every 15 minutes. PowerShell execution policy must permit the agent. The worker does not change execution policy.
 
 The WinRM design follows Microsoft's [Invoke-Command documentation](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/invoke-command). This release has automated script-generation and state-transition checks; live Windows remoting and Task Scheduler verification must be performed with your pilot environment.
 

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         compliance_test.go
- * @brief        Tests for the Muster compliance package.
+ * @brief        Tests for the TopoTrace compliance package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -16,9 +16,9 @@ package compliance
 import (
 	"testing"
 
-	"muster/internal/model"
-	"muster/internal/policy"
-	"muster/internal/vuln"
+	"topotrace/internal/model"
+	"topotrace/internal/policy"
+	"topotrace/internal/vuln"
 )
 
 func TestFrameworksArePluggable(t *testing.T) {

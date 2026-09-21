@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         workspace_test.go
- * @brief        Tests for the Muster api package.
+ * @brief        Tests for the TopoTrace api package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -17,15 +17,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"muster/internal/model"
-	"muster/internal/operations"
-	"muster/internal/store"
-	"muster/internal/store/memstore"
-	"muster/internal/webhook"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+	"topotrace/internal/model"
+	"topotrace/internal/operations"
+	"topotrace/internal/store"
+	"topotrace/internal/store/memstore"
+	"topotrace/internal/webhook"
 )
 
 type interruptedRestoreStore struct {
@@ -44,7 +44,7 @@ func TestConfigurationRestoreResumesAfterInterruption(t *testing.T) {
 	st := &interruptedRestoreStore{Store: base, fail: true}
 	s := &Server{Store: st, AuthToken: "master"}
 	h := s.Handler()
-	b := configBackup{Format: "muster-workspace-config-v1", CreatedAt: time.Now().UTC()}
+	b := configBackup{Format: "topotrace-workspace-config-v1", CreatedAt: time.Now().UTC()}
 	for _, id := range []string{"first", "second"} {
 		data, _ := json.Marshal(operations.DynamicGroup{ID: id, Name: id})
 		b.Documents = append(b.Documents, model.Document{Kind: operations.GroupKind, ID: id, Data: data})

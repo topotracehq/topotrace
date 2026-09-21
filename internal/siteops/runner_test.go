@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         runner_test.go
- * @brief        Tests for the Muster siteops package.
+ * @brief        Tests for the TopoTrace siteops package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -31,7 +31,7 @@ func TestWorkerRejectsUnapprovedTargetsBeforeNetwork(t *testing.T) {
 	}
 }
 func TestInstallerSeparatesPreflightAndInstall(t *testing.T) {
-	j := Job{Name: "deploy", WorkerID: "site", Kind: "deploy", Platform: "linux", Profile: "local", MusterHost: "muster.test", MusterPort: 9090, Pilot: 1, Targets: []Target{{Address: "192.0.2.1", Host: "test"}}, Phase: "preflight"}
+	j := Job{Name: "deploy", WorkerID: "site", Kind: "deploy", Platform: "linux", Profile: "local", TopoTraceHost: "topotrace.test", TopoTracePort: 9090, Pilot: 1, Targets: []Target{{Address: "192.0.2.1", Host: "test"}}, Phase: "preflight"}
 	task := Task{Job: j, Target: j.Targets[0]}
 	s, e := InstallScript(task)
 	if e != nil {
@@ -46,7 +46,7 @@ func TestInstallerSeparatesPreflightAndInstall(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	for _, v := range []string{"umask 077", "test ! -e /opt/muster-site-agent", "--host-name test", "start --no-block"} {
+	for _, v := range []string{"umask 077", "test ! -e /opt/topotrace-site-agent", "--host-name test", "start --no-block"} {
 		if !strings.Contains(s, v) {
 			t.Fatal("missing install control", v)
 		}

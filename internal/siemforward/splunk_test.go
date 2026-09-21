@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         splunk_test.go
- * @brief        Tests for the Muster siemforward package.
+ * @brief        Tests for the TopoTrace siemforward package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -66,8 +66,8 @@ func TestSplunkHECSendPayload(t *testing.T) {
 	if gotCT != "application/json" {
 		t.Errorf("Content-Type = %q, want application/json", gotCT)
 	}
-	if gotBody.Sourcetype != "muster" {
-		t.Errorf("sourcetype = %q, want muster", gotBody.Sourcetype)
+	if gotBody.Sourcetype != "topotrace" {
+		t.Errorf("sourcetype = %q, want topotrace", gotBody.Sourcetype)
 	}
 	if gotBody.Time != 1700000000 {
 		t.Errorf("time = %d, want 1700000000", gotBody.Time)

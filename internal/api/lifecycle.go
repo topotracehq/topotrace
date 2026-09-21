@@ -17,12 +17,12 @@ import (
 	"net/http"
 	"time"
 
-	"muster/internal/certs"
-	"muster/internal/eol"
-	"muster/internal/sbom"
-	"muster/internal/signals"
-	"muster/internal/sprawl"
-	"muster/internal/vuln"
+	"topotrace/internal/certs"
+	"topotrace/internal/eol"
+	"topotrace/internal/sbom"
+	"topotrace/internal/signals"
+	"topotrace/internal/sprawl"
+	"topotrace/internal/vuln"
 )
 
 // handleHostSBOM is GET /api/hosts/{host}/sbom -- a CycloneDX 1.5 JSON

@@ -20,7 +20,7 @@ import (
 )
 
 // parseAIAgentInventory reads ai_agent_inventory.txt, a JSON-lines raw
-// capture written by agent/ubuntu/muster-agent.sh: one JSON object per
+// capture written by agent/ubuntu/topotrace-agent.sh: one JSON object per
 // line, each carrying a "kind" of "tool", "mcp_server", or
 // "key_presence" (see the agent script's AI agent inventory section for
 // the exact fields). Lines that don't parse are skipped, best-effort,

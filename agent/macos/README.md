@@ -1,8 +1,8 @@
-# Muster macOS agent
+# TopoTrace macOS agent
 
 A minimal, dependency-free bash agent that scans a Mac and reports it to
-a running Muster server. See `muster-agent.sh`'s own header comment
-(`./muster-agent.sh --help` prints it) for the full option list.
+a running TopoTrace server. See `topotrace-agent.sh`'s own header comment
+(`./topotrace-agent.sh --help` prints it) for the full option list.
 
 Deliberately smaller than the Ubuntu/Windows agents: `system_summary`
 only (CPU model, core count, memory, macOS product name/version, kernel
@@ -17,13 +17,13 @@ fleet to build and test against.
 - bash (ships with macOS -- note it's Apple's old 3.2 build, not bash
   4+; the script is written to that constraint, see its own comments).
 - `tar`, `gzip`, `sysctl`, `sw_vers` -- all standard on any Mac.
-- Network access from this host to the Muster server's ingest port
+- Network access from this host to the TopoTrace server's ingest port
   (`9090` by default).
 
 ## Quick start
 
 ```bash
-./muster-agent.sh --muster-host <server-ip-or-hostname>
+./topotrace-agent.sh --topotrace-host <server-ip-or-hostname>
 ```
 
 ## Verification status

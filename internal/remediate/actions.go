@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         actions.go
- * @brief        Package remediate is Muster's allow-list for self-healing/remediation actions: the small, fixed set of verbs an operator can queue for a host and an agent script is actually willing to execute.
+ * @brief        Package remediate is TopoTrace's allow-list for self-healing/remediation actions: the small, fixed set of verbs an operator can queue for a host and an agent script is actually willing to execute.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,7 +11,7 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package remediate is Muster's allow-list for self-healing/remediation
+// Package remediate is TopoTrace's allow-list for self-healing/remediation
 // actions: the small, fixed set of verbs an operator can queue for a
 // host and an agent script is actually willing to execute.
 //

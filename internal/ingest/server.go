@@ -25,17 +25,17 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"muster/internal/agenthealth"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+	"topotrace/internal/agenthealth"
 
-	"muster/internal/cook"
-	"muster/internal/model"
-	"muster/internal/operations"
-	"muster/internal/store"
+	"topotrace/internal/cook"
+	"topotrace/internal/model"
+	"topotrace/internal/operations"
+	"topotrace/internal/store"
 )
 
 // Server is the TCP ingest daemon. One goroutine per connection --
@@ -48,8 +48,8 @@ type Server struct {
 	Pipeline   *cook.Pipeline
 	Logger     *slog.Logger
 
-	// Token, when non-empty, is the shared secret every MUSTER1 and
-	// MUSTER1-RESULT request must present, compared in constant time.
+	// Token, when non-empty, is the shared secret every TOPOTRACE1 and
+	// TOPOTRACE1-RESULT request must present, compared in constant time.
 	// Left empty, the daemon accepts any request unauthenticated --
 	// matching every earlier round's demo-friendly default -- but then
 	// remediation stays off entirely: internal/api's handleQueueAction
@@ -69,9 +69,9 @@ func (s *Server) log() *slog.Logger {
 }
 
 // authorized reports whether token matches the server's configured
-// master secret -- used for MUSTER1-RESULT (remediation-result)
+// master secret -- used for TOPOTRACE1-RESULT (remediation-result)
 // reports, which always require the master token or nothing (no
-// enrollment-token path here; see authorizedUpload for the MUSTER1
+// enrollment-token path here; see authorizedUpload for the TOPOTRACE1
 // upload path, which additionally accepts a host-scoped enrollment
 // token). An empty s.Token means auth is off entirely (every token,
 // including the "-" sentinel, is accepted); a non-empty s.Token requires
@@ -93,7 +93,7 @@ func sha256Hex(s string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// authorizedUpload reports whether token authorizes a MUSTER1 upload for
+// authorizedUpload reports whether token authorizes a TOPOTRACE1 upload for
 // host specifically -- broader than authorized: it also accepts a live
 // enrollment token (internal/model.Enrollment, minted via POST
 // /api/enrollments), but ONLY when that enrollment's Host matches this
@@ -101,7 +101,7 @@ func sha256Hex(s string) string {
 // "enrolled" here, on its very first successful use -- the one-way
 // transition the dashboard's Agents page polls for. Enrollment tokens
 // are deliberately narrower than the master token in one more way too:
-// they never authorize a MUSTER1-RESULT (remediation-result) report --
+// they never authorize a TOPOTRACE1-RESULT (remediation-result) report --
 // see authorized's doc comment -- so a newly self-enrolled host can push
 // fact reports immediately but can't act as a credential for anything
 // else.
@@ -272,7 +272,7 @@ func (s *Server) deliverPendingAction(ctx context.Context, conn net.Conn, host s
 	log.Info("delivered action", "action_id", action.ID, "verb", action.Verb)
 }
 
-// handleResult processes a MUSTER1-RESULT connection: an agent reporting
+// handleResult processes a TOPOTRACE1-RESULT connection: an agent reporting
 // what happened when it executed an action delivered on an earlier
 // upload. Never executes anything itself -- this is purely a record of
 // what the agent says it already did.

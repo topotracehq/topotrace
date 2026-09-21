@@ -19,11 +19,11 @@ import (
 	"net/http"
 	"strings"
 
-	"muster/internal/aiquery"
-	"muster/internal/report"
+	"topotrace/internal/aiquery"
+	"topotrace/internal/report"
 )
 
-// aiConfig returns the live Ask Muster config (zero value when the
+// aiConfig returns the live Ask TopoTrace config (zero value when the
 // ConfigStore isn't wired, as in tests).
 func (s *Server) aiConfig() aiquery.Config {
 	if s.AIQuery == nil {
@@ -33,12 +33,12 @@ func (s *Server) aiConfig() aiquery.Config {
 }
 
 // handleDraftPolicy is POST /api/ask/draft-policy -- {"description":
-// "..."} in, a PolicyDraft out: the rule Ask Muster (or, without a key,
+// "..."} in, a PolicyDraft out: the rule Ask TopoTrace (or, without a key,
 // a keyword heuristic) proposes, in POST /api/policies's own field
 // names, for the operator to review and create. Nothing is written:
 // the draft is the AI's whole contribution, the decision is a
 // person's. Readonly is enough to ask; creating the rule still needs
-// admin. Recorded to the audit trail like every Ask Muster call.
+// admin. Recorded to the audit trail like every Ask TopoTrace call.
 func (s *Server) handleDraftPolicy(w http.ResponseWriter, r *http.Request) {
 	actor, ok := s.requireRole(w, r, "readonly")
 	if !ok {
@@ -60,22 +60,22 @@ func (s *Server) handleDraftPolicy(w http.ResponseWriter, r *http.Request) {
 		}
 		if draft.Name == "" {
 			s.log().Error("draft policy", "err", err)
-			s.writeError(w, http.StatusBadGateway, "Ask Muster: "+err.Error())
+			s.writeError(w, http.StatusBadGateway, "Ask TopoTrace: "+err.Error())
 			return
 		}
 		validation = err.Error() // a draft came back but doesn't fit the vocabulary -- show it anyway, flagged
 	}
 	detail := "drafted policy from: " + truncate(req.Description, 120) + " -> " + draft.Kind + " (" + draft.Source + ")"
-	if _, err := s.Store.RecordAudit(r.Context(), actor, "ask-muster", "policy-draft", detail); err != nil {
+	if _, err := s.Store.RecordAudit(r.Context(), actor, "ask-topotrace", "policy-draft", detail); err != nil {
 		s.log().Error("draft policy: recording audit entry", "err", err)
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"draft": draft, "validation_error": validation})
 }
 
 // handleExecutiveSummary is POST /api/ask/summary -- the plain-English
-// executive summary of the fleet, written by Ask Muster from the same
+// executive summary of the fleet, written by Ask TopoTrace from the same
 // report.Data the executive report uses, or by a template when Ask
-// Muster isn't configured (Source says which). Readonly; audited.
+// TopoTrace isn't configured (Source says which). Readonly; audited.
 func (s *Server) handleExecutiveSummary(w http.ResponseWriter, r *http.Request) {
 	actor, ok := s.requireRole(w, r, "readonly")
 	if !ok {
@@ -89,10 +89,10 @@ func (s *Server) handleExecutiveSummary(w http.ResponseWriter, r *http.Request) 
 	sum, err := report.ExecutiveSummary(r.Context(), s.aiConfig(), d)
 	if err != nil {
 		s.log().Error("executive summary", "err", err)
-		s.writeError(w, http.StatusBadGateway, "Ask Muster: "+err.Error())
+		s.writeError(w, http.StatusBadGateway, "Ask TopoTrace: "+err.Error())
 		return
 	}
-	if _, err := s.Store.RecordAudit(r.Context(), actor, "ask-muster", "executive-summary", "generated executive summary ("+sum.Source+"): "+truncate(sum.Text, 160)); err != nil {
+	if _, err := s.Store.RecordAudit(r.Context(), actor, "ask-topotrace", "executive-summary", "generated executive summary ("+sum.Source+"): "+truncate(sum.Text, 160)); err != nil {
 		s.log().Error("executive summary: recording audit entry", "err", err)
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"summary": sum, "generated_at": d.GeneratedAt, "total_hosts": d.TotalHosts})

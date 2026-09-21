@@ -19,10 +19,10 @@ import (
 	"fmt"
 	"time"
 
-	"muster/internal/agenthealth"
-	"muster/internal/model"
-	"muster/internal/store"
-	"muster/internal/store/memstore"
+	"topotrace/internal/agenthealth"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
+	"topotrace/internal/store/memstore"
 )
 
 type demoVisibilityStore struct {

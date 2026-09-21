@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         sbom_test.go
- * @brief        Tests for the Muster sbom package.
+ * @brief        Tests for the TopoTrace sbom package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/vuln"
+	"topotrace/internal/model"
+	"topotrace/internal/vuln"
 )
 
 func TestBuild(t *testing.T) {

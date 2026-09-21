@@ -1,0 +1,60 @@
+################################################################################
+# @file         networkpolicy.yaml
+# @brief        Part of the TopoTrace templates module.
+# @project      TopoTrace
+#
+# @author       Michael McGinnis
+# @date         2026-09-17
+# @version      1.0.0
+#
+# Copyright (c) 2026 TopoTrace LLC. All rights reserved.
+# Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
+################################################################################
+
+{{/*
+Restricts who can reach the raw ingest port to: agent pods in this
+namespace (labeled app.kubernetes.io/component=agent, i.e. the
+CronJob/DaemonSet above), plus anything reaching it via the Service's
+NodePort/LoadBalancer path from outside the cluster. The dashboard/API
+port stays open to everyone -- it's meant to be browsed.
+
+Honest caveat: NetworkPolicy governs pod-to-pod traffic within the
+cluster. Traffic arriving through the ingest Service's NodePort/
+LoadBalancer from *outside* the cluster is a different path -- whether
+your CNI also enforces policy on that path depends on the CNI (Calico and
+Cilium do, by default not every CNI does). Don't take this NetworkPolicy
+as controlling who can reach the NodePort from off-cluster; it's
+specifically an internal, pod-to-pod restriction.
+*/}}
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "topotrace.fullname" . }}-server
+  labels:
+    {{- include "topotrace.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "topotrace.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: server
+  policyTypes:
+    - Ingress
+  ingress:
+    # The API/dashboard port: open to anything (a browser via
+    # port-forward/Ingress, another pod, whatever selects this Service).
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.server.apiPort }}
+    # The raw ingest port, within the cluster: only pods labeled as an
+    # agent (this chart's own CronJob and DaemonSet variants both carry
+    # topotrace.io/network-role=agent, or label anything else you want to
+    # allow the same way) may connect pod-to-pod.
+    - from:
+        - podSelector:
+            matchLabels:
+              topotrace.io/network-role: agent
+      ports:
+        - protocol: TCP
+          port: {{ .Values.server.ingestPort }}
+{{- end }}

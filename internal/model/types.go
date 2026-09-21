@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         types.go
- * @brief        Package model holds the core data shapes Muster passes between its ingest, cook, storage, and API layers.
+ * @brief        Package model holds the core data shapes TopoTrace passes between its ingest, cook, storage, and API layers.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,7 +11,7 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package model holds the core data shapes Muster passes between its
+// Package model holds the core data shapes TopoTrace passes between its
 // ingest, cook, storage, and API layers.
 package model
 
@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-// Host is a single managed system Muster has collected data about.
+// Host is a single managed system TopoTrace has collected data about.
 type Host struct {
 	Name       string    `json:"name"`
 	Platform   string    `json:"platform"` // "linux", "windows", "aix", ... (agent-reported, lowercase, open-ended on purpose)
@@ -154,7 +154,7 @@ type Rule struct {
 // Enrollment is a named, single-host, revocable credential used only to
 // self-register an agent -- deliberately narrower than an APIKey (which
 // grants a role across the whole API): an enrollment token authenticates
-// exactly one host's fact reports (over the TCP MUSTER1 protocol or the
+// exactly one host's fact reports (over the TCP TOPOTRACE1 protocol or the
 // JSON POST /api/mobile-report path), nothing else -- it can never
 // queue a remediation action, read another host's data, or call any
 // other endpoint. This is what backs the dashboard's tracked-enrollment
@@ -197,10 +197,10 @@ type SoftwareRule struct {
 
 // DiscoveredAsset is one host-like thing found on the network by a
 // discovery scan (cmd/discover) -- distinct from Host, which represents
-// a system that actually runs a Muster agent and reports facts.  A
+// a system that actually runs a TopoTrace agent and reports facts.  A
 // DiscoveredAsset means only "something answered on this address during
 // a sweep": no facts, no change tracking, no posture score, just enough
-// for an operator to see what's on their network that Muster otherwise
+// for an operator to see what's on their network that TopoTrace otherwise
 // has zero visibility into. Upserted by Address on every report, so
 // re-scanning refreshes OpenPorts/Banners/Known/LastSeenAt in place
 // rather than piling up duplicate rows for the same address -- the same

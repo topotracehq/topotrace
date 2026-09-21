@@ -31,10 +31,10 @@ import (
 	"strconv"
 	"time"
 
-	"muster/internal/compliance"
-	"muster/internal/model"
-	"muster/internal/risk"
-	"muster/internal/store"
+	"topotrace/internal/compliance"
+	"topotrace/internal/model"
+	"topotrace/internal/risk"
+	"topotrace/internal/store"
 )
 
 // Kind is the model.Document kind this package owns.

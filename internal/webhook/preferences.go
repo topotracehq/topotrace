@@ -17,8 +17,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"muster/internal/store"
 	"time"
+	"topotrace/internal/store"
 )
 
 const PreferencesKind = "notification_preferences"

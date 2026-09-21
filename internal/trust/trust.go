@@ -14,7 +14,7 @@
 // Package trust turns a host's blended risk into a yes/no another
 // system can act on: a zero-trust gateway, an enterprise browser, a VPN
 // concentrator or an SSO policy that wants to ask "should this device
-// get in right now?" before it grants access. Muster stops being only
+// get in right now?" before it grants access. TopoTrace stops being only
 // a place that reports on posture and becomes a posture signal
 // something else enforces -- the device-trust half of a zero-trust
 // access decision.
@@ -29,8 +29,8 @@ import (
 	"fmt"
 	"time"
 
-	"muster/internal/compliance"
-	"muster/internal/risk"
+	"topotrace/internal/compliance"
+	"topotrace/internal/risk"
 )
 
 // Thresholds are the default trust-score cut-offs.

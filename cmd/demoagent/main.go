@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         main.go
- * @brief        Command demoagent is a minimal stand-in for a real Muster agent: it tars+gzips a directory of already-captured text files and pushes them to the ingest daemon over the MUSTER1 protocol.
+ * @brief        Command demoagent is a minimal stand-in for a real TopoTrace agent: it tars+gzips a directory of already-captured text files and pushes them to the ingest daemon over the TOPOTRACE1 protocol.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,9 +11,9 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Command demoagent is a minimal stand-in for a real Muster agent: it
+// Command demoagent is a minimal stand-in for a real TopoTrace agent: it
 // tars+gzips a directory of already-captured text files and pushes them
-// to the ingest daemon over the MUSTER1 protocol. This is a test/demo
+// to the ingest daemon over the TOPOTRACE1 protocol. This is a test/demo
 // client, not a real agent -- per the project's current scope, real
 // per-platform agents (the things that would actually run `cat
 // /proc/cpuinfo` etc. on a managed host) are a later, separate piece of
@@ -62,7 +62,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	fmt.Fprintf(conn, "MUSTER1 %s %s %s %d\n", *platform, *host, tok, payload.Len())
+	fmt.Fprintf(conn, "TOPOTRACE1 %s %s %s %d\n", *platform, *host, tok, payload.Len())
 	if _, err := conn.Write(payload.Bytes()); err != nil {
 		fmt.Fprintln(os.Stderr, "sending payload:", err)
 		os.Exit(1)
@@ -77,7 +77,7 @@ func main() {
 }
 
 // packDir tars+gzips every regular file directly inside dir (non-recursive
-// -- Muster's capture contract is a flat set of files per snapshot).
+// -- TopoTrace's capture contract is a flat set of files per snapshot).
 func packDir(dir string) (*bytes.Buffer, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {

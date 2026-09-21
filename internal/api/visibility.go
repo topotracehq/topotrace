@@ -20,12 +20,12 @@ import (
 	"strings"
 	"time"
 
-	"muster/internal/agenthealth"
-	"muster/internal/graph"
-	"muster/internal/model"
-	"muster/internal/operations"
-	"muster/internal/policy"
-	"muster/internal/store"
+	"topotrace/internal/agenthealth"
+	"topotrace/internal/graph"
+	"topotrace/internal/model"
+	"topotrace/internal/operations"
+	"topotrace/internal/policy"
+	"topotrace/internal/store"
 )
 
 const assetReviewKind = "asset_review"

@@ -46,7 +46,7 @@ import (
 // some unrelated executable that happened to be dropped in the plugin
 // directory. Not a secret -- just a sanity check, the same role
 // HashiCorp's go-plugin cookie env var plays.
-const MagicCookie = "MUSTER_PLUGIN_MAGIC_COOKIE_V1"
+const MagicCookie = "TOPOTRACE_PLUGIN_MAGIC_COOKIE_V1"
 
 // ProtocolVersion is the RPC protocol version this core speaks. A
 // plugin reporting a different version is rejected rather than loaded
@@ -90,7 +90,7 @@ type PluginHTTPResponse struct {
 // handshakeLine is the fixed-format line a plugin writes to its own
 // stdout exactly once, on startup:
 //
-//	MUSTER_PLUGIN_MAGIC_COOKIE_V1|1|/path/to/socket
+//	TOPOTRACE_PLUGIN_MAGIC_COOKIE_V1|1|/path/to/socket
 //
 // cookie | protocol version | unix socket path
 func parseHandshake(line string) (version int, sockPath string, err error) {
@@ -366,7 +366,7 @@ type PluginServer interface {
 // called over RPC -- a plugin's main() typically calls this and then
 // blocks on the returned channel before exiting.
 func ServePlugin(impl PluginServer) (<-chan struct{}, error) {
-	sockDir, err := os.MkdirTemp("", "muster-plugin-*")
+	sockDir, err := os.MkdirTemp("", "topotrace-plugin-*")
 	if err != nil {
 		return nil, fmt.Errorf("creating socket dir: %w", err)
 	}

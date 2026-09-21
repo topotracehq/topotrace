@@ -1,4 +1,4 @@
-module muster
+module topotrace
 
 go 1.24.7
 

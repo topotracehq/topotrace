@@ -4,5 +4,5 @@
          this is a single-screen setup utility, not a designed product,
          so it intentionally doesn't carry a custom color/typography
          system the way the web dashboard's --mu-* tokens do. -->
-    <style name="Theme.MusterAgent" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
+    <style name="Theme.TopoTraceAgent" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
 </resources>

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         openai_test.go
- * @brief        Tests for the Muster aiquery package.
+ * @brief        Tests for the TopoTrace aiquery package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis

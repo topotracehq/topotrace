@@ -1,0 +1,54 @@
+################################################################################
+# @file         service-topotrace.yaml
+# @brief        Part of the TopoTrace templates module.
+# @project      TopoTrace
+#
+# @author       Michael McGinnis
+# @date         2026-09-17
+# @version      1.0.0
+#
+# Copyright (c) 2026 TopoTrace LLC. All rights reserved.
+# Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
+################################################################################
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "topotrace.fullname" . }}-api
+  labels:
+    {{- include "topotrace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  type: {{ .Values.server.service.api.type }}
+  selector:
+    {{- include "topotrace.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+  ports:
+    - name: api
+      port: {{ .Values.server.apiPort }}
+      targetPort: api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "topotrace.fullname" . }}-ingest
+  labels:
+    {{- include "topotrace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  # In-cluster agents (the CronJob/DaemonSet below) reach this at
+  # "<release>-topotrace-ingest:9090" over the cluster's internal DNS
+  # regardless of this Service's type. The type here is about whether
+  # something *outside* the cluster (a real Windows/Ubuntu box) can also
+  # reach it -- see server.service.ingest in values.yaml.
+  type: {{ .Values.server.service.ingest.type }}
+  selector:
+    {{- include "topotrace.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+  ports:
+    - name: ingest
+      port: {{ .Values.server.ingestPort }}
+      targetPort: ingest
+      {{- if eq .Values.server.service.ingest.type "NodePort" }}
+      nodePort: {{ .Values.server.service.ingest.nodePort }}
+      {{- end }}

@@ -47,7 +47,7 @@ var Index = []struct {
 	{"scanner-import", "Scanner Import"},
 	{"entity-graph", "Entity Map"},
 	{"data-model", "Data Model"},
-	{"ask-muster", "Ask TopoTrace"},
+	{"ask-topotrace", "Ask TopoTrace"},
 	{"siem-integration", "SIEM Integration"},
 	{"ai-agent-inventory", "AI Agent Inventory"},
 }

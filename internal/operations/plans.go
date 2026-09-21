@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/remediate"
-	"muster/internal/store"
+	"topotrace/internal/model"
+	"topotrace/internal/remediate"
+	"topotrace/internal/store"
 )
 
 type PlanAction struct {

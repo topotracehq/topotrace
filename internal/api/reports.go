@@ -19,12 +19,12 @@ import (
 	"strings"
 	"time"
 
-	"muster/internal/compliance"
-	"muster/internal/history"
-	"muster/internal/model"
-	"muster/internal/operations"
-	"muster/internal/report"
-	"muster/internal/signals"
+	"topotrace/internal/compliance"
+	"topotrace/internal/history"
+	"topotrace/internal/model"
+	"topotrace/internal/operations"
+	"topotrace/internal/report"
+	"topotrace/internal/signals"
 )
 
 // buildReport assembles report.Data from live signals. The audit trail
@@ -200,7 +200,7 @@ func (s *Server) handleReportCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="muster-`+name+`-`+d.GeneratedAt.Format("2006-01-02")+`.csv"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="topotrace-`+name+`-`+d.GeneratedAt.Format("2006-01-02")+`.csv"`)
 	w.Write(out)
 }
 

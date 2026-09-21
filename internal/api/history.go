@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"time"
 
-	"muster/internal/history"
+	"topotrace/internal/history"
 )
 
 // historyWindow parses ?days= (default 30, capped at 365) into a window.

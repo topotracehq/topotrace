@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	"muster/internal/operations"
-	"muster/internal/siteops"
+	"topotrace/internal/operations"
+	"topotrace/internal/siteops"
 )
 
 func (s *Server) registerSiteOps(mux *http.ServeMux) {

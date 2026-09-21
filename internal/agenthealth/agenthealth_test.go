@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         agenthealth_test.go
- * @brief        Tests for the Muster agenthealth package.
+ * @brief        Tests for the TopoTrace agenthealth package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"muster/internal/store/memstore"
+	"topotrace/internal/store/memstore"
 )
 
 func TestCheckinCadenceAndStates(t *testing.T) {

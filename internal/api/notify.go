@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"muster/internal/webhook"
+	"topotrace/internal/webhook"
 )
 
 // notifySettings summarizes the notification sinks for GET /api/settings
@@ -79,7 +79,7 @@ func (s *Server) handleNotifyTest(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	evt := webhook.Event{Type: "test", Host: "muster", Detail: "Test event from Muster's Settings page -- if you can read this, this sink is wired up.", Timestamp: time.Now().UTC()}
+	evt := webhook.Event{Type: "test", Host: "topotrace", Detail: "Test event from TopoTrace's Settings page -- if you can read this, this sink is wired up.", Timestamp: time.Now().UTC()}
 	if r.Body != nil {
 		var req struct {
 			Type, Host, Detail string

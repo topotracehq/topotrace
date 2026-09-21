@@ -24,7 +24,7 @@ package allowlist
 import (
 	"strings"
 
-	"muster/internal/model"
+	"topotrace/internal/model"
 )
 
 // Violation is one installed package that fails a rule in scope.
@@ -119,14 +119,14 @@ type ShadowAIPattern struct {
 	Match string
 }
 
-// ShadowAIPatterns is Muster's built-in "shadow AI" detection ruleset:
+// ShadowAIPatterns is TopoTrace's built-in "shadow AI" detection ruleset:
 // AI desktop apps, CLI tools, and browser-extension packages that
 // commonly show up in an installed_software fact without ever having
 // been approved by anyone -- the same "invisible SaaS/tool sprawl"
 // problem enterprise browser security products (Island among them)
 // build shadow-IT/shadow-AI detection around. Unlike model.SoftwareRule,
 // this list ships with the binary and needs no operator setup -- every
-// Muster deployment can answer "do we have unauthorized AI tooling
+// TopoTrace deployment can answer "do we have unauthorized AI tooling
 // installed anywhere" on day one.
 var ShadowAIPatterns = []ShadowAIPattern{
 	{"ChatGPT desktop", "chatgpt*"},

@@ -23,7 +23,7 @@ import (
 )
 
 // migrationsFS embeds every numbered migration file (0001_init.sql,
-// 0002_actions.sql, ...) into the muster binary, so a deployment is just
+// 0002_actions.sql, ...) into the topotrace binary, so a deployment is just
 // "run the binary against an empty database" -- no separate migration
 // tool or file layout to ship alongside it.
 //

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         evidence_test.go
- * @brief        Tests for the Muster policy package.
+ * @brief        Tests for the TopoTrace policy package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -14,9 +14,9 @@
 package policy
 
 import (
-	"muster/internal/model"
 	"testing"
 	"time"
+	"topotrace/internal/model"
 )
 
 func TestCoverageDistinguishesMissingStaleAndFresh(t *testing.T) {

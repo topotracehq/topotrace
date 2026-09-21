@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.muster.agent"
+    namespace = "com.topotrace.agent"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.muster.agent"
+        applicationId = "com.topotrace.agent"
         // minSdk 26 (Android 8.0) -- the oldest version WorkManager's
         // periodic scheduling and BatteryManager's isCharging() query
         // both behave consistently on, without extra API-level branching.

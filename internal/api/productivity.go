@@ -20,11 +20,11 @@ import (
 	"strings"
 	"time"
 
-	"muster/docs"
-	"muster/internal/model"
-	"muster/internal/operations"
-	"muster/internal/siteops"
-	"muster/internal/webhook"
+	"topotrace/docs"
+	"topotrace/internal/model"
+	"topotrace/internal/operations"
+	"topotrace/internal/siteops"
+	"topotrace/internal/webhook"
 )
 
 const collectionKind = "device_collection"

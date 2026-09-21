@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"muster/internal/bookmark"
-	"muster/internal/graph"
-	"muster/internal/model"
-	"muster/internal/store"
-	"muster/internal/webhook"
+	"topotrace/internal/bookmark"
+	"topotrace/internal/graph"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
+	"topotrace/internal/webhook"
 )
 
 // handleGraph is GET /api/graph -- the network/asset relationship

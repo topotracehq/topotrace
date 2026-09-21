@@ -14,7 +14,7 @@
 "use strict";
 // A deliberately small, text-safe renderer for the bundled documentation.
 // It creates DOM nodes, never inserts document content as HTML.
-window.MusterDocs = function ({api, el, app}) {
+window.TopoTraceDocs = function ({api, el, app}) {
   function inline(text) {
     const frag=document.createDocumentFragment();
     const re=/`([^`]+)`|\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^\s)]+)\)/g;let start=0,m;
@@ -64,7 +64,7 @@ window.MusterDocs = function ({api, el, app}) {
     const root=el("div",{class:"docs-page"},el("h1",{text:"Documentation"}),el("p",{class:"page-intro",text:"Practical guides, operator workflows, and technical references. Start with a task or find the details you need."}),el("div",{class:"docs-layout"},library,body));app.replaceChildren(root);
     let pages;try{pages=await api("/api/docs");}catch(e){body.replaceChildren(el("p",{text:e.message,role:"alert"}));return;}
     if(!root.isConnected)return;
-    const groups=[['Start here',['getting-started','visibility','workspace-tools','interface']],['Operate',['workflows','agents','compliance','recovery']],['Reference',['api-reference','security-model','scanner-import','entity-graph','data-model','ask-muster','siem-integration','legal']]];
+    const groups=[['Start here',['getting-started','visibility','workspace-tools','interface']],['Operate',['workflows','agents','compliance','recovery']],['Reference',['api-reference','security-model','scanner-import','entity-graph','data-model','ask-topotrace','siem-integration','legal']]];
     const selected=pages.find(p=>p.name===requested)||(!requested?pages[0]:null);
     function draw(){nav.replaceChildren();let count=0;
       for(const [title,names] of groups){const matches=pages.filter(p=>names.includes(p.name)&&(p.title+" "+p.name).toLowerCase().includes(search.value.toLowerCase()));if(!matches.length)continue;nav.append(el("li",{class:"docs-category",text:title}));for(const page of matches){count++;nav.append(el("li",{},el("a",{href:`#/docs/${page.name}`,text:page.title,...(page.name===selected?.name?{class:"active","aria-current":"page"}:{})})));}}

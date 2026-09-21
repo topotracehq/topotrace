@@ -20,9 +20,9 @@ import (
 	"strings"
 	"time"
 
-	"muster/internal/operations"
-	"muster/internal/risk"
-	"muster/internal/store"
+	"topotrace/internal/operations"
+	"topotrace/internal/risk"
+	"topotrace/internal/store"
 )
 
 func (s *Server) registerOperations(mux *http.ServeMux) {

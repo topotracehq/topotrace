@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Muster Agent</string>
-    <string name="label_server_url">Muster server URL</string>
+    <string name="app_name">TopoTrace Agent</string>
+    <string name="label_server_url">TopoTrace server URL</string>
     <string name="hint_server_url">http://192.168.1.20:8080</string>
     <string name="label_host_name">Host name</string>
     <string name="hint_host_name">e.g. pixel-8</string>
     <string name="label_token">Enrollment token</string>
-    <string name="hint_token">from the Agents tab in Muster</string>
+    <string name="hint_token">from the Agents tab in TopoTrace</string>
     <string name="action_save">Save &amp; schedule</string>
     <string name="action_report_now">Report now</string>
     <string name="status_idle">Not yet reported.</string>

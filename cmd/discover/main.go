@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         main.go
- * @brief        Command discover is Muster's network/asset discovery scanner: a TCP connect sweep across a CIDR (or a single address/comma-separated list), best-effort banner grabbing on anything that answers, and a report of what it found to Muster's POST /api/discover-report.
+ * @brief        Command discover is TopoTrace's network/asset discovery scanner: a TCP connect sweep across a CIDR (or a single address/comma-separated list), best-effort banner grabbing on anything that answers, and a report of what it found to TopoTrace's POST /api/discover-report.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,10 +11,10 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Command discover is Muster's network/asset discovery scanner: a TCP
+// Command discover is TopoTrace's network/asset discovery scanner: a TCP
 // connect sweep across a CIDR (or a single address/comma-separated
 // list), best-effort banner grabbing on anything that answers, and a
-// report of what it found to Muster's POST /api/discover-report.
+// report of what it found to TopoTrace's POST /api/discover-report.
 //
 // This is deliberately a small slice of the asset-discovery space (see
 // https://github.com/redhuntlabs/Awesome-Asset-Discovery for the much
@@ -23,7 +23,7 @@
 // (no SYN/stealth scanning, which needs raw sockets and usually root),
 // and a handful of protocol-agnostic banner-grab heuristics. The point
 // is answering one question for an operator -- "what's alive on this
-// network that Muster doesn't already manage?" -- not replacing nmap.
+// network that TopoTrace doesn't already manage?" -- not replacing nmap.
 //
 //	go run ./cmd/discover -cidr 192.168.1.0/24 -server http://localhost:8080 -token ...
 //	go run ./cmd/discover -targets 10.0.0.5,10.0.0.6 -ports 22,80,443
@@ -65,7 +65,7 @@ func main() {
 	cidr := flag.String("cidr", "", "CIDR range to sweep, e.g. 192.168.1.0/24 (mutually exclusive with -targets)")
 	targets := flag.String("targets", "", "comma-separated list of hosts/IPs to scan (mutually exclusive with -cidr)")
 	portsFlag := flag.String("ports", "", "comma-separated list of ports to check (default: a common-services list)")
-	server := flag.String("server", "http://localhost:8080", "Muster server base URL to report results to")
+	server := flag.String("server", "http://localhost:8080", "TopoTrace server base URL to report results to")
 	token := flag.String("token", "", "bearer token for the report (needs at least the 'remediate' role if the server has -auth-token set)")
 	scannedBy := flag.String("scanned-by", "", "operator-supplied label recorded with this scan (default: hostname)")
 	timeout := flag.Duration("timeout", 800*time.Millisecond, "per-port connect timeout")

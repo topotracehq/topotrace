@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         siteops_test.go
- * @brief        Tests for the Muster api package.
+ * @brief        Tests for the TopoTrace api package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -16,14 +16,14 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"muster/internal/model"
-	"muster/internal/operations"
-	"muster/internal/siteops"
-	"muster/internal/store/memstore"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+	"topotrace/internal/model"
+	"topotrace/internal/operations"
+	"topotrace/internal/siteops"
+	"topotrace/internal/store/memstore"
 )
 
 func TestDeploymentRequiresPilotReportAndCannotReplayLease(t *testing.T) {
@@ -47,7 +47,7 @@ func TestDeploymentRequiresPilotReportAndCannotReplayLease(t *testing.T) {
 	if w := call("GET", "/api/sites", worker["token"], nil); w.Code != 401 && w.Code != 403 {
 		t.Fatal("worker accessed admin API", w.Code)
 	}
-	job := siteops.Job{Name: "Pilot", Kind: "deploy", WorkerID: worker["id"], Platform: "linux", Profile: "test", MusterHost: "muster.test", MusterPort: 9090, Pilot: 1, Targets: []siteops.Target{{Address: "192.0.2.1", Host: "one"}, {Address: "192.0.2.2", Host: "two"}}}
+	job := siteops.Job{Name: "Pilot", Kind: "deploy", WorkerID: worker["id"], Platform: "linux", Profile: "test", TopoTraceHost: "topotrace.test", TopoTracePort: 9090, Pilot: 1, Targets: []siteops.Target{{Address: "192.0.2.1", Host: "one"}, {Address: "192.0.2.2", Host: "two"}}}
 	w = call("POST", "/api/sites/jobs", "master", job)
 	if w.Code != 201 {
 		t.Fatal(w.Code, w.Body.String())

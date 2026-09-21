@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         main.go
- * @brief        Command gcp is Muster's Google Compute Engine scanner: a read-only, one-shot CLI that lists instances across every zone in one project via the Compute Engine REST API and reports them to Muster's POST /api/cloud-report, the same way agen...
+ * @brief        Command gcp is TopoTrace's Google Compute Engine scanner: a read-only, one-shot CLI that lists instances across every zone in one project via the Compute Engine REST API and reports them to TopoTrace's POST /api/cloud-report, the same way agen...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,9 +11,9 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Command gcp is Muster's Google Compute Engine scanner: a read-only,
+// Command gcp is TopoTrace's Google Compute Engine scanner: a read-only,
 // one-shot CLI that lists instances across every zone in one project
-// via the Compute Engine REST API and reports them to Muster's
+// via the Compute Engine REST API and reports them to TopoTrace's
 // POST /api/cloud-report, the same way agent/aws does for EC2 and
 // agent/azure does for Azure VMs.
 //
@@ -68,8 +68,8 @@ import (
 func main() {
 	project := flag.String("project", "", "GCP project ID to scan (required)")
 	keyFile := flag.String("key-file", "", "path to a service account JSON key file (required)")
-	server := flag.String("server", "http://localhost:8080", "Muster server base URL to report results to")
-	token := flag.String("token", "", "Muster master token (POST /api/cloud-report requires the master token, not a per-host enrollment)")
+	server := flag.String("server", "http://localhost:8080", "TopoTrace server base URL to report results to")
+	token := flag.String("token", "", "TopoTrace master token (POST /api/cloud-report requires the master token, not a per-host enrollment)")
 	dryRun := flag.Bool("dry-run", false, "scan and print results, but don't POST a report")
 	flag.Parse()
 
@@ -104,7 +104,7 @@ func main() {
 		return
 	}
 	if err := reportInstances(*server, *token, *project, instances); err != nil {
-		fmt.Fprintln(os.Stderr, "reporting to Muster:", err)
+		fmt.Fprintln(os.Stderr, "reporting to TopoTrace:", err)
 		os.Exit(1)
 	}
 	fmt.Fprintln(os.Stderr, "gcp: report sent")
@@ -347,7 +347,7 @@ func truncate(s string, n int) string {
 	return s[:n] + "..."
 }
 
-// --- reporting to Muster ------------------------------------------------
+// --- reporting to TopoTrace ------------------------------------------------
 
 type cloudReportRequest struct {
 	Provider  string                `json:"provider"`

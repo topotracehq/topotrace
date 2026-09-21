@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         sprawl_test.go
- * @brief        Tests for the Muster sprawl package.
+ * @brief        Tests for the TopoTrace sprawl package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis

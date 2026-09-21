@@ -6,7 +6,7 @@ optional OAuth2/OIDC login for humans using the dashboard.
 
 ## The master token
 
-`-auth-token` (or `MUSTER_AUTH_TOKEN`) is a single shared secret that
+`-auth-token` (or `TOPOTRACE_AUTH_TOKEN`) is a single shared secret that
 always resolves to the `admin` role. It exists to bootstrap everything
 else -- use it once to mint named, role-scoped API keys via
 `POST /api/keys`, then prefer those for anything long-lived.
@@ -29,7 +29,7 @@ never remediation-result reporting, never any other endpoint. See the
 
 ## OAuth2/OIDC login for the dashboard
 
-Configured with `-oauth-*` flags (see `cmd/muster -h` or the README),
+Configured with `-oauth-*` flags (see `cmd/topotrace -h` or the README),
 this adds a real browser login flow (authorization-code grant) in
 front of the web dashboard: sign in with your identity provider, and
 your email (or a configured claim) is mapped to one of the three fixed

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         ueba.go
- * @brief        Package ueba is a small set of behavioral heuristics over Muster's own audit trail -- the user-and-entity-behavior-analytics idea (who is doing something unusual?) applied to the one dataset this project already has about its operators: ...
+ * @brief        Package ueba is a small set of behavioral heuristics over TopoTrace's own audit trail -- the user-and-entity-behavior-analytics idea (who is doing something unusual?) applied to the one dataset this project already has about its operators: ...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,7 +11,7 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package ueba is a small set of behavioral heuristics over Muster's
+// Package ueba is a small set of behavioral heuristics over TopoTrace's
 // own audit trail -- the user-and-entity-behavior-analytics idea (who is
 // doing something unusual?) applied to the one dataset this project
 // already has about its operators: every authenticated write, keyed by
@@ -33,7 +33,7 @@ import (
 	"strings"
 	"time"
 
-	"muster/internal/model"
+	"topotrace/internal/model"
 )
 
 // Signal is one behavioral finding.
@@ -83,7 +83,7 @@ func (o *Options) defaults() {
 var systemActors = map[string]bool{"system": true, "seed-tool": true, "anonymous": true, "": true}
 
 // writeActions are the audit actions that change something (as opposed
-// to Ask Muster queries or logins).
+// to Ask TopoTrace queries or logins).
 func isWrite(action string) bool {
 	switch {
 	case strings.HasPrefix(action, "create-"), strings.HasPrefix(action, "delete-"), strings.HasPrefix(action, "patch-"),

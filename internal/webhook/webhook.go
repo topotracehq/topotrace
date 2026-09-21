@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         webhook.go
- * @brief        Package webhook is Muster's outbound notification path: on a notable event (a policy or software violation, a remediation proposed, approved or executed, a violation resolved), deliver a small payload to every configured Sink -- generic ...
+ * @brief        Package webhook is TopoTrace's outbound notification path: on a notable event (a policy or software violation, a remediation proposed, approved or executed, a violation resolved), deliver a small payload to every configured Sink -- generic ...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,7 +11,7 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package webhook is Muster's outbound notification path: on a notable
+// Package webhook is TopoTrace's outbound notification path: on a notable
 // event (a policy or software violation, a remediation proposed,
 // approved or executed, a violation resolved), deliver a small payload
 // to every configured Sink -- generic webhook URLs, a Slack or Teams
@@ -40,8 +40,8 @@ import (
 	"sync"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/store"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
 )
 
 // Event is the payload delivered to every configured sink.
@@ -239,7 +239,7 @@ func (d *Dispatcher) Send(evt Event) {
 				continue
 			}
 			d.seq++
-			del := &Delivery{ID: strconv.FormatInt(d.seq, 10), Sink: s.Name(), Event: Event{Type: "digest", Timestamp: evt.Timestamp, Detail: "Muster notification digest\n" + line}, DigestCount: 1, NextAttempt: dueAt, CreatedAt: d.now()}
+			del := &Delivery{ID: strconv.FormatInt(d.seq, 10), Sink: s.Name(), Event: Event{Type: "digest", Timestamp: evt.Timestamp, Detail: "TopoTrace notification digest\n" + line}, DigestCount: 1, NextAttempt: dueAt, CreatedAt: d.now()}
 			d.pending[del.ID] = del
 			d.persist(del)
 			continue
@@ -280,7 +280,7 @@ func (d *Dispatcher) unpersist(id string) {
 }
 
 // Run is the delivery worker: blocks until ctx is done, waking on Send
-// or every few seconds to retry whatever is due. cmd/muster starts it
+// or every few seconds to retry whatever is due. cmd/topotrace starts it
 // with `go hooks.Run(ctx)`.
 func (d *Dispatcher) Run(ctx context.Context) {
 	if d == nil {

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         operations_test.go
- * @brief        Tests for the Muster evaluator package.
+ * @brief        Tests for the TopoTrace evaluator package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -15,13 +15,13 @@ package evaluator
 
 import (
 	"context"
-	"muster/internal/alerts"
-	"muster/internal/model"
-	"muster/internal/operations"
-	"muster/internal/store/memstore"
-	"muster/internal/webhook"
 	"testing"
 	"time"
+	"topotrace/internal/alerts"
+	"topotrace/internal/model"
+	"topotrace/internal/operations"
+	"topotrace/internal/store/memstore"
+	"topotrace/internal/webhook"
 )
 
 func TestDynamicPolicyExceptionExpiryAndOwnershipEscalation(t *testing.T) {

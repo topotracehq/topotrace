@@ -21,8 +21,8 @@ import (
 	"sort"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/policy"
+	"topotrace/internal/model"
+	"topotrace/internal/policy"
 )
 
 type askSource struct {

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         main.go
- * @brief        Command seed populates a Muster store with a realistic, varied set of synthetic demo data -- a dozen-plus hosts across Linux/Windows/macOS, a mix of compliant and non-compliant posture, real-looking vulnerability findings, a couple of st...
+ * @brief        Command seed populates a TopoTrace store with a realistic, varied set of synthetic demo data -- a dozen-plus hosts across Linux/Windows/macOS, a mix of compliant and non-compliant posture, real-looking vulnerability findings, a couple of st...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,7 +11,7 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Command seed populates a Muster store with a realistic, varied set of
+// Command seed populates a TopoTrace store with a realistic, varied set of
 // synthetic demo data -- a dozen-plus hosts across Linux/Windows/macOS,
 // a mix of compliant and non-compliant posture, real-looking
 // vulnerability findings, a couple of stale hosts, a few unmanaged
@@ -19,26 +19,26 @@
 // software rules -- so the dashboard looks like a real fleet instead of
 // an empty demo instance.
 //
-// It talks to the Store directly (the same package cmd/muster wires up:
+// It talks to the Store directly (the same package cmd/topotrace wires up:
 // memstore or pgstore, picked with the same -data-dir/-postgres-dsn
-// flags cmd/muster itself takes), not over the network -- there's no
+// flags cmd/topotrace itself takes), not over the network -- there's no
 // "insert one host's worth of arbitrary facts" HTTP endpoint in the API
 // today (POST /api/mobile-report is deliberately restricted to
-// android/ios, and the real MUSTER1 agent protocol wants an exact,
+// android/ios, and the real TOPOTRACE1 agent protocol wants an exact,
 // regex-matched capture-file format per platform), and reaching
 // straight for the Store is exactly what this tool's job -- seeding a
 // large, varied, hand-authored dataset in one shot -- calls for.
 //
 // A note on timing, stated plainly rather than glossed over: against
 // the default memstore backend, this only takes effect the next time
-// cmd/muster (re)starts against the same -data-dir -- memstore keeps
+// cmd/topotrace (re)starts against the same -data-dir -- memstore keeps
 // its state in memory once loaded and has no way to notice a second
 // process editing its snapshot file live. Point both at the same
 // -postgres-dsn instead and it works against an already-running server
 // immediately, no restart needed, since both processes are just two
 // clients of the same database.
 //
-//	go run ./cmd/seed                                   # then (re)start cmd/muster
+//	go run ./cmd/seed                                   # then (re)start cmd/topotrace
 //	go run ./cmd/seed -postgres-dsn "postgres://..."     # live against a running Postgres-backed server
 package main
 
@@ -49,15 +49,15 @@ import (
 	"os"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/store"
-	"muster/internal/store/memstore"
-	"muster/internal/store/pgstore"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
+	"topotrace/internal/store/memstore"
+	"topotrace/internal/store/pgstore"
 )
 
 func main() {
-	dataDir := flag.String("data-dir", "./data", "same -data-dir as cmd/muster -- the memstore JSON snapshot lives at <data-dir>/muster.json. Ignored when -postgres-dsn is set.")
-	postgresDSN := flag.String("postgres-dsn", os.Getenv("MUSTER_POSTGRES_DSN"), "same -postgres-dsn/MUSTER_POSTGRES_DSN as cmd/muster -- seed straight into Postgres instead of memstore. This is the option that works against an already-running server with no restart.")
+	dataDir := flag.String("data-dir", "./data", "same -data-dir as cmd/topotrace -- the memstore JSON snapshot lives at <data-dir>/topotrace.json. Ignored when -postgres-dsn is set.")
+	postgresDSN := flag.String("postgres-dsn", os.Getenv("TOPOTRACE_POSTGRES_DSN"), "same -postgres-dsn/TOPOTRACE_POSTGRES_DSN as cmd/topotrace -- seed straight into Postgres instead of memstore. This is the option that works against an already-running server with no restart.")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -73,7 +73,7 @@ func main() {
 		st = pg
 		fmt.Println("seed: writing into postgres store (live -- an already-running server backed by this DSN will see this immediately)")
 	} else {
-		path := *dataDir + "/muster.json"
+		path := *dataDir + "/topotrace.json"
 		mem, err := memstore.New(path)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "seed: opening memstore:", err)
@@ -91,7 +91,7 @@ func main() {
 
 	fmt.Printf("seed: wrote %d hosts, %d software rules, %d policy rules, %d discovered assets, %d score-history points (30 days), %d golden baselines\n", n.hosts, n.softwareRules, n.policyRules, n.discoveredAssets, n.historyPoints, n.baselines)
 	if *postgresDSN == "" {
-		fmt.Println("seed: memstore backend -- (re)start cmd/muster against the same -data-dir to serve this data.")
+		fmt.Println("seed: memstore backend -- (re)start cmd/topotrace against the same -data-dir to serve this data.")
 	}
 }
 
@@ -618,7 +618,7 @@ func demoPolicyRules() []model.Rule {
 
 // demoDiscoveredAssets seeds a few network-discovery sightings
 // (model.DiscoveredAsset) -- things a cmd/discover sweep found that
-// aren't enrolled Muster hosts at all, the "what else is on this
+// aren't enrolled TopoTrace hosts at all, the "what else is on this
 // network" visibility gap discovery closes.
 func demoDiscoveredAssets() []model.DiscoveredAsset {
 	return []model.DiscoveredAsset{

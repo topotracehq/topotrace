@@ -18,7 +18,7 @@
 // map[string]any ready to hand to the store.
 //
 // The raw capture contract below (cpuinfo.txt, meminfo.txt, uname.txt,
-// os-release.txt, uptime.txt) is Muster's own -- designed fresh for this
+// os-release.txt, uptime.txt) is TopoTrace's own -- designed fresh for this
 // project, not copied from any prior system. It intentionally mirrors
 // the general shape of "capture a few plain-text command outputs per
 // host" that this whole class of inventory tool uses, because that

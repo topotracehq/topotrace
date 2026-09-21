@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         preferences_test.go
- * @brief        Tests for the Muster webhook package.
+ * @brief        Tests for the TopoTrace webhook package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -16,12 +16,12 @@ package webhook
 import (
 	"context"
 	"encoding/json"
-	"muster/internal/model"
-	"muster/internal/store/memstore"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+	"topotrace/internal/model"
+	"topotrace/internal/store/memstore"
 )
 
 func TestQuietHoursDigestAndRestart(t *testing.T) {

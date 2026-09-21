@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         sbom.go
- * @brief        Package sbom renders a host's installed_software fact as a CycloneDX 1.5 JSON software bill of materials, with the host's known vulnerability findings attached in CycloneDX's own vulnerabilities section -- so the inventory Muster already...
+ * @brief        Package sbom renders a host's installed_software fact as a CycloneDX 1.5 JSON software bill of materials, with the host's known vulnerability findings attached in CycloneDX's own vulnerabilities section -- so the inventory TopoTrace already...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -14,10 +14,10 @@
 // Package sbom renders a host's installed_software fact as a CycloneDX
 // 1.5 JSON software bill of materials, with the host's known
 // vulnerability findings attached in CycloneDX's own vulnerabilities
-// section -- so the inventory Muster already collects can be handed to
+// section -- so the inventory TopoTrace already collects can be handed to
 // anything that speaks the standard format (dependency-track, a
 // customer's procurement process, an auditor) instead of only being
-// browsable in Muster's UI.
+// browsable in TopoTrace's UI.
 //
 // Scope, stated plainly: this is an OS-package-level SBOM (dpkg on
 // Linux, the Uninstall registry on Windows), not an application
@@ -33,11 +33,11 @@ import (
 	"strings"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/vuln"
+	"topotrace/internal/model"
+	"topotrace/internal/vuln"
 )
 
-// Document is the CycloneDX 1.5 JSON shape (the subset Muster fills).
+// Document is the CycloneDX 1.5 JSON shape (the subset TopoTrace fills).
 type Document struct {
 	BOMFormat       string          `json:"bomFormat"`
 	SpecVersion     string          `json:"specVersion"`
@@ -96,7 +96,7 @@ func Build(host model.Host, installed map[string]any, findings []vuln.Finding, n
 		SerialNumber: fmt.Sprintf("urn:uuid:%s", pseudoUUID(host.Name, now)),
 		Metadata: Metadata{
 			Timestamp: now.UTC().Format(time.RFC3339),
-			Tools:     []Tool{{Vendor: "Muster", Name: "muster", Version: "dev"}},
+			Tools:     []Tool{{Vendor: "TopoTrace", Name: "topotrace", Version: "dev"}},
 			Component: Component{Type: "device", BOMRef: "host:" + host.Name, Name: host.Name, Version: host.Platform},
 		},
 		Components: []Component{},
@@ -132,7 +132,7 @@ func Build(host model.Host, installed map[string]any, findings []vuln.Finding, n
 		}
 		doc.Vulnerabilities = append(doc.Vulnerabilities, Vulnerability{
 			ID:          f.CVE,
-			Source:      Source{Name: "Muster vulnerability correlation", URL: "https://osv.dev/vulnerability/" + f.CVE},
+			Source:      Source{Name: "TopoTrace vulnerability correlation", URL: "https://osv.dev/vulnerability/" + f.CVE},
 			Ratings:     []Rating{{Severity: f.Severity}},
 			Description: f.Description,
 			Affects:     []Affects{{Ref: ref}},

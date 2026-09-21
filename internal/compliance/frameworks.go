@@ -17,11 +17,11 @@ import (
 	"fmt"
 	"strings"
 
-	"muster/internal/aiagentinv"
-	"muster/internal/browserext"
+	"topotrace/internal/aiagentinv"
+	"topotrace/internal/browserext"
 )
 
-// The two frameworks below map Muster's real signals onto the language
+// The two frameworks below map TopoTrace's real signals onto the language
 // of two real standards -- the HIPAA Security Rule and NIST SP 800-53.
 // Same honesty note as Baseline, stated again because the names carry
 // weight: these are ILLUSTRATIVE mappings of the handful of controls a
@@ -92,7 +92,7 @@ func hasFact(in Input, category string) bool {
 var HIPAA = Framework{
 	ID:          "hipaa",
 	Name:        "HIPAA Security Rule (illustrative)",
-	Description: "Illustrative mapping of Muster's signals onto HIPAA Security Rule safeguards -- evidence for a handful of controls, not a certified assessment.",
+	Description: "Illustrative mapping of TopoTrace's signals onto HIPAA Security Rule safeguards -- evidence for a handful of controls, not a certified assessment.",
 	checks: []check{
 		{
 			id:          "164.308(a)(1)(ii)(A) risk analysis",
@@ -143,7 +143,7 @@ var HIPAA = Framework{
 		},
 		{
 			id:          "164.312(b) audit controls",
-			description: "Host reports an inventory Muster can audit against (system summary and installed software present)",
+			description: "Host reports an inventory TopoTrace can audit against (system summary and installed software present)",
 			evaluate: func(in Input) (bool, string) {
 				if !hasFact(in, "system_summary") || !hasFact(in, "installed_software") {
 					return false, "system_summary and/or installed_software never reported"
@@ -179,7 +179,7 @@ var HIPAA = Framework{
 var NIST80053 = Framework{
 	ID:          "nist-800-53",
 	Name:        "NIST SP 800-53 (illustrative subset)",
-	Description: "Illustrative mapping of Muster's signals onto six NIST SP 800-53 Rev. 5 controls -- not a certified or complete mapping.",
+	Description: "Illustrative mapping of TopoTrace's signals onto six NIST SP 800-53 Rev. 5 controls -- not a certified or complete mapping.",
 	checks: []check{
 		{
 			id:          "CM-8 system component inventory",

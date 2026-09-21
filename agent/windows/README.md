@@ -1,8 +1,8 @@
-# Muster Windows agent
+# TopoTrace Windows agent
 
 A minimal, dependency-free PowerShell agent that scans a Windows host and
-reports it to a running Muster server. See `muster-agent.ps1`'s own
-header comment (`Get-Help .\muster-agent.ps1 -Full` works too) for the
+reports it to a running TopoTrace server. See `topotrace-agent.ps1`'s own
+header comment (`Get-Help .\topotrace-agent.ps1 -Full` works too) for the
 full parameter list and design notes -- this file is a short pointer,
 not a duplicate.
 
@@ -13,40 +13,40 @@ not a duplicate.
 - `tar.exe` on PATH. Built into Windows 10 1803+ and Windows Server
   2019+ (`System32\tar.exe`, a bsdtar/libarchive build) -- check with
   `tar.exe --version`. No install, no admin rights needed.
-- Network access from the Windows host to the Muster server's ingest
+- Network access from the Windows host to the TopoTrace server's ingest
   port (`9090` by default).
 
 ## Quick start
 
 ```powershell
-.\muster-agent.ps1 -MusterHost <server-ip-or-hostname>
+.\topotrace-agent.ps1 -TopoTraceHost <server-ip-or-hostname>
 ```
 
 Reports this machine under its real computer name. Run
-`Get-Help .\muster-agent.ps1 -Full` for every parameter (`-HostName` to
-report under a different name, `-Platform`, `-MusterPort`, `-OutDir`,
+`Get-Help .\topotrace-agent.ps1 -Full` for every parameter (`-HostName` to
+report under a different name, `-Platform`, `-TopoTracePort`, `-OutDir`,
 `-KeepFiles` to inspect what was collected/sent).
 
 If your PowerShell execution policy blocks running the script, either
 run it with:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\muster-agent.ps1 -MusterHost <server>
+powershell -ExecutionPolicy Bypass -File .\topotrace-agent.ps1 -TopoTraceHost <server>
 ```
 
-or unblock the downloaded file first (`Unblock-File .\muster-agent.ps1`),
+or unblock the downloaded file first (`Unblock-File .\topotrace-agent.ps1`),
 per your organization's usual policy for one-off scripts.
 
 ## Running on a schedule
 
 `register-scheduled-task.ps1` in this directory wires up a Windows
-Scheduled Task that runs `muster-agent.ps1` every 15 minutes by default
-(matching `charts/muster/values.yaml`'s CronJob cadence) -- the bare-metal
+Scheduled Task that runs `topotrace-agent.ps1` every 15 minutes by default
+(matching `charts/topotrace/values.yaml`'s CronJob cadence) -- the bare-metal
 equivalent of what the Helm chart's CronJob already does inside
 Kubernetes. Run it once, elevated:
 
 ```powershell
-.\register-scheduled-task.ps1 -MusterHost <server-ip-or-hostname>
+.\register-scheduled-task.ps1 -TopoTraceHost <server-ip-or-hostname>
 ```
 
 See its own `Get-Help .\register-scheduled-task.ps1 -Full` for every
@@ -77,4 +77,4 @@ available in the environment it was written in. It was written and
 reasoned through carefully (matching the protocol and field names
 byte-for-byte against the verified Go side), but treat a first run the
 way you would any new unverified script: try it against a test/dev
-Muster instance before pointing it at anything that matters.
+TopoTrace instance before pointing it at anything that matters.

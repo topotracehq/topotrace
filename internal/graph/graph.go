@@ -28,9 +28,9 @@ import (
 	"sort"
 	"strings"
 
-	"muster/internal/compliance"
-	"muster/internal/model"
-	"muster/internal/risk"
+	"topotrace/internal/compliance"
+	"topotrace/internal/model"
+	"topotrace/internal/risk"
 )
 
 // Node is one drawable thing.

@@ -1,0 +1,80 @@
+################################################################################
+# @file         cronjob-agent.yaml
+# @brief        Part of the TopoTrace templates module.
+# @project      TopoTrace
+#
+# @author       Michael McGinnis
+# @date         2026-09-17
+# @version      1.0.0
+#
+# Copyright (c) 2026 TopoTrace LLC. All rights reserved.
+# Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
+################################################################################
+
+{{/*
+Wraps agent/ubuntu/topotrace-agent.sh (via the image built from
+agent/ubuntu/Dockerfile) in a real Kubernetes CronJob -- this is the
+scheduled/unattended-execution piece that was still a manual-run-only gap
+in the project before this chart existed.
+*/}}
+{{- if .Values.agent.cronjob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "topotrace.fullname" . }}-agent
+  labels:
+    {{- include "topotrace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+spec:
+  schedule: {{ .Values.agent.cronjob.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.agent.cronjob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.agent.cronjob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "topotrace.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: agent
+            # Shared across the CronJob and DaemonSet agent variants --
+            # this, not app.kubernetes.io/component (which differs
+            # between them), is what the NetworkPolicy selects on.
+            topotrace.io/network-role: agent
+        spec:
+          {{- if .Values.rbac.create }}
+          serviceAccountName: {{ include "topotrace.fullname" . }}-agent
+          {{- end }}
+          automountServiceAccountToken: {{ .Values.rbac.grantPodReadAccess }}
+          restartPolicy: OnFailure
+          containers:
+            - name: agent
+              image: "{{ .Values.agentImage.repository }}:{{ .Values.agentImage.tag }}"
+              imagePullPolicy: {{ .Values.agentImage.pullPolicy }}
+              # The Dockerfile's ENTRYPOINT is topotrace-agent.sh itself, so
+              # these are its args, not a shell command.
+              args:
+                - --topotrace-host
+                - {{ include "topotrace.fullname" . }}-ingest
+                - --topotrace-port
+                - {{ .Values.server.ingestPort | quote }}
+                - --host-name
+                - {{ .Values.agent.cronjob.hostName | quote }}
+                {{- if eq (include "topotrace.authEnabled" .) "true" }}
+                - --token
+                # $(TOPOTRACE_TOKEN) -- Kubernetes' own env-var expansion in
+                # command/args (kubelet substitutes this before exec,
+                # not a shell -- there is no shell here, the Dockerfile's
+                # ENTRYPOINT is topotrace-agent.sh itself), not a template
+                # value: this stays a literal secretKeyRef reference, the
+                # raw token is never rendered into the manifest.
+                - $(TOPOTRACE_TOKEN)
+                {{- end }}
+              {{- if eq (include "topotrace.authEnabled" .) "true" }}
+              env:
+                - name: TOPOTRACE_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "topotrace.authSecretName" . }}
+                      key: token
+              {{- end }}
+{{- end }}

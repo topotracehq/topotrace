@@ -20,9 +20,9 @@ doc comment for the full design.
 
 The default backend. Configure it with:
 
-- `-siem-hec-url` / `MUSTER_SIEM_HEC_URL` -- your HEC base URL, e.g.
+- `-siem-hec-url` / `TOPOTRACE_SIEM_HEC_URL` -- your HEC base URL, e.g.
   `https://splunk.example.com:8088`.
-- `-siem-hec-token` / `MUSTER_SIEM_HEC_TOKEN` -- the HEC token, sent as
+- `-siem-hec-token` / `TOPOTRACE_SIEM_HEC_TOKEN` -- the HEC token, sent as
   `Authorization: Splunk <token>`.
 
 Both must be set together, or neither -- leaving both empty disables
@@ -32,7 +32,7 @@ forwarder goroutine ever started.
 Every recorded audit entry is forwarded as one HEC event: a plain HTTPS
 `POST` to `<hec-url>/services/collector/event` with
 `Authorization: Splunk <token>` and a JSON body
-`{"event": <audit entry>, "sourcetype": "muster", "time": <unix-ts>}`.
+`{"event": <audit entry>, "sourcetype": "topotrace", "time": <unix-ts>}`.
 `<audit entry>` reuses the audit record's own fields (`id`, `actor`,
 `action`, `target`, `detail`, `timestamp`) rather than a separate
 schema, so what you see in `GET /api/audit` and what lands in Splunk are
@@ -57,7 +57,7 @@ environment has none to test against.
 
 ## Choosing a backend
 
-`-siem-backend` (env `MUSTER_SIEM_BACKEND`) names which forwarder the
+`-siem-backend` (env `TOPOTRACE_SIEM_BACKEND`) names which forwarder the
 URL and token configure. It accepts:
 
 | Name | Product | What the URL is | What the token is |
@@ -84,7 +84,7 @@ Source](https://help.sumologic.com/docs/send-data/hosted-collectors/http-source/
 Sumo's classic HTTP sources embed a unique key in the URL, so the URL
 alone is the credential; newer token-authenticated sources also take an
 `X-Sumo-Token` header, which is what `-siem-hec-token` supplies when
-set. TopoTrace sends `X-Sumo-Category: muster/audit` so the events land
+set. TopoTrace sends `X-Sumo-Category: topotrace/audit` so the events land
 under a predictable source category.
 
 ## LogRhythm

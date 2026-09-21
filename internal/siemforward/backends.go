@@ -37,17 +37,17 @@ var Backends = []string{"splunk-hec", "sumo-http", "logrhythm-webhook"}
 type SumoHTTP struct {
 	URL      string
 	Token    string
-	Category string // X-Sumo-Category; defaults to "muster"
+	Category string // X-Sumo-Category; defaults to "topotrace"
 	Client   *http.Client
 }
 
 // NewSumoHTTP returns a Forwarder posting to url.
 func NewSumoHTTP(url, token string) *SumoHTTP {
-	return &SumoHTTP{URL: url, Token: token, Category: "muster", Client: &http.Client{Timeout: 5 * time.Second}}
+	return &SumoHTTP{URL: url, Token: token, Category: "topotrace", Client: &http.Client{Timeout: 5 * time.Second}}
 }
 
 func (f *SumoHTTP) Send(ctx context.Context, event SIEMEvent) error {
-	headers := map[string]string{"X-Sumo-Category": f.Category, "X-Sumo-Name": "muster-audit"}
+	headers := map[string]string{"X-Sumo-Category": f.Category, "X-Sumo-Name": "topotrace-audit"}
 	if f.Token != "" {
 		headers["X-Sumo-Token"] = f.Token
 	}
@@ -81,7 +81,7 @@ func (f *LogRhythmWebhook) Send(ctx context.Context, event SIEMEvent) error {
 	// the beat wants a flat object; wrap the event with a stable
 	// source tag so a LogRhythm MPE rule can key on it
 	payload := map[string]any{
-		"source":    "muster",
+		"source":    "topotrace",
 		"event":     event,
 		"timestamp": time.Unix(event.Timestamp, 0).UTC().Format(time.RFC3339),
 	}

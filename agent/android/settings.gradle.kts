@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "muster-agent"
+rootProject.name = "topotrace-agent"
 include(":app")

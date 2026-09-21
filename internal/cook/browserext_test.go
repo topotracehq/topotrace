@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         browserext_test.go
- * @brief        Tests for the Muster cook package.
+ * @brief        Tests for the TopoTrace cook package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis

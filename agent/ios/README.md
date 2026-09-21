@@ -1,4 +1,4 @@
-# Muster Agent for iOS (Shortcuts-based)
+# TopoTrace Agent for iOS (Shortcuts-based)
 
 There is no native iOS app here, and that's a deliberate choice, not a
 gap: Apple's app sandboxing gives a regular App Store app no way to run
@@ -7,11 +7,11 @@ storage stats, or start automatically at boot the way the Linux/macOS/
 Windows agent scripts or the [Android app](../android/) can. The only
 way to get real unattended background execution on iOS is either Mobile
 Device Management (MDM) enrollment -- a whole separate fleet-management
-system, out of scope for what Muster is -- or the built-in **Shortcuts**
+system, out of scope for what TopoTrace is -- or the built-in **Shortcuts**
 app's Personal Automations, which run with the user's own already-granted
 permissions on a schedule the user defines. This doc is the second
 option: a fully manual, no-code walkthrough for wiring Shortcuts up to
-report to Muster's `POST /api/mobile-report` endpoint, the same JSON
+report to TopoTrace's `POST /api/mobile-report` endpoint, the same JSON
 endpoint the [Android agent](../android/) uses.
 
 **Read this whole doc before starting** -- particularly "Limitations"
@@ -22,12 +22,12 @@ fleet agent; set expectations accordingly before enrolling a device.
 
 A Shortcuts **Personal Automation** that, on a schedule, gathers a
 handful of device details, builds them into the same JSON shape the
-Android app sends, and POSTs it to Muster with the enrollment token as a
+Android app sends, and POSTs it to TopoTrace with the enrollment token as a
 bearer token -- no scripting, only Shortcuts' built-in actions.
 
 ## Before you start
 
-In the Muster web dashboard's **Agents** tab (enter an admin token if
+In the TopoTrace web dashboard's **Agents** tab (enter an admin token if
 you haven't already), create a new enrollment with platform **iOS**.
 Copy the token shown -- it's shown once. You'll paste it into one
 Shortcuts action below, and it authorizes fact reports for that one host
@@ -93,7 +93,7 @@ the device is lost, revoke it from that same tab.
    Rename its output to `factsMobileStatus`. (`storage_free`/
    `storage_total` arrive from Shortcuts already formatted, e.g. "128
    GB" rather than a bare number of megabytes like the Android app
-   sends -- that's fine, Muster stores fact values as opaque JSON, not a
+   sends -- that's fine, TopoTrace stores fact values as opaque JSON, not a
    fixed numeric schema, so a formatted string is a perfectly valid
    value; it just won't feed anything that expects a specific unit.)
 
@@ -114,7 +114,7 @@ the device is lost, revoke it from that same tab.
 
    **l. Get Contents of URL**
    Add **Get Contents of URL**. Configure:
-   - URL: `https://your-muster-server/api/mobile-report` (use your
+   - URL: `https://your-topotrace-server/api/mobile-report` (use your
      actual server address -- same host/port the Android app or web
      dashboard uses)
    - Method: **POST**
@@ -137,7 +137,7 @@ Authorization header, or a `host` value that doesn't exactly match the
 enrollment's host name (`authorizedIngestToken` on the server matches
 by exact host name against the enrollment record, not a prefix or
 case-insensitive match). A successful run shows no error and a fresh
-`last_seen` for that host in the Muster dashboard.
+`last_seen` for that host in the TopoTrace dashboard.
 
 ## Limitations
 
@@ -171,8 +171,8 @@ Device Details' detail list, Dictionary action nesting, "Ask Before
 Running") is written from the public, documented Shortcuts action set,
 but this doc was written in an environment with no iOS device or
 Shortcuts app available to actually build and run it against a live
-Muster server. Exact detail-picker wording can shift slightly between
-iOS versions. Please build it once against a running Muster instance
+TopoTrace server. Exact detail-picker wording can shift slightly between
+iOS versions. Please build it once against a running TopoTrace instance
 and let this doc be corrected against whatever you actually see on
 screen, the same "unverified until run on real hardware" caveat that
 applies to the Android app's Gradle build.

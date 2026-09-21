@@ -19,12 +19,12 @@ import (
 	"math/rand"
 	"time"
 
-	"muster/internal/baseline"
-	"muster/internal/compliance"
-	"muster/internal/history"
-	"muster/internal/model"
-	"muster/internal/signals"
-	"muster/internal/store"
+	"topotrace/internal/baseline"
+	"topotrace/internal/compliance"
+	"topotrace/internal/history"
+	"topotrace/internal/model"
+	"topotrace/internal/signals"
+	"topotrace/internal/store"
 )
 
 // seedHistory backfills 30 days of daily score-history points per host

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         operations_test.go
- * @brief        Tests for the Muster operations package.
+ * @brief        Tests for the TopoTrace operations package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -15,11 +15,11 @@ package operations
 
 import (
 	"context"
-	"muster/internal/model"
-	"muster/internal/store/memstore"
 	"path/filepath"
 	"testing"
 	"time"
+	"topotrace/internal/model"
+	"topotrace/internal/store/memstore"
 )
 
 func TestVerificationRequiresEvidenceAfterExecution(t *testing.T) {

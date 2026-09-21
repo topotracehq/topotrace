@@ -21,9 +21,9 @@ import (
 	"strings"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/operations"
-	"muster/internal/webhook"
+	"topotrace/internal/model"
+	"topotrace/internal/operations"
+	"topotrace/internal/webhook"
 )
 
 const savedViewKind = "saved_view"
@@ -217,7 +217,7 @@ type configBackup struct {
 var backupKinds = []string{operations.GroupKind, savedViewKind, webhook.PreferencesKind}
 
 func validateBackup(b configBackup) error {
-	if b.Format != "muster-workspace-config-v1" || len(b.Documents) > 1000 {
+	if b.Format != "topotrace-workspace-config-v1" || len(b.Documents) > 1000 {
 		return fmt.Errorf("unsupported format or too many records")
 	}
 	seen := map[string]bool{}
@@ -255,7 +255,7 @@ func (s *Server) handleConfigBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	operations.Mu.Lock()
 	defer operations.Mu.Unlock()
-	b := configBackup{Format: "muster-workspace-config-v1", CreatedAt: time.Now().UTC(), Documents: []model.Document{}}
+	b := configBackup{Format: "topotrace-workspace-config-v1", CreatedAt: time.Now().UTC(), Documents: []model.Document{}}
 	for _, kind := range backupKinds {
 		docs, err := s.Store.ListDocuments(r.Context(), kind)
 		if err != nil {

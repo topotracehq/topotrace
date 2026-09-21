@@ -1,0 +1,46 @@
+# TopoTrace inventory server -- systemd unit for a standalone Linux
+# VM/bare-metal install (the non-Kubernetes counterpart to charts/topotrace).
+#
+# Install with deploy/systemd/install.sh, or by hand: see
+# deploy/systemd/README.md.
+
+[Unit]
+Description=TopoTrace inventory server
+Documentation=file:///var/lib/topotrace/README.md
+After=network-online.target
+Wants=network-online.target
+# Using a local Postgres instead of the default JSON-snapshot store?
+# Uncomment these two so systemd starts Postgres first:
+# After=postgresql.service
+# Wants=postgresql.service
+
+[Service]
+Type=simple
+User=topotrace
+Group=topotrace
+WorkingDirectory=/var/lib/topotrace
+
+# "-" prefix: don't fail to start if the file is missing -- every setting
+# it can carry has a built-in default (see topotrace-server.sh), so a
+# service started with zero config still comes up listening on
+# :8080/:9090 with no auth, the same permissive-by-default posture
+# `go run ./cmd/topotrace` has with no flags.
+EnvironmentFile=-/etc/topotrace/topotrace.env
+
+ExecStart=/usr/local/bin/topotrace-server.sh
+Restart=on-failure
+RestartSec=5s
+
+# --- sandboxing -- narrow but not aggressive: this still needs to bind
+# two TCP ports and read/write one data directory, nothing exotic. ---
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/topotrace
+# Binding to ports >1024 (:8080, :9090 by default) needs no special
+# capability; if you lower TOPOTRACE_API_ADDR/TOPOTRACE_INGEST_ADDR below
+# 1024, also add: AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

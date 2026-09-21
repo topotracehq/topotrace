@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         policy.go
- * @brief        Package policy is Muster's start on a rule-evaluation layer over cooked facts -- deliberately small: one real rule (staleness), evaluated server-side so /api and the web UI's board agree on the same answer, instead of the board computing...
+ * @brief        Package policy is TopoTrace's start on a rule-evaluation layer over cooked facts -- deliberately small: one real rule (staleness), evaluated server-side so /api and the web UI's board agree on the same answer, instead of the board computing...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,7 +11,7 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package policy is Muster's start on a rule-evaluation layer over
+// Package policy is TopoTrace's start on a rule-evaluation layer over
 // cooked facts -- deliberately small: one real rule (staleness),
 // evaluated server-side so /api and the web UI's board agree on the
 // same answer, instead of the board computing it client-side with
@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"muster/internal/model"
+	"topotrace/internal/model"
 )
 
 // StaleAfter is how long a host can go without reporting before it's

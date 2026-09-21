@@ -19,10 +19,10 @@ import (
 	"net/http"
 	"time"
 
-	"muster/internal/alerts"
-	"muster/internal/operations"
-	"muster/internal/remediate"
-	"muster/internal/webhook"
+	"topotrace/internal/alerts"
+	"topotrace/internal/operations"
+	"topotrace/internal/remediate"
+	"topotrace/internal/webhook"
 )
 
 // handleListAlerts is GET /api/alerts -- every currently open policy/

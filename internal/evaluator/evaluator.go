@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         evaluator.go
- * @brief        Package evaluator runs Muster's background compliance loop: on a fixed interval, it computes each host's posture (internal/policy), evaluates every persisted rule (model.Rule, via internal/store) against it, auto-queues a remediation act...
+ * @brief        Package evaluator runs TopoTrace's background compliance loop: on a fixed interval, it computes each host's posture (internal/policy), evaluates every persisted rule (model.Rule, via internal/store) against it, auto-queues a remediation act...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,7 +11,7 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package evaluator runs Muster's background compliance loop: on a
+// Package evaluator runs TopoTrace's background compliance loop: on a
 // fixed interval, it computes each host's posture (internal/policy),
 // evaluates every persisted rule (model.Rule, via internal/store)
 // against it, auto-queues a remediation action for any violated rule
@@ -31,19 +31,19 @@ import (
 	"log/slog"
 	"time"
 
-	"muster/internal/alerts"
-	"muster/internal/allowlist"
-	"muster/internal/compliance"
-	"muster/internal/history"
-	"muster/internal/model"
-	"muster/internal/operations"
-	"muster/internal/policy"
-	"muster/internal/remediate"
-	"muster/internal/risk"
-	"muster/internal/signals"
-	"muster/internal/store"
-	"muster/internal/vuln"
-	"muster/internal/webhook"
+	"topotrace/internal/alerts"
+	"topotrace/internal/allowlist"
+	"topotrace/internal/compliance"
+	"topotrace/internal/history"
+	"topotrace/internal/model"
+	"topotrace/internal/operations"
+	"topotrace/internal/policy"
+	"topotrace/internal/remediate"
+	"topotrace/internal/risk"
+	"topotrace/internal/signals"
+	"topotrace/internal/store"
+	"topotrace/internal/vuln"
+	"topotrace/internal/webhook"
 )
 
 // Evaluator owns the background loop's dependencies. Webhooks may be
@@ -58,7 +58,7 @@ type Evaluator struct {
 
 // Run blocks, evaluating every host against every persisted rule once
 // per Interval (default 5 minutes), until ctx is done. Meant to be
-// started with `go evaluator.Run(ctx)` from cmd/muster's main.
+// started with `go evaluator.Run(ctx)` from cmd/topotrace's main.
 func (e *Evaluator) Run(ctx context.Context) {
 	if e.Interval <= 0 {
 		e.Interval = 5 * time.Minute

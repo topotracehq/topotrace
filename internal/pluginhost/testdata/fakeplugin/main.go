@@ -17,7 +17,7 @@
 package main
 
 import (
-	"muster/internal/pluginhost"
+	"topotrace/internal/pluginhost"
 )
 
 type impl struct{}

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         browserext_test.go
- * @brief        Tests for the Muster browserext package.
+ * @brief        Tests for the TopoTrace browserext package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis

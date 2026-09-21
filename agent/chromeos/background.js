@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         background.js
- * @brief        background.js -- Muster Agent for ChromeOS, a Manifest V3 service worker.
+ * @brief        background.js -- TopoTrace Agent for ChromeOS, a Manifest V3 service worker.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,16 +11,16 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// background.js -- Muster Agent for ChromeOS, a Manifest V3 service
+// background.js -- TopoTrace Agent for ChromeOS, a Manifest V3 service
 // worker.
 //
 // Collects the same kind of "cheap, always-available" device facts the
 // other agents collect (agent/android/'s DeviceFacts.kt, the desktop
 // scripts' /proc or WMI reads) -- here via chrome.enterprise.* and
-// chrome.system.* instead -- and POSTs them to Muster's
+// chrome.system.* instead -- and POSTs them to TopoTrace's
 // POST /api/mobile-report, the exact same JSON ingestion path the
 // Android app and iOS Shortcuts flow already use (see internal/api's
-// handleMobileReport and agent/android/MusterClient.kt, whose request
+// handleMobileReport and agent/android/TopoTraceClient.kt, whose request
 // shape this matches field-for-field). Configuration (server URL, host
 // name, enrollment token) comes from chrome.storage.managed, i.e.
 // pushed by IT via a Chrome policy in the Google Admin console -- see
@@ -45,7 +45,7 @@
 // before relying on it. See README.md's "What's actually verified"
 // section.
 
-const ALARM_NAME = "muster-report";
+const ALARM_NAME = "topotrace-report";
 const DEFAULT_INTERVAL_MINUTES = 30;
 const MIN_INTERVAL_MINUTES = 30;
 const MAX_INTERVAL_MINUTES = 60;
@@ -64,12 +64,12 @@ chrome.runtime.onStartup.addListener(() => {
 chrome.storage.onChanged.addListener((_changes, area) => {
   if (area !== "managed") return;
   ensureAlarm();
-  reportOnce().catch((err) => console.error("muster: report after config change failed:", err));
+  reportOnce().catch((err) => console.error("topotrace: report after config change failed:", err));
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== ALARM_NAME) return;
-  reportOnce().catch((err) => console.error("muster: scheduled report failed:", err));
+  reportOnce().catch((err) => console.error("topotrace: scheduled report failed:", err));
 });
 
 async function ensureAlarm() {
@@ -102,7 +102,7 @@ function getManagedConfig() {
   return new Promise((resolve) => {
     chrome.storage.managed.get(["serverUrl", "hostName", "token", "reportIntervalMinutes"], (items) => {
       if (chrome.runtime.lastError) {
-        console.warn("muster: reading managed storage:", chrome.runtime.lastError.message);
+        console.warn("topotrace: reading managed storage:", chrome.runtime.lastError.message);
         resolve({});
         return;
       }
@@ -115,7 +115,7 @@ async function reportOnce() {
   const config = await getManagedConfig();
   const { serverUrl, hostName, token } = config;
   if (!serverUrl || !hostName || !token) {
-    console.warn("muster: not configured (serverUrl/hostName/token missing from managed policy) -- skipping report");
+    console.warn("topotrace: not configured (serverUrl/hostName/token missing from managed policy) -- skipping report");
     await chrome.storage.local.set({ lastReportStatus: "not configured" });
     return;
   }

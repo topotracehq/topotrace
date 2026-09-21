@@ -13,7 +13,7 @@
 
 /* Operator workflows: evidence, ownership, exceptions, dynamic groups and staged changes. */
 "use strict";
-window.MusterWork = function ({ api, el, app, timeAgo, workspaceUI }) {
+window.TopoTraceWork = function ({ api, el, app, timeAgo, workspaceUI }) {
   const field = (label, input) => el("label", { class: "work-field" }, el("span", { text: label }), input);
   const input = (placeholder, value = "", type = "text") => el("input", { type, placeholder, value });
   const dateText = value => value ? new Date(value).toLocaleString() : "Not recorded";
@@ -105,7 +105,7 @@ window.MusterWork = function ({ api, el, app, timeAgo, workspaceUI }) {
   }
   async function groups(container){
     container.replaceChildren(el("h2",{text:"Dynamic groups"}),el("p",{class:"meta",text:"Membership updates from current device facts. All selected conditions must match. Software matching requires a report from the last 24 hours."}));
-    try{const groups=await api("/api/dynamic-groups");for(const g of groups){const remove=el("button",{type:"button",class:"ghost",text:"Delete"}),msg=el("span",{role:"status"});remove.addEventListener("click",async()=>{try{await api(`/api/dynamic-groups/${encodeURIComponent(g.id)}`,{method:"DELETE"});await window.dispatchEvent(new Event("muster-groups-changed"));await show();}catch(err){msg.textContent=err.message;}});
+    try{const groups=await api("/api/dynamic-groups");for(const g of groups){const remove=el("button",{type:"button",class:"ghost",text:"Delete"}),msg=el("span",{role:"status"});remove.addEventListener("click",async()=>{try{await api(`/api/dynamic-groups/${encodeURIComponent(g.id)}`,{method:"DELETE"});await window.dispatchEvent(new Event("topotrace-groups-changed"));await show();}catch(err){msg.textContent=err.message;}});
       container.appendChild(el("div",{class:"work-group"},el("strong",{text:g.name}),el("p",{text:`${g.members.length} devices: ${g.members.join(", ")||"None"}`}),el("p",{class:"meta",text:"Available as a target in Fleet → New policy rule."}),remove,msg));}
     }catch(err){container.appendChild(el("p",{text:err.message}));}
     const name=input("Group name"),platform=input("linux, windows, darwin…"),software=input("Package name contains…"),tag=input("Exact tag"),risk=input("0",0,"number"),exposure=el("select",{},el("option",{value:"",text:"Any"}),el("option",{value:"internet",text:"Internet-facing"}),el("option",{value:"internal",text:"Internal"}));risk.min="0";risk.max="100";name.required=true;

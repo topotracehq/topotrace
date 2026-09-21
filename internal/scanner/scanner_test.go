@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         scanner_test.go
- * @brief        Tests for the Muster scanner package.
+ * @brief        Tests for the TopoTrace scanner package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis

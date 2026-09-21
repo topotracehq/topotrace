@@ -14,9 +14,9 @@
 package api
 
 import (
-	"muster/internal/operations"
 	"net/http"
 	"time"
+	"topotrace/internal/operations"
 )
 
 func (s *Server) handlePreflight(w http.ResponseWriter, r *http.Request) {

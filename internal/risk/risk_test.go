@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         risk_test.go
- * @brief        Tests for the Muster risk package.
+ * @brief        Tests for the TopoTrace risk package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -16,11 +16,11 @@ package risk
 import (
 	"testing"
 
-	"muster/internal/allowlist"
-	"muster/internal/compliance"
-	"muster/internal/model"
-	"muster/internal/policy"
-	"muster/internal/vuln"
+	"topotrace/internal/allowlist"
+	"topotrace/internal/compliance"
+	"topotrace/internal/model"
+	"topotrace/internal/policy"
+	"topotrace/internal/vuln"
 )
 
 func TestCleanHostIsLowRisk(t *testing.T) {

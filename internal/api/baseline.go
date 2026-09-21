@@ -19,8 +19,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"muster/internal/baseline"
-	"muster/internal/store"
+	"topotrace/internal/baseline"
+	"topotrace/internal/store"
 )
 
 // handleGetBaseline is GET /api/hosts/{host}/baseline -- the host's

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         pgstore_test.go
- * @brief        Tests for the Muster pgstore package.
+ * @brief        Tests for the TopoTrace pgstore package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -21,19 +21,19 @@ import (
 	"testing"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/store"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
 )
 
 // testDSN returns the Postgres connection string to test against, or
-// skips the test. Point MUSTER_TEST_POSTGRES_DSN at a scratch database --
+// skips the test. Point TOPOTRACE_TEST_POSTGRES_DSN at a scratch database --
 // these tests create and drop their own tables at the start of each run,
 // so don't point it at anything with data you care about.
 func testDSN(t *testing.T) string {
 	t.Helper()
-	dsn := os.Getenv("MUSTER_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("TOPOTRACE_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("MUSTER_TEST_POSTGRES_DSN not set; skipping pgstore integration tests")
+		t.Skip("TOPOTRACE_TEST_POSTGRES_DSN not set; skipping pgstore integration tests")
 	}
 	return dsn
 }
@@ -55,7 +55,7 @@ func newTestStore(t *testing.T) *Store {
 	// only hosts/facts/changes and re-running New() would leave those
 	// migrations marked as applied and never recreate the tables. (This
 	// was a latent bug for as long as these tests only ever skipped for
-	// lack of MUSTER_TEST_POSTGRES_DSN -- caught the first time they ran
+	// lack of TOPOTRACE_TEST_POSTGRES_DSN -- caught the first time they ran
 	// against a real scratch Postgres.)
 	if _, err := prep.db.ExecContext(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
 		prep.Close()

@@ -13,7 +13,7 @@ const el=(tag,attrs={},...children)=>{const n=new Node(tag,attrs.text||'');n.att
 const document={createDocumentFragment:()=>new Node('#fragment'),createTextNode:t=>new Node('#text',t)};
 const context={window:{},document};vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../static/docs.js'),'utf8'),context);
-const render=context.window.MusterDocs({el}).render;
+const render=context.window.TopoTraceDocs({el}).render;
 const all=nodes=>nodes.flatMap(n=>[n,...all(n.children)]);
 test('source line wrapping becomes one paragraph',()=>{
   const nodes=render('# Guide\n\nA paragraph that wraps\nacross source lines.\n\nNext paragraph.');

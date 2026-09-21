@@ -12,7 +12,7 @@
  ******************************************************************************/
 
 "use strict";
-window.MusterShell = (() => {
+window.TopoTraceShell = (() => {
   const menu = document.querySelector(".mobile-menu"), sidebar = document.querySelector(".sidebar"), scrim = document.querySelector(".nav-scrim");
   function close(returnFocus = false) {
     document.body.classList.remove("nav-open"); menu.setAttribute("aria-expanded", "false"); scrim.hidden = true;

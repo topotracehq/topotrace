@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         risk.go
- * @brief        Package risk blends the separate signals Muster already computes for a host -- vulnerability findings and their severity, posture score, staleness, Shadow AI and software-policy violations -- with two operator-supplied facts about the ho...
+ * @brief        Package risk blends the separate signals TopoTrace already computes for a host -- vulnerability findings and their severity, posture score, staleness, Shadow AI and software-policy violations -- with two operator-supplied facts about the ho...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,7 +11,7 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package risk blends the separate signals Muster already computes for a
+// Package risk blends the separate signals TopoTrace already computes for a
 // host -- vulnerability findings and their severity, posture score,
 // staleness, Shadow AI and software-policy violations -- with two
 // operator-supplied facts about the host (how critical it is, and
@@ -34,9 +34,9 @@ import (
 	"sort"
 	"strings"
 
-	"muster/internal/browserext"
-	"muster/internal/certs"
-	"muster/internal/compliance"
+	"topotrace/internal/browserext"
+	"topotrace/internal/certs"
+	"topotrace/internal/compliance"
 )
 
 // Factor is one contribution to a Result's score, for explainability.

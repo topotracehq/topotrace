@@ -32,8 +32,8 @@ import (
 	"sort"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/store"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
 )
 
 // Kind is the model.Document kind this package owns.

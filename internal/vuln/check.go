@@ -27,7 +27,7 @@ type Finding struct {
 	CVE         string `json:"cve"`
 	Severity    string `json:"severity"`
 	Description string `json:"description"`
-	// Source names where the finding came from: "" for Muster's own
+	// Source names where the finding came from: "" for TopoTrace's own
 	// static dataset / feed match, otherwise the scanner it was imported
 	// from ("nessus", "qualys", "generic").
 	Source string `json:"source,omitempty"`

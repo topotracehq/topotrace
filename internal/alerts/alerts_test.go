@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         alerts_test.go
- * @brief        Tests for the Muster alerts package.
+ * @brief        Tests for the TopoTrace alerts package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"muster/internal/store/memstore"
+	"topotrace/internal/store/memstore"
 )
 
 func TestObserveDedupsAndRealerts(t *testing.T) {

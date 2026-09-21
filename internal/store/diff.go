@@ -18,7 +18,7 @@ import (
 	"sort"
 	"time"
 
-	"muster/internal/model"
+	"topotrace/internal/model"
 )
 
 // Diff walks two fact data maps and records an Add/Remove/Update change per

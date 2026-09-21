@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         allowlist_test.go
- * @brief        Tests for the Muster allowlist package.
+ * @brief        Tests for the TopoTrace allowlist package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -16,7 +16,7 @@ package allowlist
 import (
 	"testing"
 
-	"muster/internal/model"
+	"topotrace/internal/model"
 )
 
 func TestEvaluateShadowAI(t *testing.T) {

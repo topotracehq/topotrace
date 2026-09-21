@@ -20,10 +20,10 @@ import (
 	"strings"
 	"time"
 
-	"muster/internal/breach"
-	"muster/internal/signals"
-	"muster/internal/trust"
-	"muster/internal/ueba"
+	"topotrace/internal/breach"
+	"topotrace/internal/signals"
+	"topotrace/internal/trust"
+	"topotrace/internal/ueba"
 )
 
 // handleTrust is GET /api/trust/{host}?min=N -- the device-trust
@@ -48,7 +48,7 @@ func (s *Server) handleTrust(w http.ResponseWriter, r *http.Request) {
 		// answer with a verdict, not a 404, so a gate's logic is uniform
 		s.writeJSON(w, http.StatusOK, map[string]any{
 			"host": r.PathValue("host"), "score": 0, "level": "untrusted", "allow": false,
-			"reasons": []string{"host is not enrolled in Muster"}, "evaluated_at": time.Now().UTC(),
+			"reasons": []string{"host is not enrolled in TopoTrace"}, "evaluated_at": time.Now().UTC(),
 		})
 		return
 	}
@@ -102,7 +102,7 @@ func (s *Server) handleSignals(w http.ResponseWriter, r *http.Request) {
 		"window_days":     days,
 		"entries_scanned": len(entries),
 		"signals":         sig,
-		"note":            "Heuristic rules over Muster's own audit trail (off-hours writes, bursts, mass deletes, remediation runs, new admin keys, settings changes, first-seen actors) -- explainable, not a learned per-user baseline.",
+		"note":            "Heuristic rules over TopoTrace's own audit trail (off-hours writes, bursts, mass deletes, remediation runs, new admin keys, settings changes, first-seen actors) -- explainable, not a learned per-user baseline.",
 	})
 }
 

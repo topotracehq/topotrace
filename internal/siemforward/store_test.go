@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         store_test.go
- * @brief        Tests for the Muster siemforward package.
+ * @brief        Tests for the TopoTrace siemforward package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"muster/internal/store/memstore"
+	"topotrace/internal/store/memstore"
 )
 
 type fakeForwarder struct {

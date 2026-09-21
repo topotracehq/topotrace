@@ -20,11 +20,11 @@ import (
 	"sort"
 	"time"
 
-	"muster/internal/alerts"
-	"muster/internal/compliance"
-	"muster/internal/policy"
-	"muster/internal/risk"
-	"muster/internal/store"
+	"topotrace/internal/alerts"
+	"topotrace/internal/compliance"
+	"topotrace/internal/policy"
+	"topotrace/internal/risk"
+	"topotrace/internal/store"
 )
 
 type WorkItem struct {

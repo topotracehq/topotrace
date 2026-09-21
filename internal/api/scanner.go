@@ -21,26 +21,26 @@ import (
 	"strings"
 	"time"
 
-	"muster/internal/graph"
-	"muster/internal/model"
-	"muster/internal/scanner"
+	"topotrace/internal/graph"
+	"topotrace/internal/model"
+	"topotrace/internal/scanner"
 )
 
 // scannerImportResult is what POST /api/scanner-import returns.
 type scannerImportResult struct {
 	Format    string                       `json:"format"`
 	Parsed    int                          `json:"parsed"`
-	Matched   map[string]int               `json:"matched"`   // muster host -> findings stored
+	Matched   map[string]int               `json:"matched"`   // topotrace host -> findings stored
 	Unmatched map[string][]scanner.Finding `json:"unmatched"` // scanner host name -> findings (not stored)
 	Hosts     []string                     `json:"hosts"`     // matched hosts, alphabetical
 }
 
 // handleScannerImport is POST /api/scanner-import?format=nessus|qualys|generic.
-// The body is the scanner's CSV export. Findings are matched to Muster
+// The body is the scanner's CSV export. Findings are matched to TopoTrace
 // hosts by hostname, short hostname, or an IPv4 address from the host's
 // network_interfaces fact, then stored as a scanner_findings fact per
 // host so they flow into compliance, risk and the summary alongside
-// Muster's own version matching. Hosts the scanner named that Muster
+// TopoTrace's own version matching. Hosts the scanner named that TopoTrace
 // does not know come back as unmatched and are not stored. Admin only.
 // A 2 MB body limit keeps a stray full-fleet export from being a
 // memory problem; split larger exports.

@@ -9,10 +9,10 @@ backups with restricted access: they may contain credentials and private invento
 
 1. Record the installed version from About, the service unit and overrides, the
    startup command, storage backend, data directory, and external database name.
-   Use your deployed paths; the bundled systemd defaults are `/etc/muster` and
-   `/var/lib/muster/data`.
+   Use your deployed paths; the bundled systemd defaults are `/etc/topotrace` and
+   `/var/lib/topotrace/data`.
 2. Schedule a maintenance interval and stop TopoTrace before copying a memstore
-   snapshot. Copy the **entire data directory**, including `muster.json`, raw
+   snapshot. Copy the **entire data directory**, including `topotrace.json`, raw
    packets, and `settings-overrides.json`, preserving ownership and permissions.
    Keep the deployed binary, service launcher/unit, environment files, and TLS
    configuration with the backup. Do not print environment secrets in a ticket.

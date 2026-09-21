@@ -43,7 +43,7 @@ func (e Entry) valid() bool {
 
 // Finding is the subset of internal/aiagentinv.Finding this package
 // needs to check against policy -- duplicated here (rather than
-// importing muster/internal/aiagentinv) so the plugin binary has no
+// importing topotrace/internal/aiagentinv) so the plugin binary has no
 // compile-time dependency on core internals, only on the JSON shape
 // the core's /api/hosts/{host}/ai-agents endpoint already serves.
 type Finding struct {

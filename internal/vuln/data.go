@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         data.go
- * @brief        Package vuln does small, honest vulnerability correlation against Muster's own installed_software fact category.
+ * @brief        Package vuln does small, honest vulnerability correlation against TopoTrace's own installed_software fact category.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -12,7 +12,7 @@
  ******************************************************************************/
 
 // Package vuln does small, honest vulnerability correlation against
-// Muster's own installed_software fact category. Dataset below is a
+// TopoTrace's own installed_software fact category. Dataset below is a
 // curated, static list of well-known package/version combinations
 // bundled into the binary -- not a live feed, and not remotely close to
 // full NVD/OSV coverage. This is a deliberately small demonstration of

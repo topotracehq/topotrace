@@ -1,8 +1,8 @@
-# Muster Agent for ChromeOS
+# TopoTrace Agent for ChromeOS
 
 A small Manifest V3 Chrome extension that periodically reports managed
 Chromebook device facts (serial number, asset ID, CPU/memory/storage,
-network) to a Muster server, over the same `POST /api/mobile-report`
+network) to a TopoTrace server, over the same `POST /api/mobile-report`
 endpoint the [Android app](../android/) and the [iOS Shortcuts
 flow](../ios/README.md) use. It's the ChromeOS counterpart to those two
 mobile agents -- same idea (report in, get inventoried and
@@ -20,7 +20,7 @@ Android's own device APIs (`android.os.Build`,
 identity (serial number, asset ID, enrollment info) or ChromeOS-specific
 hardware info -- reusing the Android agent would report "an Android app
 running somewhere," not "this Chromebook." A native Manifest V3
-extension using `chrome.enterprise.*` and `chrome.system.*` gives Muster
+extension using `chrome.enterprise.*` and `chrome.system.*` gives TopoTrace
 a distinct ChromeOS story instead, which is the actual point: this is
 also exactly the platform split a product like Island's Enterprise
 Browser is built around -- ChromeOS is treated as its own managed
@@ -90,7 +90,7 @@ extension).
 
 ### 1. Mint an enrollment token
 
-In the Muster web dashboard's **Agents** tab (enter an admin token if
+In the TopoTrace web dashboard's **Agents** tab (enter an admin token if
 you haven't already), create a new enrollment with platform
 **ChromeOS**. This mints a one-time enrollment token tied to that host
 name -- copy it now, it's shown only once (see `internal/api/server.go`'s
@@ -138,7 +138,7 @@ the Agents tab.
    `managed_schema.json`'s three (or four) keys:
    ```json
    {
-     "serverUrl": "https://muster.example.com",
+     "serverUrl": "https://topotrace.example.com",
      "hostName": "chromebook-eng-042",
      "token": "<the enrollment token from step 1>",
      "reportIntervalMinutes": 30
@@ -146,7 +146,7 @@ the Agents tab.
    ```
    `hostName` must match the enrollment created in step 1 exactly, and
    each device needs its own enrollment token -- there's no
-   fleet-wide shared token, same as every other Muster agent.
+   fleet-wide shared token, same as every other TopoTrace agent.
 4. Devices in that org unit pick up the policy on their next policy
    refresh, force-install the extension, and it starts reporting on
    `chrome.alarms` per `reportIntervalMinutes` (default/floor 30
@@ -173,7 +173,7 @@ the Agents tab.
   between reports.
 
 No host permissions (`https://*/*` or similar) are declared -- `fetch`
-to the configured Muster server URL works from a Manifest V3 service
+to the configured TopoTrace server URL works from a Manifest V3 service
 worker without one as long as the target isn't otherwise blocked by
 policy, and declaring a broad host permission this extension doesn't
 otherwise need would just be a bigger attack surface for no benefit.
@@ -191,7 +191,7 @@ account** -- so, the same caveat `agent/aws`, `agent/azure`, and
   extension's structure (MV3 service worker, `chrome.alarms` scheduling,
   `chrome.storage.managed`/`.local` usage, the `POST /api/mobile-report`
   request shape) has been reviewed by hand against Chrome's published
-  extension API docs and against `agent/android/MusterClient.kt`'s
+  extension API docs and against `agent/android/TopoTraceClient.kt`'s
   request shape, which this matches field-for-field
   (`{"host", "platform", "facts"}`, `Authorization: Bearer <token>`).
 - **Not verified**: this extension has never actually been loaded on a
@@ -207,4 +207,4 @@ account** -- so, the same caveat `agent/aws`, `agent/azure`, and
   Chromebook before relying on it -- the server side (`POST
   /api/mobile-report` accepting `platform: "chromeos"`) is the one part
   of this round that *has* been verified live, against a running
-  Muster server.
+  TopoTrace server.

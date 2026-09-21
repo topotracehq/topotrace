@@ -19,7 +19,7 @@
 // untouched -- this is purely additive.
 //
 // Every raw capture file here is the plain, unmodified output of one
-// standard command agent/ubuntu/muster-agent.sh already knows how to
+// standard command agent/ubuntu/topotrace-agent.sh already knows how to
 // run -- no parsing happens on the agent side, same division of labor as
 // system_summary's five files.
 package cook

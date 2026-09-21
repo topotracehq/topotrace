@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         main.go
- * @brief        Command azure is Muster's Azure VM scanner: a read-only, one-shot CLI that lists virtual machines in one subscription via the Azure Resource Manager REST API and reports them to Muster's POST /api/cloud-report, the same way agent/aws doe...
+ * @brief        Command azure is TopoTrace's Azure VM scanner: a read-only, one-shot CLI that lists virtual machines in one subscription via the Azure Resource Manager REST API and reports them to TopoTrace's POST /api/cloud-report, the same way agent/aws doe...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,9 +11,9 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Command azure is Muster's Azure VM scanner: a read-only, one-shot CLI
+// Command azure is TopoTrace's Azure VM scanner: a read-only, one-shot CLI
 // that lists virtual machines in one subscription via the Azure
-// Resource Manager REST API and reports them to Muster's
+// Resource Manager REST API and reports them to TopoTrace's
 // POST /api/cloud-report, the same way agent/aws does for EC2 and
 // agent/gcp does for Compute Engine.
 //
@@ -61,8 +61,8 @@ func main() {
 	clientID := flag.String("client-id", "", "service principal (app registration) client ID (required)")
 	clientSecret := flag.String("client-secret", "", "service principal client secret (required)")
 	subscription := flag.String("subscription", "", "Azure subscription ID to scan (required)")
-	server := flag.String("server", "http://localhost:8080", "Muster server base URL to report results to")
-	token := flag.String("token", "", "Muster master token (POST /api/cloud-report requires the master token, not a per-host enrollment)")
+	server := flag.String("server", "http://localhost:8080", "TopoTrace server base URL to report results to")
+	token := flag.String("token", "", "TopoTrace master token (POST /api/cloud-report requires the master token, not a per-host enrollment)")
 	dryRun := flag.Bool("dry-run", false, "scan and print results, but don't POST a report")
 	flag.Parse()
 
@@ -91,7 +91,7 @@ func main() {
 		return
 	}
 	if err := reportVMs(*server, *token, *subscription, vms); err != nil {
-		fmt.Fprintln(os.Stderr, "reporting to Muster:", err)
+		fmt.Fprintln(os.Stderr, "reporting to TopoTrace:", err)
 		os.Exit(1)
 	}
 	fmt.Fprintln(os.Stderr, "azure: report sent")
@@ -241,7 +241,7 @@ func truncate(s string, n int) string {
 	return s[:n] + "..."
 }
 
-// --- reporting to Muster ------------------------------------------------
+// --- reporting to TopoTrace ------------------------------------------------
 
 type cloudReportRequest struct {
 	Provider  string                `json:"provider"`

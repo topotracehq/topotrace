@@ -24,12 +24,12 @@ import (
 	"sync"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/policy"
-	"muster/internal/store"
+	"topotrace/internal/model"
+	"topotrace/internal/policy"
+	"topotrace/internal/store"
 )
 
-// Mu serializes workflow transitions in the single Muster server process.
+// Mu serializes workflow transitions in the single TopoTrace server process.
 // Multiple server replicas require a database transaction/lease before dispatch.
 var Mu sync.Mutex
 

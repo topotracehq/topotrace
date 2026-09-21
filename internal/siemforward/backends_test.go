@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         backends_test.go
- * @brief        Tests for the Muster siemforward package.
+ * @brief        Tests for the TopoTrace siemforward package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -39,7 +39,7 @@ func TestSumoAndLogRhythmPayloads(t *testing.T) {
 	if err := sumo.Send(context.Background(), evt); err != nil {
 		t.Fatal(err)
 	}
-	if gotHdr.Get("X-Sumo-Category") != "muster" || gotHdr.Get("X-Sumo-Token") != "tok" || gotBody["action"] != "create-group" {
+	if gotHdr.Get("X-Sumo-Category") != "topotrace" || gotHdr.Get("X-Sumo-Token") != "tok" || gotBody["action"] != "create-group" {
 		t.Fatalf("sumo: hdr=%v body=%v", gotHdr, gotBody)
 	}
 
@@ -48,7 +48,7 @@ func TestSumoAndLogRhythmPayloads(t *testing.T) {
 	if err := lr.Send(context.Background(), evt); err != nil {
 		t.Fatal(err)
 	}
-	if gotHdr.Get("Authorization") != "Bearer bearer-tok" || gotBody["source"] != "muster" || gotBody["event"].(map[string]any)["actor"] != "master" {
+	if gotHdr.Get("Authorization") != "Bearer bearer-tok" || gotBody["source"] != "topotrace" || gotBody["event"].(map[string]any)["actor"] != "master" {
 		t.Fatalf("logrhythm: hdr=%v body=%v", gotHdr, gotBody)
 	}
 

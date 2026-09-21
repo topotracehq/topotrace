@@ -22,7 +22,7 @@ package agent
 
 import "embed"
 
-//go:embed ubuntu/muster-agent.sh windows/muster-agent.ps1 macos/muster-agent.sh
+//go:embed ubuntu/topotrace-agent.sh windows/topotrace-agent.ps1 macos/topotrace-agent.sh
 var Scripts embed.FS
 
 // ScriptPath maps a platform name (as used across the API/web UI --
@@ -36,7 +36,7 @@ var ScriptPath = map[string]struct {
 	Embedded string
 	Filename string
 }{
-	"linux":   {Embedded: "ubuntu/muster-agent.sh", Filename: "muster-agent.sh"},
-	"windows": {Embedded: "windows/muster-agent.ps1", Filename: "muster-agent.ps1"},
-	"macos":   {Embedded: "macos/muster-agent.sh", Filename: "muster-agent.sh"},
+	"linux":   {Embedded: "ubuntu/topotrace-agent.sh", Filename: "topotrace-agent.sh"},
+	"windows": {Embedded: "windows/topotrace-agent.ps1", Filename: "topotrace-agent.ps1"},
+	"macos":   {Embedded: "macos/topotrace-agent.sh", Filename: "topotrace-agent.sh"},
 }

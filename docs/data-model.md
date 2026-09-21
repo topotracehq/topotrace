@@ -122,7 +122,7 @@ Rule is one persisted, optionally group-scoped compliance rule, evaluated by int
 
 ### Enrollment
 
-Enrollment is a named, single-host, revocable credential used only to self-register an agent -- deliberately narrower than an APIKey (which grants a role across the whole API): an enrollment token authenticates exactly one host's fact reports (over the TCP MUSTER1 protocol or the JSON POST /api/mobile-report path), nothing else -- it can never queue a remediation action, read another host's data, or call any other endpoint.
+Enrollment is a named, single-host, revocable credential used only to self-register an agent -- deliberately narrower than an APIKey (which grants a role across the whole API): an enrollment token authenticates exactly one host's fact reports (over the TCP TOPOTRACE1 protocol or the JSON POST /api/mobile-report path), nothing else -- it can never queue a remediation action, read another host's data, or call any other endpoint.
 
 | Field | Type | JSON | Notes |
 | --- | --- | --- | --- |

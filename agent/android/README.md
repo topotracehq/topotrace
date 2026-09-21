@@ -1,24 +1,24 @@
-# Muster Agent for Android
+# TopoTrace Agent for Android
 
 A small native Android app that periodically reports basic device facts
-(OS version, battery, storage, network transport) to a Muster server,
+(OS version, battery, storage, network transport) to a TopoTrace server,
 over the same `POST /api/mobile-report` endpoint the [iOS Shortcuts
 flow](../ios/README.md) uses. It's the mobile counterpart to the
 Linux/macOS/Windows agent scripts in this directory -- same idea (report
 in, get inventoried and posture-scored), different transport (JSON over
-HTTPS instead of the raw MUSTER1 TCP protocol, since a phone can't run a
+HTTPS instead of the raw TOPOTRACE1 TCP protocol, since a phone can't run a
 cron job or a DaemonSet).
 
 ## Setting it up
 
-1. In the Muster web dashboard, open the **Agents** tab, enter an admin
+1. In the TopoTrace web dashboard, open the **Agents** tab, enter an admin
    token if you haven't already, and create a new enrollment with
    platform **Android**. This mints a one-time enrollment token tied to
    that host name -- copy it now, it's shown only once (see
    `internal/api/server.go`'s `handleCreateEnrollment`).
 2. Build and install this app (see "Building" below).
-3. On the device, open Muster Agent and enter:
-   - **Muster server URL** -- e.g. `http://192.168.1.20:8080`, whatever
+3. On the device, open TopoTrace Agent and enter:
+   - **TopoTrace server URL** -- e.g. `http://192.168.1.20:8080`, whatever
      `-listen`/your ingress has the API server on. Must be reachable from
      the phone (same LAN, VPN, or a public URL).
    - **Host name** -- exactly the host name you enrolled in step 1.
@@ -82,7 +82,7 @@ through a real Android Gradle Plugin build yet. To still get real
 compiler verification where possible, the app is split by what could be
 checked:
 
-- **`MusterJson.kt` and `MusterClient.kt`** use nothing outside the
+- **`TopoTraceJson.kt` and `TopoTraceClient.kt`** use nothing outside the
   plain JDK (`java.net`, `java.io`, `kotlin.*` -- no `android.*` or
   `androidx.*` imports), so they were compiled and run with a
   plain `kotlinc` (Kotlin 1.3.31, installed via `apt-get install kotlin`
@@ -90,7 +90,7 @@ checked:
   exercised with a small standalone smoke test: JSON round-trip
   (nested maps, string escaping including quotes/newlines), an
   empty-URL rejection, and an unreachable-host rejection, all producing
-  the expected `MusterReportException` messages. This is the exact code
+  the expected `TopoTraceReportException` messages. This is the exact code
   that ships in the app -- `java.net.HttpURLConnection` is part of
   Android's core runtime libraries too, not an Android-SDK-only API, so
   nothing changes between the verified version and the on-device one.

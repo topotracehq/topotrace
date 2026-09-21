@@ -15,17 +15,17 @@ says which of those findings are actually out of policy.
 
 ```
 go build -o ai-governance ./plugins/ai-governance
-mkdir -p /var/lib/muster-plugins/ai-governance   # or wherever -- see AI_GOVERNANCE_DATA_DIR below
-cp ai-governance /etc/muster/plugins/            # the core's -plugin-dir
+mkdir -p /var/lib/topotrace-plugins/ai-governance   # or wherever -- see AI_GOVERNANCE_DATA_DIR below
+cp ai-governance /etc/topotrace/plugins/            # the core's -plugin-dir
 ```
 
-The core (`muster -plugin-dir /etc/muster/plugins`) launches this
+The core (`topotrace -plugin-dir /etc/topotrace/plugins`) launches this
 binary itself; it's not normally run by hand. For manual testing:
 
 ```
 AI_GOVERNANCE_DATA_DIR=/tmp/ai-governance-data \
-MUSTER_CORE_URL=http://127.0.0.1:8080 \
-MUSTER_AUTH_TOKEN=<the core's admin bearer token> \
+TOPOTRACE_CORE_URL=http://127.0.0.1:8080 \
+TOPOTRACE_AUTH_TOKEN=<the core's admin bearer token> \
 ./ai-governance
 ```
 
@@ -38,10 +38,10 @@ a Unix socket, exactly like any other plugin.
   kept. Defaults to `./data/ai-governance`. **Do not commit this
   directory** -- it's per-deployment state, like the core's own
   `-data-dir`.
-- `MUSTER_CORE_URL` -- base URL of the running core (e.g.
+- `TOPOTRACE_CORE_URL` -- base URL of the running core (e.g.
   `http://127.0.0.1:8080`), used by `GET /violations` to call back
   into `GET /api/hosts/{host}/ai-agents` for a host's current findings.
-- `MUSTER_AUTH_TOKEN` -- bearer token sent on that callback. Needs at
+- `TOPOTRACE_AUTH_TOKEN` -- bearer token sent on that callback. Needs at
   least `readonly` role.
 
 ## Storage

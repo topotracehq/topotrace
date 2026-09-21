@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         ueba_test.go
- * @brief        Tests for the Muster ueba package.
+ * @brief        Tests for the TopoTrace ueba package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"muster/internal/model"
+	"topotrace/internal/model"
 )
 
 func TestAnalyze(t *testing.T) {
@@ -43,7 +43,7 @@ func TestAnalyze(t *testing.T) {
 	}
 	// carol: settings change
 	add("carol", "settings_updated", "siem forwarding configured", now.Add(-2*time.Hour))
-	add("carol", "ask-muster", "q", now.Add(-40*24*time.Hour))
+	add("carol", "ask-topotrace", "q", now.Add(-40*24*time.Hour))
 
 	sig := Analyze(entries, Options{Now: now, Location: loc})
 	kinds := map[string][]Signal{}

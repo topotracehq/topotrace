@@ -15,7 +15,7 @@
 //
 // memstore proves the interface; this is what a real deployment wants --
 // facts survive a restart without a JSON-snapshot file, more than one
-// muster process can share a database, and "which hosts run Ubuntu"
+// topotrace process can share a database, and "which hosts run Ubuntu"
 // becomes a query Postgres can index instead of a full in-memory scan.
 // Nothing above the Store interface (internal/cook, internal/api) changes
 // at all to use it -- that's the point of the interface.
@@ -34,8 +34,8 @@ import (
 
 	"github.com/lib/pq" // registers the "postgres" database/sql driver; pq.Array wraps []string for the tags column
 
-	"muster/internal/model"
-	"muster/internal/store"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
 )
 
 // Store is a Postgres-backed store.Store. It owns a *sql.DB (itself a

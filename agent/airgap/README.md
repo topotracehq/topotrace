@@ -1,6 +1,6 @@
 # Air-gapped reporting
 
-For a host with **no network route to Muster at all** -- an isolated
+For a host with **no network route to TopoTrace at all** -- an isolated
 OT/SCADA segment, a classified enclave, a box you just don't want
 talking to anything -- there's no agent that can "call home." The
 air-gapped path instead reuses the exact same local fact-collection
@@ -13,17 +13,17 @@ existing scripts.
 ## Producing a report
 
 ```bash
-# Linux/macOS host, no network path to Muster:
-./muster-agent.sh --host-name db-enclave-03 --platform linux \
+# Linux/macOS host, no network path to TopoTrace:
+./topotrace-agent.sh --host-name db-enclave-03 --platform linux \
     --airgap-out /media/usb/db-enclave-03-report.json
 
 # or print it to the terminal to retype/photograph/QR-encode by hand:
-./muster-agent.sh --host-name db-enclave-03 --platform linux --airgap-out -
+./topotrace-agent.sh --host-name db-enclave-03 --platform linux --airgap-out -
 ```
 
 ```powershell
 # Windows host:
-.\muster-agent.ps1 -HostName db-enclave-03 -Platform windows `
+.\topotrace-agent.ps1 -HostName db-enclave-03 -Platform windows `
     -AirgapOut D:\db-enclave-03-report.json
 ```
 
@@ -41,18 +41,18 @@ and either written to the path you gave `--airgap-out`/`-AirgapOut`,
 or printed to stdout if you passed `-` (handy for terminal-to-terminal
 retyping over a KVM, or piping into a QR generator -- see below).
 
-## Getting it to Muster
+## Getting it to TopoTrace
 
 Carry that JSON by whatever means your air gap allows -- a USB drive,
 retyping it by hand, a QR code -- to any machine that *can* reach
-Muster, then either:
+TopoTrace, then either:
 
 - Paste it into the **Agents** tab's **Air-gapped import** panel in the
   web UI, or
 - `POST` it directly:
 
   ```bash
-  curl -sS -X POST "http://<muster-host>:8080/api/airgap-report" \
+  curl -sS -X POST "http://<topotrace-host>:8080/api/airgap-report" \
       -H "Content-Type: application/json" \
       -H "Authorization: Bearer <enrollment-or-master-token>" \
       --data @db-enclave-03-report.json
@@ -75,7 +75,7 @@ Michael's original ask mentioned "a QR code or some encoded text like
 base64" -- this ships the base64 side fully (it's the actual payload
 format, works for a capture of any size, and is what
 `POST /api/airgap-report` expects either way). It does **not** include
-QR *generation*: Muster doesn't vendor a QR library (this project's
+QR *generation*: TopoTrace doesn't vendor a QR library (this project's
 policy is a near-zero dependency footprint, and pulling one in here
 would also need network access this dev environment didn't have when
 writing this), and there's no QR *decoding* on the server side either
@@ -87,5 +87,5 @@ practical text limit), the base64 text from `--airgap-out -` can be
 fed into any general-purpose QR generator (a phone app, `qrencode` on
 the receiving machine, a website) and scanned back with any QR reader
 -- the round trip is just moving the same base64 string, nothing
-Muster-specific to build or trust on either end. For anything bigger
+TopoTrace-specific to build or trust on either end. For anything bigger
 than a trivial capture, a file on a USB drive is the realistic path.

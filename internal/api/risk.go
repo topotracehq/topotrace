@@ -17,11 +17,11 @@ import (
 	"net/http"
 	"time"
 
-	"muster/internal/benchmark"
-	"muster/internal/compliance"
-	"muster/internal/history"
-	"muster/internal/risk"
-	"muster/internal/signals"
+	"topotrace/internal/benchmark"
+	"topotrace/internal/compliance"
+	"topotrace/internal/history"
+	"topotrace/internal/risk"
+	"topotrace/internal/signals"
 )
 
 // fleetInputs gathers a compliance.Input for every host -- the shared

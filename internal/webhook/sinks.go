@@ -95,9 +95,9 @@ func basicAuth(user, pass string) string {
 func title(evt Event) string {
 	label := strings.ReplaceAll(evt.Type, "_", " ")
 	if evt.Host != "" {
-		return fmt.Sprintf("Muster: %s on %s", label, evt.Host)
+		return fmt.Sprintf("TopoTrace: %s on %s", label, evt.Host)
 	}
-	return "Muster: " + label
+	return "TopoTrace: " + label
 }
 
 func body(evt Event) string {
@@ -205,7 +205,7 @@ func (s *JiraSink) Deliver(ctx context.Context, evt Event) error {
 			"project":   map[string]any{"key": s.Project},
 			"issuetype": map[string]any{"name": issueType},
 			"summary":   title(evt),
-			"labels":    []string{"muster", evt.Type},
+			"labels":    []string{"topotrace", evt.Type},
 			"description": map[string]any{
 				"type": "doc", "version": 1,
 				"content": []any{map[string]any{
@@ -239,7 +239,7 @@ func (s *ServiceNowSink) Deliver(ctx context.Context, evt Event) error {
 		"short_description": title(evt),
 		"description":       body(evt),
 		"category":          "security",
-		"caller_id":         "muster",
+		"caller_id":         "topotrace",
 		"urgency":           urgencyFor(evt.Type),
 	}
 	url := strings.TrimRight(s.InstanceURL, "/") + "/api/now/table/incident"

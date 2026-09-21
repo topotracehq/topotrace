@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         benchmark_test.go
- * @brief        Tests for the Muster benchmark package.
+ * @brief        Tests for the TopoTrace benchmark package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis

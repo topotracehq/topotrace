@@ -4,7 +4,7 @@
 
 ![TopoTrace](internal/webui/static/img/topotrace-lockup-light.svg)
 
-Formerly Muster. See the [brand guide](docs/brand-guide.md) for assets and compatibility details.
+Formerly TopoTrace. See the [brand guide](docs/brand-guide.md) for assets and compatibility details.
 
 A hardware/software/configuration inventory system: lightweight agents
 report data from managed hosts, a Go server ingests and parses it, and a
@@ -32,7 +32,7 @@ directly in infrastructure, security, and observability tooling.
 ## Architecture
 
 ```
-   agent  --TCP (MUSTER1 protocol)-->  ingest daemon  --tar.gz extract-->  raw/<platform>/<host>/<snapshot>/*.txt
+   agent  --TCP (TOPOTRACE1 protocol)-->  ingest daemon  --tar.gz extract-->  raw/<platform>/<host>/<snapshot>/*.txt
                                               |
                                               v
                                         cook pipeline (per-platform parser)
@@ -51,7 +51,7 @@ directly in infrastructure, security, and observability tooling.
 Open `http://localhost:8080/` for the dashboard, or hit `/api/*` directly.
 
 - **`internal/ingest`** — the TCP daemon. One goroutine per connection.
-  A tiny hand-rolled framed protocol (`MUSTER1 <platform> <host>
+  A tiny hand-rolled framed protocol (`TOPOTRACE1 <platform> <host>
   <bytes>\n` + that many bytes of gzip'd tar), documented in
   `protocol.go`. Guards against zip-slip on extraction and caps payload
   size, since this is untrusted network input landing on disk before any
@@ -70,7 +70,7 @@ Open `http://localhost:8080/` for the dashboard, or hit `/api/*` directly.
   backend is storing the result.
   - **`memstore`** — in-memory, mutex-guarded, snapshotted to a JSON file
     on every write so state survives a restart. Zero setup: this is the
-    default, and it's all `go run ./cmd/muster` needs.
+    default, and it's all `go run ./cmd/topotrace` needs.
   - **`pgstore`** — a real Postgres backend. Facts are stored as JSONB
     (categories have different shapes; the store layer treats a fact's
     data as an opaque document, not a fixed schema), `UpsertFact` diffs
@@ -83,7 +83,7 @@ Open `http://localhost:8080/` for the dashboard, or hit `/api/*` directly.
     `pgstore/migrations/` (`0001_init.sql`, `0002_actions.sql`,
     `0003_groups.sql`, ...) that isn't yet recorded in a
     `schema_migrations` table gets applied, in order, on every startup --
-    including a first run against a database built by an older muster
+    including a first run against a database built by an older topotrace
     before this migration runner existed, which just backfills
     `schema_migrations` without changing anything (every statement is
     still `CREATE ... IF NOT EXISTS`).
@@ -147,32 +147,32 @@ Open `http://localhost:8080/` for the dashboard, or hit `/api/*` directly.
     list, and -- for a credential with the `admin` role -- the most
     recent audit entries (quietly omitted, not an error, for anything
     less than `admin`).
-- **`cmd/muster`** — the server binary: runs the ingest daemon, the API,
+- **`cmd/topotrace`** — the server binary: runs the ingest daemon, the API,
   and the web UI together, one process, shared store.
 - **`cmd/demoagent`** — *not* a real agent. A minimal test client that
   packages a directory of already-captured text files and pushes them
   over the wire, so the whole pipeline is demoable without writing a
   real per-platform collector yet.
-- **`agent/windows/muster-agent.ps1`** — a real, if minimal, Windows
+- **`agent/windows/topotrace-agent.ps1`** — a real, if minimal, Windows
   agent: a dependency-free PowerShell script that collects CPU/memory/OS/
   hostname facts via `Get-CimInstance`, packages them with Windows' own
-  built-in `tar.exe`, and sends them over the same MUSTER1 protocol
+  built-in `tar.exe`, and sends them over the same TOPOTRACE1 protocol
   `demoagent` uses. See that file's header comment for full usage, and
   the honesty note under "Running it" below -- it's been written and
   reasoned through carefully but not run against a real Windows machine.
-- **`agent/ubuntu/muster-agent.sh`** — the Linux counterpart: a
+- **`agent/ubuntu/topotrace-agent.sh`** — the Linux counterpart: a
   dependency-free bash script that captures `/proc/cpuinfo`,
   `/proc/meminfo`, `uname -a`, `/etc/os-release`, and `uptime` (exactly
   what `internal/cook/linux.go` expects), packages them with `tar`, and
-  sends them over MUSTER1 using bash's built-in `/dev/tcp` -- no
+  sends them over TOPOTRACE1 using bash's built-in `/dev/tcp` -- no
   netcat/socat needed. Unlike the Windows script, this one has actually
   been run end to end against a live server (see "Running it" below).
-- **`charts/muster/`** — a Helm chart deploying the whole stack on
+- **`charts/topotrace/`** — a Helm chart deploying the whole stack on
   Kubernetes: the server as a Deployment, Postgres as a StatefulSet with
   a PVC, and the Ubuntu agent as a real CronJob (closing the "scheduled
   execution" gap for real) with an optional one-pod-per-node DaemonSet
   variant, plus least-privilege RBAC and a NetworkPolicy scoping who can
-  reach the raw ingest port. See `charts/muster/README.md` for the full
+  reach the raw ingest port. See `charts/topotrace/README.md` for the full
   design writeup (including exactly what the RBAC/NetworkPolicy/hostPID
   choices are actually for) and its own verification-status note.
 
@@ -185,15 +185,15 @@ No external services required by default, no config beyond flags —
 `go run` and go. (Postgres is opt-in, see below.)
 
 ```
-go run ./cmd/muster
+go run ./cmd/topotrace
 ```
 
 By default this uses `memstore` (in-memory, JSON-snapshotted to
-`./data/muster.json`). To use Postgres instead, point it at a running
-Postgres with `-postgres-dsn` (or the `MUSTER_POSTGRES_DSN` env var):
+`./data/topotrace.json`). To use Postgres instead, point it at a running
+Postgres with `-postgres-dsn` (or the `TOPOTRACE_POSTGRES_DSN` env var):
 
 ```
-go run ./cmd/muster -postgres-dsn "postgres://muster:muster@localhost:5432/muster?sslmode=disable"
+go run ./cmd/topotrace -postgres-dsn "postgres://topotrace:topotrace@localhost:5432/topotrace?sslmode=disable"
 ```
 
 The schema is applied automatically on startup by the embedded migration
@@ -217,35 +217,35 @@ Multi-stage build (compiles with the full Go toolchain, ships a static
 binary in a minimal Alpine runtime image, runs as a non-root user):
 
 ```
-docker build -t muster .
-docker run --rm -p 8080:8080 -p 9090:9090 -v muster-data:/app/data muster
+docker build -t topotrace .
+docker run --rm -p 8080:8080 -p 9090:9090 -v topotrace-data:/app/data topotrace
 ```
 
 Or with Compose, which also wires up a one-shot demo client:
 
 ```
-docker compose up -d muster
+docker compose up -d topotrace
 docker compose --profile demo run --rm demoagent
 ```
 
-`demoagent`'s Compose service talks to `muster:9090` (the Compose service
+`demoagent`'s Compose service talks to `topotrace:9090` (the Compose service
 name, resolved via Docker's built-in DNS) rather than `localhost`, since
 it's running as its own container on the same Compose network.
 
-That brings up `muster` with the default memstore backend -- nothing
+That brings up `topotrace` with the default memstore backend -- nothing
 else needed. To run it against Postgres instead, bring up the `postgres`
 service (behind its own profile, so it stays out of the way when you
-don't want it) and point `muster` at it:
+don't want it) and point `topotrace` at it:
 
 ```
 docker compose --profile postgres up -d postgres
-MUSTER_POSTGRES_DSN="postgres://muster:muster@postgres:5432/muster?sslmode=disable" \
-  docker compose --profile postgres up -d muster
+TOPOTRACE_POSTGRES_DSN="postgres://topotrace:topotrace@postgres:5432/topotrace?sslmode=disable" \
+  docker compose --profile postgres up -d topotrace
 ```
 
 `postgres` here is also the Compose service name/DNS entry, same idea as
-`demoagent` talking to `muster:9090` above. Data persists in the
-`muster-postgres-data` named volume across restarts.
+`demoagent` talking to `topotrace:9090` above. Data persists in the
+`topotrace-postgres-data` named volume across restarts.
 
 By default: ingest on `:9090`, API on `:8080`, data under `./data`. No
 `-auth-token` by default either -- see "Authentication, roles &
@@ -305,16 +305,16 @@ staleness threshold, a handful of policy/software rules, and a few
 network-discovered-but-unmanaged assets.
 
 ```
-go run ./cmd/seed              # writes into ./data/muster.json (memstore)
-go run ./cmd/muster            # then (re)start the server to serve it
+go run ./cmd/seed              # writes into ./data/topotrace.json (memstore)
+go run ./cmd/topotrace            # then (re)start the server to serve it
 ```
 
 It talks to the Store directly with the same `-data-dir`/`-postgres-dsn`
-flags `cmd/muster` itself takes -- see `cmd/seed/main.go`'s package doc
+flags `cmd/topotrace` itself takes -- see `cmd/seed/main.go`'s package doc
 comment for exactly why (there's no "insert one host's worth of
 arbitrary facts" HTTP endpoint in the API today) and for the one
 honest timing caveat: against the default memstore backend this only
-takes effect the next time `cmd/muster` (re)starts against the same
+takes effect the next time `cmd/topotrace` (re)starts against the same
 `-data-dir`, since memstore keeps its state in memory once loaded.
 Point both at the same `-postgres-dsn` instead and it works against an
 already-running server immediately, live, no restart needed.
@@ -322,10 +322,10 @@ already-running server immediately, live, no restart needed.
 ### Testing with the Windows agent
 
 To send data from an actual Windows machine instead of synthetic test
-fixtures, copy `agent/windows/muster-agent.ps1` to it and run:
+fixtures, copy `agent/windows/topotrace-agent.ps1` to it and run:
 
 ```
-.\muster-agent.ps1 -MusterHost <ip-or-hostname-of-the-muster-server> -MusterPort 9090
+.\topotrace-agent.ps1 -TopoTraceHost <ip-or-hostname-of-the-topotrace-server> -TopoTracePort 9090
 ```
 
 It reports as the machine's real computer name by default (`-HostName`
@@ -346,11 +346,11 @@ free space.
 
 ### Testing with the Ubuntu/Linux agent
 
-Same idea for a real Linux box: copy `agent/ubuntu/muster-agent.sh` to
+Same idea for a real Linux box: copy `agent/ubuntu/topotrace-agent.sh` to
 it and run:
 
 ```
-./muster-agent.sh --muster-host <ip-or-hostname-of-the-muster-server>
+./topotrace-agent.sh --topotrace-host <ip-or-hostname-of-the-topotrace-server>
 ```
 
 It reports under the machine's real `hostname` by default (`--host-name`
@@ -366,18 +366,18 @@ distribution facts.
 #### Don't have a spare Ubuntu box? Use the bundled test container
 
 `agent/ubuntu/Dockerfile` packages the script into a plain Ubuntu image
-so you can run it against your `muster` container without needing an
+so you can run it against your `topotrace` container without needing an
 actual second machine -- a genuine run of the real script (its own
 container's `/proc/cpuinfo`, `uname -a`, etc.), not a canned fixture
 like `demoagent`:
 
 ```
-docker compose up -d muster
+docker compose up -d topotrace
 docker compose --profile ubuntu-agent run --rm ubuntu-agent
 ```
 
 That builds the agent image, runs it on the same Compose network as
-`muster` (reachable at the `muster` hostname, same as `demoagent`
+`topotrace` (reachable at the `topotrace` hostname, same as `demoagent`
 does), reports as host `ubuntu-container01`, and exits. Check it landed:
 
 ```
@@ -386,11 +386,11 @@ curl localhost:8080/api/hosts/ubuntu-container01
 
 To report under a different name or point at a different server, pass
 your own arguments after `ubuntu-agent` (this replaces the default
-`command` entirely, so include `--muster-host` too):
+`command` entirely, so include `--topotrace-host` too):
 
 ```
 docker compose --profile ubuntu-agent run --rm ubuntu-agent \
-  --muster-host muster --host-name my-test-box
+  --topotrace-host topotrace --host-name my-test-box
 ```
 
 **Unverified note:** this Dockerfile/service was written and validated
@@ -406,14 +406,14 @@ ubuntu-agent build` hits anything unexpected.
 ### On Kubernetes
 
 ```
-docker build -t muster:latest .
-docker build -f agent/ubuntu/Dockerfile -t muster-ubuntu-agent:latest .
-helm install muster charts/muster
+docker build -t topotrace:latest .
+docker build -f agent/ubuntu/Dockerfile -t topotrace-ubuntu-agent:latest .
+helm install topotrace charts/topotrace
 ```
 
 Deploys the server (Postgres-backed by default, via a StatefulSet), a
 CronJob running the real Ubuntu agent on a schedule, and RBAC/
-NetworkPolicy scoped as described in `charts/muster/README.md` -- read
+NetworkPolicy scoped as described in `charts/topotrace/README.md` -- read
 that file before presenting this anywhere, it explains *why* each piece
 is built the way it is (why a StatefulSet at one replica, what the RBAC
 actually grants and why it's off by default, what `hostPID` on the
@@ -429,12 +429,12 @@ For a box that isn't Kubernetes and isn't just a local Go run either --
 a home-lab server, a single small-business machine:
 
 ```
-CGO_ENABLED=0 go build -mod=vendor -trimpath -ldflags="-s -w" -o muster ./cmd/muster
-sudo deploy/systemd/install.sh ./muster
+CGO_ENABLED=0 go build -mod=vendor -trimpath -ldflags="-s -w" -o topotrace ./cmd/topotrace
+sudo deploy/systemd/install.sh ./topotrace
 ```
 
-Installs a `muster` system user, a systemd unit (`Restart=on-failure`,
-starts on boot), and `/etc/muster/muster.env` for configuration -- same
+Installs a `topotrace` system user, a systemd unit (`Restart=on-failure`,
+starts on boot), and `/etc/topotrace/topotrace.env` for configuration -- same
 flags as everywhere else, just env-var-driven instead of passed on a
 command line. Full walkthrough, including firewall/reverse-proxy notes
 and upgrading, in `deploy/systemd/README.md`.
@@ -451,8 +451,8 @@ first, then roles, then remediation, never the other way around.
 ### Turning auth on
 
 ```
-go run ./cmd/muster -auth-token "some-shared-secret"
-# or: MUSTER_AUTH_TOKEN=some-shared-secret go run ./cmd/muster
+go run ./cmd/topotrace -auth-token "some-shared-secret"
+# or: TOPOTRACE_AUTH_TOKEN=some-shared-secret go run ./cmd/topotrace
 ```
 
 The token must be 1-128 characters of letters, digits, `.`, `_`, `-` --
@@ -541,7 +541,7 @@ authorization-code login flow, alongside the token schemes above, not
 instead of them:
 
 ```
-go run ./cmd/muster -auth-token some-shared-secret   -oauth-client-id "..." -oauth-client-secret "..."   -oauth-auth-url "https://accounts.google.com/o/oauth2/v2/auth"   -oauth-token-url "https://oauth2.googleapis.com/token"   -oauth-userinfo-url "https://openidconnect.googleapis.com/v1/userinfo"   -oauth-redirect-url "http://localhost:8080/api/auth/callback"   -oauth-role-map "admin@example.com=admin,*@example.com=readonly"
+go run ./cmd/topotrace -auth-token some-shared-secret   -oauth-client-id "..." -oauth-client-secret "..."   -oauth-auth-url "https://accounts.google.com/o/oauth2/v2/auth"   -oauth-token-url "https://oauth2.googleapis.com/token"   -oauth-userinfo-url "https://openidconnect.googleapis.com/v1/userinfo"   -oauth-redirect-url "http://localhost:8080/api/auth/callback"   -oauth-role-map "admin@example.com=admin,*@example.com=readonly"
 ```
 
 Every `-oauth-*` flag is required together or not at all -- leave them
@@ -583,7 +583,7 @@ mean on your platform. Adding a new verb is a deliberate code change in
 that one file, never something the network can expand.
 
 How an action actually reaches a host, entirely over the existing
-MUSTER1 connection agents already make on their normal reporting
+TOPOTRACE1 connection agents already make on their normal reporting
 schedule -- no new listener, no persistent agent connection, no second
 channel to secure:
 
@@ -602,7 +602,7 @@ channel to secure:
    An unrecognized or not-yet-implemented verb is reported back as
    unsupported, never guessed at or handed to a shell as-is.
 4. **Report it.** The agent opens one more short connection --
-   `MUSTER1-RESULT <token> <action-id> <ok|fail> <bytes>` plus a short
+   `TOPOTRACE1-RESULT <token> <action-id> <ok|fail> <bytes>` plus a short
    plain-text detail payload -- and the result lands in that action's
    history.
 
@@ -690,7 +690,7 @@ free, no-API-key vulnerability database Google runs, queried per
 package in `vuln.Watchlist` against its Debian ecosystem.
 
 The live feed is off by default -- start with `-vuln-feed` (or
-`MUSTER_VULN_FEED=true` in the systemd env file) and it refreshes on
+`TOPOTRACE_VULN_FEED=true` in the systemd env file) and it refreshes on
 `-vuln-feed-interval` (default 6h), making outbound HTTPS requests to
 `api.osv.dev`. A refresh is best-effort: if OSV.dev is unreachable, the
 last successful result stays in place rather than the feed going empty,
@@ -811,9 +811,9 @@ person reading the audit trail see the same rule. A stale host is never
 decisions are audited. As an nginx `auth_request` it's roughly:
 
 ```nginx
-location = /_muster_trust {
+location = /_topotrace_trust {
     internal;
-    proxy_pass http://muster:8080/api/trust/$http_x_device_name?min=60;
+    proxy_pass http://topotrace:8080/api/trust/$http_x_device_name?min=60;
     proxy_set_header Authorization "Bearer <readonly-key>";
 }
 # ... and a small script/Lua block turning {"allow": false} into a 403.
@@ -929,8 +929,8 @@ extensions` compliance check. See `docs/compliance.md`.
 ## Ask TopoTrace
 
 ```
-go run ./cmd/muster -ai-api-key "sk-ant-..."                     # Anthropic
-go run ./cmd/muster -ai-backend openai-compatible \
+go run ./cmd/topotrace -ai-api-key "sk-ant-..."                     # Anthropic
+go run ./cmd/topotrace -ai-backend openai-compatible \
   -ai-base-url http://your-host:11434/v1 -ai-model qwen3:30b-a3b # a model you host
 POST /api/ask   {"question": "which prod hosts have known vulnerabilities?"}
 ```
@@ -942,7 +942,7 @@ other privileged action in this project already goes through
 (`Store.RecordAudit`, truncated, actor-attributed the same way a board
 write or a policy change is). `POST /api/ask` is gated at `readonly`
 (asking a question is a read, not a write); left unconfigured (no
-`-ai-api-key`/`MUSTER_AI_API_KEY`), it answers with a clear `503 "not
+`-ai-api-key`/`TOPOTRACE_AI_API_KEY`), it answers with a clear `503 "not
 configured"` error rather than ever making an outbound request with no
 credential.
 
@@ -1000,7 +1000,7 @@ tab's "Or describe it" row fills the policy form for you to review and
 create -- never creates on its own) and **writes the executive summary**
 (a button on the Reports card, four paragraphs from the same data as the
 printed report). Both fall back to keyword rules / a template without an
-API key and say so. See `docs/ask-muster.md`.
+API key and say so. See `docs/ask-topotrace.md`.
 
 ![Draft a policy from a description](docs/screenshots/fleet-ask-draft.png)
 
@@ -1093,13 +1093,13 @@ snapshot for memstore).
 ## Notifications: webhooks, Slack, Teams, Jira, ServiceNow
 
 ```
-go run ./cmd/muster \
-  -webhook-url "https://example.com/hooks/muster" \
+go run ./cmd/topotrace \
+  -webhook-url "https://example.com/hooks/topotrace" \
   -slack-webhook-url "https://hooks.slack.com/services/..." \
   -teams-webhook-url "https://....webhook.office.com/..." \
   -jira-url https://yourteam.atlassian.net -jira-email you@example.com -jira-token <api-token> -jira-project OPS \
-  -servicenow-url https://dev12345.service-now.com -servicenow-user muster -servicenow-password <pw>
-# every flag also reads its MUSTER_* env var; every one is optional
+  -servicenow-url https://dev12345.service-now.com -servicenow-user topotrace -servicenow-password <pw>
+# every flag also reads its TOPOTRACE_* env var; every one is optional
 ```
 
 `internal/webhook` fans every notable event -- `policy_violation`,
@@ -1115,7 +1115,7 @@ go run ./cmd/muster \
   Workflows URL, sent as an Adaptive Card with a fact set.
 - **Jira** (`-jira-url` + email/token/project): one issue per finding
   via the Cloud REST API v3 (`POST /rest/api/3/issue`, ADF description,
-  `muster` + event-type labels).
+  `topotrace` + event-type labels).
 - **ServiceNow** (`-servicenow-url` + user/password): one incident per
   finding via the Table API (`POST /api/now/table/incident`).
 
@@ -1146,8 +1146,8 @@ queue" backlog item.
 ## SIEM forwarding
 
 ```
-go run ./cmd/muster -siem-hec-url https://splunk.example.com:8088 -siem-hec-token <hec-token>
-# or: MUSTER_SIEM_HEC_URL=... MUSTER_SIEM_HEC_TOKEN=... go run ./cmd/muster
+go run ./cmd/topotrace -siem-hec-url https://splunk.example.com:8088 -siem-hec-token <hec-token>
+# or: TOPOTRACE_SIEM_HEC_URL=... TOPOTRACE_SIEM_HEC_TOKEN=... go run ./cmd/topotrace
 ```
 
 Forwards TopoTrace's entire audit trail (`internal/siemforward`) -- every
@@ -1158,12 +1158,12 @@ with a 5-second timeout so a slow or unreachable SIEM can never block or
 fail the request that triggered the event. Built on a small `Forwarder`
 interface (`Send(ctx, event) error`) so a backend can be added without
 touching any call site. Three exist today, chosen with
-`-siem-backend` (`MUSTER_SIEM_BACKEND`):
+`-siem-backend` (`TOPOTRACE_SIEM_BACKEND`):
 
 | Backend | Transport |
 | --- | --- |
-| `splunk-hec` (default) | HTTPS `POST` to `<url>/services/collector/event`, `Authorization: Splunk <token>`, `{"event": <audit entry>, "sourcetype": "muster", "time": <unix-ts>}` |
-| `sumo-http` | `POST` of the event JSON to a Sumo Logic HTTP Logs Source URL, `X-Sumo-Category: muster/audit`, optional `X-Sumo-Token` |
+| `splunk-hec` (default) | HTTPS `POST` to `<url>/services/collector/event`, `Authorization: Splunk <token>`, `{"event": <audit entry>, "sourcetype": "topotrace", "time": <unix-ts>}` |
+| `sumo-http` | `POST` of the event JSON to a Sumo Logic HTTP Logs Source URL, `X-Sumo-Category: topotrace/audit`, optional `X-Sumo-Token` |
 | `logrhythm-webhook` | `POST` of the event JSON to a LogRhythm Open Collector webhook beat, optional bearer token |
 
 All three are hand-rolled against each vendor's published ingestion
@@ -1192,8 +1192,8 @@ with -- storage backend (memstore/postgres, never the DSN), listen
 addresses, evaluator interval, and whether auth/OAuth (plus its
 role-map)/the vuln feed/Ask TopoTrace (plus its model)/webhooks (plus a
 count)/SIEM forwarding (plus which backend) are configured. Never a
-secret value itself -- `MUSTER_AUTH_TOKEN`, `MUSTER_POSTGRES_DSN`,
-`MUSTER_AI_API_KEY`, the OAuth client secret, and the SIEM HEC token are
+secret value itself -- `TOPOTRACE_AUTH_TOKEN`, `TOPOTRACE_POSTGRES_DSN`,
+`TOPOTRACE_AI_API_KEY`, the OAuth client secret, and the SIEM HEC token are
 all excluded by construction (see `internal/api/server.go`'s
 `handleSettings`), only presence/absence and non-secret metadata about
 each. Exists because today all of this lives in CLI flags/env vars with
@@ -1203,7 +1203,7 @@ server-level config at a glance.
 `PATCH` lets an admin credential turn SIEM forwarding and Ask TopoTrace on,
 off, or reconfigure them from the Settings tab, with no restart:
 `internal/siemforward.Dynamic` and `internal/aiquery.ConfigStore` are
-swappable at runtime, and cmd/muster always wires both in (even when
+swappable at runtime, and cmd/topotrace always wires both in (even when
 starting with neither configured) so a later PATCH can enable them. The
 change is also persisted to `<data-dir>/settings-overrides.json` (mode
 0600) so it survives a restart -- unless the process was started with
@@ -1512,7 +1512,7 @@ on -- the same trust model the rest of TopoTrace already uses for the
 
 An enrollment token is deliberately **narrower** than the master
 `-auth-token`/an admin API key: it authorizes only that one host's fact
-reports (the TCP `MUSTER1` upload or `POST /api/mobile-report`), never
+reports (the TCP `TOPOTRACE1` upload or `POST /api/mobile-report`), never
 remediation-result reporting, never any other API call. It flips from
 `pending` to `enrolled` automatically the first time that host reports
 in (`internal/ingest/server.go`'s `authorizedUpload`, `internal/api/
@@ -1524,7 +1524,7 @@ from reporting -- a lost or decommissioned device stops trusting the
 server, not the other way around.
 
 `GET /api/agents/download/{platform}` serves the actual, real
-`agent/{linux,macos,windows}/muster-agent.{sh,ps1}` scripts straight out
+`agent/{linux,macos,windows}/topotrace-agent.{sh,ps1}` scripts straight out
 of the binary (embedded via `agent/embed.go`'s `//go:embed` -- the exact
 committed scripts, never a separate copy that could drift) -- this is
 the same download the Agents tab's per-platform install snippet points
@@ -1537,7 +1537,7 @@ secret, only the enrollment token pasted into the install command is.
 POST /api/mobile-report   # host-scoped enrollment token (or the master token/an admin key)
 ```
 
-A JSON-over-HTTP alternative to the raw `MUSTER1` TCP protocol, for
+A JSON-over-HTTP alternative to the raw `TOPOTRACE1` TCP protocol, for
 agents where a socket-plus-tar.gz payload is the wrong shape:
 
 ```json
@@ -1656,13 +1656,13 @@ since three gauges don't justify a dependency (and it keeps `go.mod`'s
 "nothing needs the network to build" story simple, see the vendoring
 note above). It reports:
 
-- `muster_hosts_total` -- total hosts TopoTrace has ever received a report
+- `topotrace_hosts_total` -- total hosts TopoTrace has ever received a report
   from.
-- `muster_hosts_stale_total` -- hosts that haven't reported within the
+- `topotrace_hosts_stale_total` -- hosts that haven't reported within the
   staleness threshold (`internal/policy.StaleAfter`, 24h) -- the same
   rule the board's `STALE` badge and `GET /api/hosts?stale=true` use, so
   the three agree by construction rather than by convention.
-- `muster_hosts_by_platform{platform="..."}` -- one gauge per platform
+- `topotrace_hosts_by_platform{platform="..."}` -- one gauge per platform
   currently reporting (`linux`, `windows`, `darwin`, ...).
 
 Point a real Prometheus at it with an ordinary `scrape_config` job the
@@ -1697,7 +1697,7 @@ real Postgres -- not mocked -- and are skipped unless you point them at
 one:
 
 ```
-export MUSTER_TEST_POSTGRES_DSN="postgres://muster:muster@localhost:5432/muster_test?sslmode=disable"
+export TOPOTRACE_TEST_POSTGRES_DSN="postgres://topotrace:topotrace@localhost:5432/topotrace_test?sslmode=disable"
 go test ./internal/store/pgstore/...
 ```
 
@@ -1848,7 +1848,7 @@ Deliberately not done yet, in rough priority order:
   ./...`, and a live run against a real host, a real (or sandboxed)
   cloud account, and a real identity provider.
 - **A live call through Ask TopoTrace with a real Anthropic API key** --
-  see the fifth-phase paragraph above. `-ai-api-key`/`MUSTER_AI_API_KEY`
+  see the fifth-phase paragraph above. `-ai-api-key`/`TOPOTRACE_AI_API_KEY`
   needs to actually be set to something real before this pitch is
   proven end to end, not just reviewed.
 - **Real-device verification for this phase's newest pieces** — the

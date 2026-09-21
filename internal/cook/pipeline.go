@@ -21,9 +21,9 @@ import (
 	"sort"
 	"time"
 
-	"muster/internal/agenthealth"
-	"muster/internal/model"
-	"muster/internal/store"
+	"topotrace/internal/agenthealth"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
 )
 
 // (sort was already imported for latestSnapshot's directory-name sort;

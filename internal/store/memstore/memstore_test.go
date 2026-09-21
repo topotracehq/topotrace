@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         memstore_test.go
- * @brief        Tests for the Muster memstore package.
+ * @brief        Tests for the TopoTrace memstore package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -19,8 +19,8 @@ import (
 	"errors"
 	"testing"
 
-	"muster/internal/model"
-	"muster/internal/store"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
 )
 
 func TestQueryReturnsEmptySliceNotNil(t *testing.T) {

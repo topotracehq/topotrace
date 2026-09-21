@@ -11,9 +11,9 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Windows support for the cook pipeline. Muster's own capture-file
+// Windows support for the cook pipeline. TopoTrace's own capture-file
 // contract for this platform (cpu.txt, memory.txt, os.txt, system.txt --
-// see agent/windows/muster-agent.ps1) is a flat "Key: Value" format
+// see agent/windows/topotrace-agent.ps1) is a flat "Key: Value" format
 // rather than Linux's mix of /proc-style and KEY=VALUE files, because
 // that's what a PowerShell agent can produce with a couple of lines per
 // file (`"Name: $($cpu.Name)"`) with no quoting/escaping to get wrong --

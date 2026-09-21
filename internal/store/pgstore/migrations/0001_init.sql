@@ -1,6 +1,6 @@
 --------------------------------------------------------------------------------
 -- @file         0001_init.sql
--- @brief        0001_init: hosts, facts, changes -- the original schema, from before muster had a migration runner at all.
+-- @brief        0001_init: hosts, facts, changes -- the original schema, from before topotrace had a migration runner at all.
 -- @project      TopoTrace
 --
 -- @author       Michael McGinnis
@@ -12,9 +12,9 @@
 --------------------------------------------------------------------------------
 
 -- 0001_init: hosts, facts, changes -- the original schema, from before
--- muster had a migration runner at all. group_name/tags are included
+-- topotrace had a migration runner at all. group_name/tags are included
 -- directly here (no separate ALTER TABLE compat step needed -- a
--- database created by a pre-migrations muster already has them, and
+-- database created by a pre-migrations topotrace already has them, and
 -- this migration never runs against it again once schema_migrations
 -- records 0001 as applied by the one-time bootstrap in pgstore.New).
 

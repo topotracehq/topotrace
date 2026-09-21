@@ -31,11 +31,11 @@ import (
 	"strconv"
 	"time"
 
-	"muster/internal/compliance"
-	"muster/internal/history"
-	"muster/internal/model"
-	"muster/internal/risk"
-	"muster/internal/webui"
+	"topotrace/internal/compliance"
+	"topotrace/internal/history"
+	"topotrace/internal/model"
+	"topotrace/internal/risk"
+	"topotrace/internal/webui"
 )
 
 // HostRow is one host's line in the compliance/risk exports and the
@@ -163,7 +163,7 @@ func CSV(d Data, name string) ([]byte, error) {
 		for _, v := range d.Vulns {
 			source := v.Source
 			if source == "" {
-				source = "muster"
+				source = "topotrace"
 			}
 			w.Write([]string{v.Host, v.Package, v.Version, v.CVE, v.Severity, source, v.Description})
 		}
@@ -286,7 +286,7 @@ var execTemplate = template.Must(template.New("exec").Funcs(funcs).Parse(`<!doct
 
 {{if .Vulns}}<h2>Known vulnerabilities ({{len .Vulns}})</h2>
 <table><tr><th>Host</th><th>Package</th><th>Version</th><th>CVE</th><th>Severity</th><th>Source</th></tr>
-{{range .Vulns}}<tr><td>{{.Host}}</td><td>{{.Package}}</td><td>{{.Version}}</td><td>{{.CVE}}</td><td class="{{if or (eq .Severity "critical") (eq .Severity "high")}}warn{{end}}">{{.Severity}}</td><td>{{with .Source}}{{.}}{{else}}muster{{end}}</td></tr>{{end}}
+{{range .Vulns}}<tr><td>{{.Host}}</td><td>{{.Package}}</td><td>{{.Version}}</td><td>{{.CVE}}</td><td class="{{if or (eq .Severity "critical") (eq .Severity "high")}}warn{{end}}">{{.Severity}}</td><td>{{with .Source}}{{.}}{{else}}topotrace{{end}}</td></tr>{{end}}
 </table>{{end}}
 
 {{if .Audit}}<h2>Recent activity</h2>

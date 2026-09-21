@@ -36,8 +36,8 @@ import (
 	"sort"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/store"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
 )
 
 const (

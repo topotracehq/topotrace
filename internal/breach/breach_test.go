@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         breach_test.go
- * @brief        Tests for the Muster breach package.
+ * @brief        Tests for the TopoTrace breach package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis

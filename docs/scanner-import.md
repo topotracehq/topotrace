@@ -97,7 +97,7 @@ own matches leave empty, so the two are always distinguishable. The
 compliance detail line says so explicitly -- "2 known-vulnerable
 package(s); 1 imported nessus finding(s)" -- the host card tags the row
 "(imported from nessus)", and the vulnerabilities CSV has a `source`
-column that reads `muster` for TopoTrace's own matches.
+column that reads `topotrace` for TopoTrace's own matches.
 
 One import replaces that host's whole `scanner_findings` fact, the same
 way a fresh agent report replaces a host's `installed_software`. An

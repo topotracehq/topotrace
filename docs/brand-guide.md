@@ -22,7 +22,7 @@ Use dark orange #9A3E08 for small text on white; bright brand orange is for acce
 
 ## Compatibility during the rename
 
-The presentation name is TopoTrace. Existing `muster` Go imports, executable and service names, repository URL, database/volume names, agent commands and flags, MUSTER environment variables, MUSTER1 protocol, API fields, audit event identifiers, browser storage keys, and session cookies remain unchanged. This keeps existing deployments and enrolled agents working. Do not run a global lowercase replacement.
+The presentation name is TopoTrace. Existing `topotrace` Go imports, executable and service names, repository URL, database/volume names, agent commands and flags, TOPOTRACE environment variables, TOPOTRACE1 protocol, API fields, audit event identifiers, browser storage keys, and session cookies remain unchanged. This keeps existing deployments and enrolled agents working. Do not run a global lowercase replacement.
 
 Repository/domain changes and a future technical migration are separate steps; this release does not imply that any domain or external account has been configured.
 

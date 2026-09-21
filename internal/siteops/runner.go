@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"muster/agent"
+	"topotrace/agent"
 )
 
 // Profiles are supplied locally, never fetched from the control server.
@@ -71,7 +71,7 @@ func Run(ctx context.Context, c Config, t Task) (Result, error) {
 		result.OK = e == nil
 		return result, e
 	}
-	if !c.Allowed(t.Target.Address) || t.Job.MusterHost != c.IngestHost || t.Job.MusterPort != c.IngestPort {
+	if !c.Allowed(t.Target.Address) || t.Job.TopoTraceHost != c.IngestHost || t.Job.TopoTracePort != c.IngestPort {
 		return result, fmt.Errorf("target or ingest destination outside worker configuration")
 	}
 	if t.Job.ActiveTarget < 0 || t.Job.ActiveTarget >= len(t.Job.Targets) || t.Target != t.Job.Targets[t.Job.ActiveTarget] {
@@ -102,14 +102,14 @@ func Run(ctx context.Context, c Config, t Task) (Result, error) {
 		}
 		// Payload and password travel on stdin / inherited environment, never command arguments.
 		outer := `$ErrorActionPreference='Stop'
-$password=ConvertTo-SecureString $env:MUSTER_WORKER_REMOTE_PASSWORD -AsPlainText -Force
-$credential=[pscredential]::new($env:MUSTER_WORKER_REMOTE_USER,$password)
+$password=ConvertTo-SecureString $env:TOPOTRACE_WORKER_REMOTE_PASSWORD -AsPlainText -Force
+$credential=[pscredential]::new($env:TOPOTRACE_WORKER_REMOTE_USER,$password)
 $source=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('` + base64.StdEncoding.EncodeToString([]byte(script)) + `'))
 Invoke-Command -ComputerName '` + t.Target.Address + `' -UseSSL -Credential $credential -ScriptBlock ([scriptblock]::Create($source)) -SessionOption (New-PSSessionOption -OpenTimeout 15000 -OperationTimeout 300000)
 `
 		cmd = exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "-")
 		cmd.Stdin = strings.NewReader(outer)
-		cmd.Env = append(os.Environ(), "MUSTER_WORKER_REMOTE_PASSWORD="+password, "MUSTER_WORKER_REMOTE_USER="+p.User)
+		cmd.Env = append(os.Environ(), "TOPOTRACE_WORKER_REMOTE_PASSWORD="+password, "TOPOTRACE_WORKER_REMOTE_USER="+p.User)
 	}
 	// Remote output may contain secrets; only the exit outcome leaves this process.
 	e = cmd.Run()
@@ -196,68 +196,68 @@ command -v tar >/dev/null
 command -v gzip >/dev/null
 command -v base64 >/dev/null
 test -d /run/systemd/system
-test ! -e /opt/muster-site-agent
-test ! -e /etc/systemd/system/muster-site-agent.service
-test ! -e /etc/systemd/system/muster-site-agent.timer
-timeout 5 bash -c 'exec 3<>/dev/tcp/` + j.MusterHost + `/` + strconv.Itoa(j.MusterPort) + `'
+test ! -e /opt/topotrace-site-agent
+test ! -e /etc/systemd/system/topotrace-site-agent.service
+test ! -e /etc/systemd/system/topotrace-site-agent.timer
+timeout 5 bash -c 'exec 3<>/dev/tcp/` + j.TopoTraceHost + `/` + strconv.Itoa(j.TopoTracePort) + `'
 `
 		if preflight {
 			return check, nil
 		}
-		b, e := agent.Scripts.ReadFile("ubuntu/muster-agent.sh")
+		b, e := agent.Scripts.ReadFile("ubuntu/topotrace-agent.sh")
 		if e != nil {
 			return "", e
 		}
 		return check + `umask 077
-mkdir /opt/muster-site-agent
-printf '%s' '` + base64.StdEncoding.EncodeToString(b) + `' | base64 -d > /opt/muster-site-agent/agent.sh
-chmod 700 /opt/muster-site-agent/agent.sh
-cat > /opt/muster-site-agent/run.sh <<'MUSTER_RUN'
+mkdir /opt/topotrace-site-agent
+printf '%s' '` + base64.StdEncoding.EncodeToString(b) + `' | base64 -d > /opt/topotrace-site-agent/agent.sh
+chmod 700 /opt/topotrace-site-agent/agent.sh
+cat > /opt/topotrace-site-agent/run.sh <<'TOPOTRACE_RUN'
 #!/bin/bash
-exec /bin/bash /opt/muster-site-agent/agent.sh --muster-host ` + j.MusterHost + ` --muster-port ` + strconv.Itoa(j.MusterPort) + ` --host-name ` + t.Target.Host + ` --token ` + t.Token + `
-MUSTER_RUN
-chmod 700 /opt/muster-site-agent/run.sh
-cat > /etc/systemd/system/muster-site-agent.service <<'MUSTER_SERVICE'
+exec /bin/bash /opt/topotrace-site-agent/agent.sh --topotrace-host ` + j.TopoTraceHost + ` --topotrace-port ` + strconv.Itoa(j.TopoTracePort) + ` --host-name ` + t.Target.Host + ` --token ` + t.Token + `
+TOPOTRACE_RUN
+chmod 700 /opt/topotrace-site-agent/run.sh
+cat > /etc/systemd/system/topotrace-site-agent.service <<'TOPOTRACE_SERVICE'
 [Unit]
-Description=Muster site agent report
+Description=TopoTrace site agent report
 After=network-online.target
 [Service]
 Type=oneshot
-ExecStart=/opt/muster-site-agent/run.sh
+ExecStart=/opt/topotrace-site-agent/run.sh
 TimeoutStartSec=10min
-MUSTER_SERVICE
-cat > /etc/systemd/system/muster-site-agent.timer <<'MUSTER_TIMER'
+TOPOTRACE_SERVICE
+cat > /etc/systemd/system/topotrace-site-agent.timer <<'TOPOTRACE_TIMER'
 [Unit]
-Description=Muster report every 15 minutes
+Description=TopoTrace report every 15 minutes
 [Timer]
 OnBootSec=2min
 OnUnitActiveSec=15min
 [Install]
 WantedBy=timers.target
-MUSTER_TIMER
+TOPOTRACE_TIMER
 systemctl daemon-reload
-systemctl enable --now muster-site-agent.timer
-systemctl start --no-block muster-site-agent.service
+systemctl enable --now topotrace-site-agent.timer
+systemctl start --no-block topotrace-site-agent.service
 `, nil
 	}
 	check := `$ErrorActionPreference='Stop'
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Administrator required' }
 Get-Command tar.exe -ErrorAction Stop | Out-Null
 Get-Command Register-ScheduledTask -ErrorAction Stop | Out-Null
-$dir=Join-Path $env:ProgramData 'MusterSiteAgent'
+$dir=Join-Path $env:ProgramData 'TopoTraceSiteAgent'
 if (Test-Path -LiteralPath $dir) { throw 'Existing installation requires manual review' }
-if (Get-ScheduledTask -TaskName MusterSiteAgent -ErrorAction SilentlyContinue) { throw 'Existing task requires manual review' }
+if (Get-ScheduledTask -TaskName TopoTraceSiteAgent -ErrorAction SilentlyContinue) { throw 'Existing task requires manual review' }
 $client=[Net.Sockets.TcpClient]::new()
-try { $pending=$client.ConnectAsync('` + j.MusterHost + `',` + strconv.Itoa(j.MusterPort) + `);if (-not $pending.Wait(5000)) {throw 'Ingest unreachable'} } finally {$client.Dispose()}
+try { $pending=$client.ConnectAsync('` + j.TopoTraceHost + `',` + strconv.Itoa(j.TopoTracePort) + `);if (-not $pending.Wait(5000)) {throw 'Ingest unreachable'} } finally {$client.Dispose()}
 `
 	if preflight {
 		return check, nil
 	}
-	b, e := agent.Scripts.ReadFile("windows/muster-agent.ps1")
+	b, e := agent.Scripts.ReadFile("windows/topotrace-agent.ps1")
 	if e != nil {
 		return "", e
 	}
-	run := `& "$PSScriptRoot\agent.ps1" -MusterHost '` + j.MusterHost + `' -MusterPort ` + strconv.Itoa(j.MusterPort) + ` -HostName '` + t.Target.Host + `' -Token '` + t.Token + `'`
+	run := `& "$PSScriptRoot\agent.ps1" -TopoTraceHost '` + j.TopoTraceHost + `' -TopoTracePort ` + strconv.Itoa(j.TopoTracePort) + ` -HostName '` + t.Target.Host + `' -Token '` + t.Token + `'`
 	return check + `New-Item -ItemType Directory -Path $dir | Out-Null
 $acl=Get-Acl -LiteralPath $dir
 $acl.SetAccessRuleProtection($true,$false)
@@ -272,7 +272,7 @@ Set-Acl -LiteralPath $dir -AclObject $acl
 $action=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -NonInteractive -File "'+(Join-Path $dir 'run.ps1')+'"')
 $trigger=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 15)
 $principal=New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-Register-ScheduledTask -TaskName MusterSiteAgent -Action $action -Trigger $trigger -Principal $principal | Out-Null
-Start-ScheduledTask -TaskName MusterSiteAgent
+Register-ScheduledTask -TaskName TopoTraceSiteAgent -Action $action -Trigger $trigger -Principal $principal | Out-Null
+Start-ScheduledTask -TaskName TopoTraceSiteAgent
 `, nil
 }

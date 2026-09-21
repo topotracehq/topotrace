@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         webui.go
- * @brief        Package webui serves Muster's web dashboard: a small, dependency-free single-page app (plain HTML/CSS/JS, no build step) that talks to the REST API in internal/api.
+ * @brief        Package webui serves TopoTrace's web dashboard: a small, dependency-free single-page app (plain HTML/CSS/JS, no build step) that talks to the REST API in internal/api.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,7 +11,7 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package webui serves Muster's web dashboard: a small, dependency-free
+// Package webui serves TopoTrace's web dashboard: a small, dependency-free
 // single-page app (plain HTML/CSS/JS, no build step) that talks to the
 // REST API in internal/api. Embedded into the binary via embed.FS, so
 // `go build` (or the Docker image) produces one self-contained artifact

@@ -36,14 +36,14 @@ type PolicyDraft struct {
 	AutoRemediateArg string `json:"auto_remediate_arg,omitempty"`
 	RequireApproval  bool   `json:"require_approval"`
 	Explanation      string `json:"explanation"`
-	Source           string `json:"source"` // "ask-muster" or "heuristic"
+	Source           string `json:"source"` // "ask-topotrace" or "heuristic"
 }
 
 // ValidKinds and ValidVerbs are the fixed vocabularies a draft must fit.
 var ValidKinds = []string{"stale", "score_below", "category_missing", "vulnerabilities_found"}
 var ValidVerbs = []string{"", "restart-service", "apply-updates"}
 
-const draftSystemPrompt = `You turn an operator's plain-English request into exactly one Muster policy rule, as JSON and nothing else.
+const draftSystemPrompt = `You turn an operator's plain-English request into exactly one TopoTrace policy rule, as JSON and nothing else.
 
 A rule has these fields:
 - "name": short human name (required)
@@ -58,7 +58,7 @@ A rule has these fields:
 If the request can't be expressed with these kinds, pick the closest and say so in "explanation". Reply with only the JSON object.`
 
 // DraftPolicy asks the model for a rule matching description. If Ask
-// Muster isn't configured it falls back to heuristicDraft so the
+// TopoTrace isn't configured it falls back to heuristicDraft so the
 // feature still works (and says so in Source).
 func DraftPolicy(ctx context.Context, cfg Config, description string) (PolicyDraft, error) {
 	description = strings.TrimSpace(description)
@@ -78,7 +78,7 @@ func DraftPolicy(ctx context.Context, cfg Config, description string) (PolicyDra
 	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &d); err != nil {
 		return PolicyDraft{}, fmt.Errorf("aiquery: model did not return a rule as JSON: %w", err)
 	}
-	d.Source = "ask-muster"
+	d.Source = "ask-topotrace"
 	return d, Validate(d)
 }
 

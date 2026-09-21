@@ -167,9 +167,9 @@ verification endpoints, see **Work Queue & Governed Changes** in Docs.
   English; out, a `draft` in `POST /api/policies`'s own field names
   (name, kind, threshold, category, group, auto_remediate,
   auto_remediate_arg, require_approval) plus an `explanation` and a
-  `source` (`ask-muster`, or `heuristic` when no API key is configured
+  `source` (`ask-topotrace`, or `heuristic` when no API key is configured
   and keyword rules drafted it instead). Nothing is created -- the
-  operator reviews and posts it. `readonly`; audited as `ask-muster`.
+  operator reviews and posts it. `readonly`; audited as `ask-topotrace`.
 - `POST /api/ask/summary` -- a four-paragraph plain-English executive
   summary of the fleet from the same data as the executive report,
   written by Ask TopoTrace or (no key) filled from a template; `source`
@@ -177,9 +177,9 @@ verification endpoints, see **Work Queue & Governed Changes** in Docs.
   Answers a natural-language question about the fleet using the
   Anthropic Messages API, grounded in a compact JSON snapshot built
   from the Store (never a live model call with no context). Returns
-  `503` with a clear message if `-ai-api-key`/`MUSTER_AI_API_KEY` isn't
+  `503` with a clear message if `-ai-api-key`/`TOPOTRACE_AI_API_KEY` isn't
   set. Every question and answer (truncated) is recorded to the audit
-  log as an `ask-muster` entry. See the Ask TopoTrace doc page.
+  log as an `ask-topotrace` entry. See the Ask TopoTrace doc page.
 
 ## Fleet, audit, keys, auth
 
@@ -322,7 +322,7 @@ verification endpoints, see **Work Queue & Governed Changes** in Docs.
     depends on the server.
   - `ai_backend` -- which model API to speak: `anthropic` (default) or
     `openai-compatible`. The accepted names come back in
-    `GET /api/settings` under `ask_muster.backends`.
+    `GET /api/settings` under `ask_topotrace.backends`.
   - `ai_base_url` -- the root of an OpenAI-compatible server, required
     by that backend, e.g. `https://router.huggingface.co/v1` or
     `http://your-host:11434/v1` for a local Ollama. Either the `/v1`

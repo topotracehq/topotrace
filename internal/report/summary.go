@@ -19,18 +19,18 @@ import (
 	"fmt"
 	"strings"
 
-	"muster/internal/aiquery"
+	"topotrace/internal/aiquery"
 )
 
 // Summary is a plain-English executive summary of the fleet.
 type Summary struct {
 	Text   string `json:"text"`
-	Source string `json:"source"` // "ask-muster" or "template"
+	Source string `json:"source"` // "ask-topotrace" or "template"
 }
 
 const summarySystemPrompt = `You are writing the executive summary at the top of a fleet security posture report for a CISO or IT director who will not read the tables. You are given the report's data as JSON. Write 4 short paragraphs of plain prose (no bullet points, no headers, no markdown): (1) the overall state in two sentences with the headline numbers, (2) what got better or worse over the 30-day window and how fast things are being fixed, (3) the two or three hosts or findings that most need attention and why, naming them, (4) one concrete recommendation. Use only the numbers in the data; never invent a host, a CVE or a figure. Keep it under 250 words.`
 
-// ExecutiveSummary asks Ask Muster to write the summary from d, or
+// ExecutiveSummary asks Ask TopoTrace to write the summary from d, or
 // falls back to a deterministic template when it isn't configured, and
 // says which in Source.
 func ExecutiveSummary(ctx context.Context, cfg aiquery.Config, d Data) (Summary, error) {
@@ -45,7 +45,7 @@ func ExecutiveSummary(ctx context.Context, cfg aiquery.Config, d Data) (Summary,
 	if err != nil {
 		return Summary{}, err
 	}
-	return Summary{Text: text, Source: "ask-muster"}, nil
+	return Summary{Text: text, Source: "ask-topotrace"}, nil
 }
 
 // summaryInput trims Data to what the model needs (top hosts, vulns,
@@ -82,7 +82,7 @@ func summaryInput(d Data) map[string]any {
 // the model is asked for, filled from the numbers directly.
 func templateSummary(d Data) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Muster is managing %d hosts. The fleet's average posture score is %d out of 100 and average compliance is %d%%; %d host(s) are at critical risk and %d at high risk, %d have at least one known vulnerability, %d have unsanctioned AI tools installed, and %d have not reported inside the staleness window.\n\n",
+	fmt.Fprintf(&b, "TopoTrace is managing %d hosts. The fleet's average posture score is %d out of 100 and average compliance is %d%%; %d host(s) are at critical risk and %d at high risk, %d have at least one known vulnerability, %d have unsanctioned AI tools installed, and %d have not reported inside the staleness window.\n\n",
 		d.TotalHosts, d.AvgPosture, d.AvgCompliance, d.Critical, d.High, d.WithVulns, d.WithShadowAI, d.Stale)
 	if len(d.Trend) > 1 {
 		f, l := d.Trend[0], d.Trend[len(d.Trend)-1]

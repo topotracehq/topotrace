@@ -45,7 +45,7 @@ const apiURL = "https://api.anthropic.com/v1/messages"
 const anthropicVersion = "2023-06-01"
 
 // Config is the operator-supplied Anthropic credential/model for Ask
-// TopoTrace -- see cmd/muster's -ai-api-key flag / MUSTER_AI_API_KEY env
+// TopoTrace -- see cmd/topotrace's -ai-api-key flag / TOPOTRACE_AI_API_KEY env
 // var. A zero-value Config (empty APIKey) means the feature is
 // configured off: Ask returns ErrNotConfigured rather than making a
 // request with no credential or panicking on a nil client.

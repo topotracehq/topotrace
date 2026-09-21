@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         baseline.go
- * @brief        Package baseline is config-drift detection: an operator captures a host's current facts as its "golden" baseline, and from then on Muster can say exactly how the host has drifted from that known-good state -- packages added or removed, s...
+ * @brief        Package baseline is config-drift detection: an operator captures a host's current facts as its "golden" baseline, and from then on TopoTrace can say exactly how the host has drifted from that known-good state -- packages added or removed, s...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -12,7 +12,7 @@
  ******************************************************************************/
 
 // Package baseline is config-drift detection: an operator captures a
-// host's current facts as its "golden" baseline, and from then on Muster
+// host's current facts as its "golden" baseline, and from then on TopoTrace
 // can say exactly how the host has drifted from that known-good state
 // -- packages added or removed, services started, ports opened, users
 // created, firewall flipped -- distinct from policy/compliance checks
@@ -32,8 +32,8 @@ import (
 	"sort"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/store"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
 )
 
 // Kind is the model.Document kind this package owns.

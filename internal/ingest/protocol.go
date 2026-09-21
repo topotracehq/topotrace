@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         protocol.go
- * @brief        Package ingest is Muster's TCP front door: a lightweight, deliberately simple framed protocol agents use to push a captured data packet, and to report back the outcome of a remediation action they were asked to run.
+ * @brief        Package ingest is TopoTrace's TCP front door: a lightweight, deliberately simple framed protocol agents use to push a captured data packet, and to report back the outcome of a remediation action they were asked to run.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,17 +11,17 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package ingest is Muster's TCP front door: a lightweight, deliberately
+// Package ingest is TopoTrace's TCP front door: a lightweight, deliberately
 // simple framed protocol agents use to push a captured data packet, and
 // to report back the outcome of a remediation action they were asked to
 // run.
 //
 // Wire format, one request per connection, one of two shapes:
 //
-//	MUSTER1 <platform> <host> <token> <payload-bytes>\n
+//	TOPOTRACE1 <platform> <host> <token> <payload-bytes>\n
 //	<payload-bytes> raw bytes of a gzip-compressed tar archive>
 //
-//	MUSTER1-RESULT <token> <action-id> <ok|fail> <detail-bytes>\n
+//	TOPOTRACE1-RESULT <token> <action-id> <ok|fail> <detail-bytes>\n
 //	<detail-bytes> raw bytes of a short plain-text detail message>
 //
 // <token> is the shared secret configured on the server via -auth-token,
@@ -29,15 +29,15 @@
 // present as a fixed field rather than optional, so parsing either shape
 // stays a single strings.Fields call.
 //
-// The server replies with one line (a MUSTER1 upload may get a second
+// The server replies with one line (a TOPOTRACE1 upload may get a second
 // line right after, see below) and closes the connection:
 //
 //	OK <changes>\n     -- packet accepted, cooked, N fields changed since last time
-//	OK\n                -- (MUSTER1-RESULT only) result recorded
+//	OK\n                -- (TOPOTRACE1-RESULT only) result recorded
 //	ERR <message>\n    -- rejected; message is safe to log/display, never
 //	                      raw internal error text
 //
-// A MUSTER1 upload's "OK <changes>" line may be followed by one more
+// A TOPOTRACE1 upload's "OK <changes>" line may be followed by one more
 // line, delivering a queued remediation action to the host that just
 // reported in:
 //
@@ -63,8 +63,8 @@ import (
 )
 
 const (
-	protocolUpload = "MUSTER1"
-	protocolResult = "MUSTER1-RESULT"
+	protocolUpload = "TOPOTRACE1"
+	protocolResult = "TOPOTRACE1-RESULT"
 
 	// noToken is the sentinel an agent sends in place of a real token
 	// when none is configured, and what the server treats as "presented
@@ -72,7 +72,7 @@ const (
 	noToken = "-"
 )
 
-// uploadHeader is a parsed MUSTER1 request line: an agent pushing a
+// uploadHeader is a parsed TOPOTRACE1 request line: an agent pushing a
 // captured data packet.
 type uploadHeader struct {
 	Platform string
@@ -81,7 +81,7 @@ type uploadHeader struct {
 	Bytes    int64
 }
 
-// resultHeader is a parsed MUSTER1-RESULT request line: an agent
+// resultHeader is a parsed TOPOTRACE1-RESULT request line: an agent
 // reporting what happened when it executed a remediation action the
 // server handed it on an earlier connection.
 type resultHeader struct {

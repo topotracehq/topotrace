@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         eol_test.go
- * @brief        Tests for the Muster eol package.
+ * @brief        Tests for the TopoTrace eol package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis

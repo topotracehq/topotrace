@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         entitygraph_test.go
- * @brief        Tests for the Muster entitygraph package.
+ * @brief        Tests for the TopoTrace entitygraph package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -18,12 +18,12 @@ import (
 	"testing"
 	"time"
 
-	"muster/internal/allowlist"
-	"muster/internal/browserext"
-	"muster/internal/certs"
-	"muster/internal/compliance"
-	"muster/internal/model"
-	"muster/internal/vuln"
+	"topotrace/internal/allowlist"
+	"topotrace/internal/browserext"
+	"topotrace/internal/certs"
+	"topotrace/internal/compliance"
+	"topotrace/internal/model"
+	"topotrace/internal/vuln"
 )
 
 // fixture builds two hosts that deliberately share a package, a CVE and

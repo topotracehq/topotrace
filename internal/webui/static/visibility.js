@@ -12,7 +12,7 @@
  ******************************************************************************/
 
 "use strict";
-window.MusterVisibility = function ({ api, el, app, timeAgo, workspaceUI }) {
+window.TopoTraceVisibility = function ({ api, el, app, timeAgo, workspaceUI }) {
   let generation = 0;
   const label = value => (value || "unknown").replaceAll("_", " ");
   const categoryLabel = value => ({system_summary:"Operating system",installed_software:"Installed software",running_services:"Services",firewall_av_status:"Firewall",patch_update_status:"Pending updates"}[value] || label(value));

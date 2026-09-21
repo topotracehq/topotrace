@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         history_test.go
- * @brief        Tests for the Muster history package.
+ * @brief        Tests for the TopoTrace history package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"muster/internal/store/memstore"
+	"topotrace/internal/store/memstore"
 )
 
 func TestRecordAndGet(t *testing.T) {

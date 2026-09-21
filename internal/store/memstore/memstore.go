@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         memstore.go
- * @brief        Package memstore is Muster's reference Store implementation: an in-memory map guarded by a mutex, snapshotted to a JSON file on every write so a restart doesn't lose data.
+ * @brief        Package memstore is TopoTrace's reference Store implementation: an in-memory map guarded by a mutex, snapshotted to a JSON file on every write so a restart doesn't lose data.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,12 +11,12 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package memstore is Muster's reference Store implementation: an
+// Package memstore is TopoTrace's reference Store implementation: an
 // in-memory map guarded by a mutex, snapshotted to a JSON file on every
 // write so a restart doesn't lose data. It's not meant to be the
 // long-term backend -- Postgres is the obvious next step once this needs
-// to survive more than a demo -- but it means Muster runs with zero
-// external services: `go run ./cmd/muster` and nothing else.
+// to survive more than a demo -- but it means TopoTrace runs with zero
+// external services: `go run ./cmd/topotrace` and nothing else.
 package memstore
 
 import (
@@ -30,8 +30,8 @@ import (
 	"sync"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/store"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
 )
 
 type snapshot struct {

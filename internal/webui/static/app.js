@@ -17,10 +17,10 @@
   "use strict";
 
   const app = document.getElementById("app");
-  const workspaceUI = window.MusterWorkspace({ api, el, app, downloadWithToken });
-  const productivityUI = window.MusterProductivity({api,el,app,downloadWithToken});
-  const workUI = window.MusterWork({ api, el, app, timeAgo, workspaceUI });
-  const visibilityUI = window.MusterVisibility({ api, el, app, timeAgo, workspaceUI });
+  const workspaceUI = window.TopoTraceWorkspace({ api, el, app, downloadWithToken });
+  const productivityUI = window.TopoTraceProductivity({api,el,app,downloadWithToken});
+  const workUI = window.TopoTraceWork({ api, el, app, timeAgo, workspaceUI });
+  const visibilityUI = window.TopoTraceVisibility({ api, el, app, timeAgo, workspaceUI });
   const searchForm = document.getElementById("search-form");
   const searchField = document.getElementById("search-field");
   const searchContains = document.getElementById("search-contains");
@@ -41,7 +41,7 @@
   // some browser contexts (private windows, blocked site data) throw on
   // storage access, and a missing token should just mean "demo mode,"
   // never a broken page.
-  const TOKEN_KEY = "muster_token";
+  const TOKEN_KEY = "topotrace_token";
   function getToken() {
     try {
       return localStorage.getItem(TOKEN_KEY) || "";
@@ -277,7 +277,7 @@
     return el(
       "div",
       { class: "empty-state" },
-      el("img", { src: "img/muster-mark.svg", alt: "TopoTrace" }),
+      el("img", { src: "img/topotrace-mark.svg", alt: "TopoTrace" }),
       el("h2", { text: "No hosts reporting yet" }),
       el("p", { text: "TopoTrace is up and waiting for its first packet. Send one with the bundled demo agent:" }),
       el("p", {}, el("code", { text: "go run ./cmd/demoagent -host demo01" })),
@@ -1499,10 +1499,10 @@
       el("p", { class: "meta", text: "The executive report opens as a print-ready page (use your browser's Print / Save as PDF). CSV exports carry the same numbers the dashboard shows. Audit export needs an admin credential." }),
       el("div", { class: "editor-row" },
         btn("Executive report", "/api/reports/executive", "", true),
-        btn("Compliance CSV", "/api/reports/compliance.csv", `muster-compliance-${today}.csv`),
-        btn("Risk CSV", "/api/reports/risk.csv", `muster-risk-${today}.csv`),
-        btn("Vulnerabilities CSV", "/api/reports/vulnerabilities.csv", `muster-vulnerabilities-${today}.csv`),
-        btn("Audit CSV", "/api/reports/audit.csv", `muster-audit-${today}.csv`),
+        btn("Compliance CSV", "/api/reports/compliance.csv", `topotrace-compliance-${today}.csv`),
+        btn("Risk CSV", "/api/reports/risk.csv", `topotrace-risk-${today}.csv`),
+        btn("Vulnerabilities CSV", "/api/reports/vulnerabilities.csv", `topotrace-vulnerabilities-${today}.csv`),
+        btn("Audit CSV", "/api/reports/audit.csv", `topotrace-audit-${today}.csv`),
         msg));
   }
 
@@ -1945,19 +1945,19 @@
   // ever available here, once, in the moment right after creation (see
   // showAgents' create handler), never persisted or fetched again.
   function installSnippet(enrollment, token) {
-    const apiHost = location.hostname || "<muster-host>";
+    const apiHost = location.hostname || "<topotrace-host>";
     const dlBase = `${location.protocol}//${location.host}/api/agents/download`;
     switch (enrollment.platform) {
       case "linux":
       case "macos":
         return [
-          `curl -fsSL ${dlBase}/${enrollment.platform} -o muster-agent.sh && chmod +x muster-agent.sh`,
-          `./muster-agent.sh --muster-host ${apiHost} --muster-port 9090 --host-name ${enrollment.host} --token ${token}`,
+          `curl -fsSL ${dlBase}/${enrollment.platform} -o topotrace-agent.sh && chmod +x topotrace-agent.sh`,
+          `./topotrace-agent.sh --topotrace-host ${apiHost} --topotrace-port 9090 --host-name ${enrollment.host} --token ${token}`,
         ].join("\n");
       case "windows":
         return [
-          `Invoke-WebRequest ${dlBase}/windows -OutFile muster-agent.ps1`,
-          `.\\muster-agent.ps1 -MusterHost ${apiHost} -MusterPort 9090 -HostName ${enrollment.host} -Token ${token}`,
+          `Invoke-WebRequest ${dlBase}/windows -OutFile topotrace-agent.ps1`,
+          `.\\topotrace-agent.ps1 -TopoTraceHost ${apiHost} -TopoTracePort 9090 -HostName ${enrollment.host} -Token ${token}`,
         ].join("\n");
       default: // android / ios / chromeos -- no TCP one-liner, these use POST /api/mobile-report instead
         return [
@@ -2100,7 +2100,7 @@
           "li",
           {},
           el("a", { href: `/api/agents/download/${p}`, download: "", text: `${PLATFORM_LABELS[p]} agent script` }),
-          el("span", { class: "change-time", text: p === "windows" ? "muster-agent.ps1" : "muster-agent.sh" })
+          el("span", { class: "change-time", text: p === "windows" ? "topotrace-agent.ps1" : "topotrace-agent.sh" })
         )
       );
     }
@@ -2111,7 +2111,7 @@
   }
 
   // airgapImportCard is the paste-in counterpart to a host running
-  // muster-agent.sh/.ps1 with --airgap-out on a machine with no route to
+  // topotrace-agent.sh/.ps1 with --airgap-out on a machine with no route to
   // TopoTrace at all: carry the JSON blob it produces here by hand (USB
   // drive, retyped, a QR scan -- see agent/airgap/README.md) and submit
   // it from wherever the dashboard itself is reachable. No file upload,
@@ -2241,7 +2241,7 @@
 
 
   async function showDocs(name) {
-    await window.MusterDocs({ api, el, app }).show(name);
+    await window.TopoTraceDocs({ api, el, app }).show(name);
   }
 
   function boolLabel(b) {
@@ -2360,7 +2360,7 @@
     return form;
   }
 
-  // askMusterEditor is the Ask TopoTrace card's edit form -- PATCH
+  // askTopoTraceEditor is the Ask TopoTrace card's edit form -- PATCH
   // /api/settings, live (no restart) via internal/aiquery.ConfigStore,
   // persisted via internal/settingsstore when the server was started
   // with a data dir. Unlike the SIEM form, the model field is
@@ -2368,12 +2368,12 @@
   // secret) so changing just the model doesn't require retyping the
   // API key -- the server keeps the existing key when ai_api_key is
   // omitted from the request.
-  function askMusterEditor(s) {
-    const backends = s.ask_muster.backends || ["anthropic", "openai-compatible"];
-    const current = s.ask_muster.backend || "anthropic";
+  function askTopoTraceEditor(s) {
+    const backends = s.ask_topotrace.backends || ["anthropic", "openai-compatible"];
+    const current = s.ask_topotrace.backend || "anthropic";
     const backendSelect = el("select", {}, ...backends.map((b) => el("option", { value: b, text: b })));
     backendSelect.value = current;
-    const modelInput = el("input", { type: "text", value: s.ask_muster.model || "" });
+    const modelInput = el("input", { type: "text", value: s.ask_topotrace.model || "" });
     const baseInput = el("input", { type: "text", class: "wide", placeholder: "https://router.huggingface.co/v1", value: "" });
     const keyInput = el("input", { type: "password" });
     const disableBox = el("input", { type: "checkbox" });
@@ -2390,7 +2390,7 @@
       baseLabel.hidden = !openai;
       baseInput.hidden = !openai;
       modelInput.placeholder = openai ? "Model ID served by your provider" : "Leave blank to use the default model";
-      keyInput.placeholder = s.ask_muster.configured && current === backendSelect.value
+      keyInput.placeholder = s.ask_topotrace.configured && current === backendSelect.value
         ? "leave blank to keep current key"
         : (openai ? "optional: HF token, or blank for a local server" : "sk-ant-...");
       hint.textContent = openai
@@ -2415,7 +2415,7 @@
       e.preventDefault();
       const body = {};
       if (disableBox.checked) {
-        if (!s.ask_muster.configured) { msg.textContent = "Nothing to save"; return; }
+        if (!s.ask_topotrace.configured) { msg.textContent = "Nothing to save"; return; }
         body.ai_disable = true;
       } else {
         const key = keyInput.value.trim();
@@ -2424,12 +2424,12 @@
         const baseURL = baseInput.value.trim();
         const switching = backend !== current;
         if (backend === "openai-compatible") {
-          if (!baseURL && (switching || !s.ask_muster.base_url)) {
+          if (!baseURL && (switching || !s.ask_topotrace.base_url)) {
             msg.textContent = "Error: a base URL is required, e.g. http://your-host:11434/v1";
             return;
           }
           if (!model) { msg.textContent = "Error: a model name is required for this backend"; return; }
-        } else if (!key && (switching || !s.ask_muster.configured)) {
+        } else if (!key && (switching || !s.ask_topotrace.configured)) {
           msg.textContent = "Error: an API key is required to enable Ask TopoTrace";
           return;
         }
@@ -2739,12 +2739,12 @@
       ["Source", "OSV.dev, free, no API key"],
     ], vulnFeedEditor(s));
 
-    const askMuster = settingsCardWithForm("Ask TopoTrace", [
-      ["Configured", boolLabel(s.ask_muster.configured)],
-      ["Backend", s.ask_muster.backend || null],
-      ["Model", s.ask_muster.model || null],
-      ["Base URL", s.ask_muster.base_url || null],
-    ], askMusterEditor(s));
+    const askTopoTrace = settingsCardWithForm("Ask TopoTrace", [
+      ["Configured", boolLabel(s.ask_topotrace.configured)],
+      ["Backend", s.ask_topotrace.backend || null],
+      ["Model", s.ask_topotrace.model || null],
+      ["Base URL", s.ask_topotrace.base_url || null],
+    ], askTopoTraceEditor(s));
 
     const webhooks = settingsCardWithForm("Notifications", [
       ["Configured", boolLabel(s.webhooks.configured)],
@@ -2758,7 +2758,7 @@
       ["Backend", s.siem.backend || null],
     ], siemForwardingEditor(s));
 
-    app.replaceChildren(heading, general, auth, vulnFeed, askMuster, webhooks, siem, pluginsCard(), demoCard());
+    app.replaceChildren(heading, general, auth, vulnFeed, askTopoTrace, webhooks, siem, pluginsCard(), demoCard());
   }
 
   // demoCard is the Settings page's simulator: fire synthetic events
@@ -3234,7 +3234,7 @@
     );
   }
 
-  async function showAskMuster() {
+  async function showAskTopoTrace() {
     const heading = el(
       "div", { class: "section-heading" },
       el("h1", { text: "Ask TopoTrace" }),
@@ -3308,7 +3308,7 @@
     } else if (hash === "#/compliance") {
       showCompliance();
     } else if (hash === "#/ask") {
-      showAskMuster();
+      showAskTopoTrace();
     } else if (hash === "#/docs" || hash.startsWith("#/docs/")) {
       showDocs(hash.slice(7));
     } else if (hash === "#/settings") {
@@ -3327,7 +3327,7 @@
   }
 
   function updateNavUI() {
-    window.MusterShell.update(location.hash || "#/home");
+    window.TopoTraceShell.update(location.hash || "#/home");
   }
 
   searchForm.addEventListener("submit", (e) => {

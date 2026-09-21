@@ -18,7 +18,7 @@ import (
 	"sort"
 	"time"
 
-	"muster/internal/agenthealth"
+	"topotrace/internal/agenthealth"
 )
 
 // handleAgentHealth is GET /api/agents/health -- every host's agent

@@ -15,12 +15,12 @@ package operations
 
 import (
 	"context"
-	"muster/internal/agenthealth"
-	"muster/internal/model"
-	"muster/internal/policy"
-	"muster/internal/store"
 	"strings"
 	"time"
+	"topotrace/internal/agenthealth"
+	"topotrace/internal/model"
+	"topotrace/internal/policy"
+	"topotrace/internal/store"
 )
 
 type PreflightHost struct {

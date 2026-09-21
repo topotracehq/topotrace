@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         siemforward.go
- * @brief        Package siemforward forwards Muster's audit trail to a real SIEM, so events that already get recorded via store.Store.RecordAudit (policy violations, remediation, Ask Muster queries, enrollment/key management, OAuth logins, ...) also rea...
+ * @brief        Package siemforward forwards TopoTrace's audit trail to a real SIEM, so events that already get recorded via store.Store.RecordAudit (policy violations, remediation, Ask TopoTrace queries, enrollment/key management, OAuth logins, ...) also rea...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,11 +11,11 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package siemforward forwards Muster's audit trail to a real SIEM, so
+// Package siemforward forwards TopoTrace's audit trail to a real SIEM, so
 // events that already get recorded via store.Store.RecordAudit (policy
-// violations, remediation, Ask Muster queries, enrollment/key
+// violations, remediation, Ask TopoTrace queries, enrollment/key
 // management, OAuth logins, ...) also reach an operator's existing
-// security tooling, not just Muster's own /api/audit.
+// security tooling, not just TopoTrace's own /api/audit.
 //
 // Forwarder is the seam that keeps this backend-agnostic: SplunkHEC is
 // the one real implementation this round (stdlib net/http only, no SDK

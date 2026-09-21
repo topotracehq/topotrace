@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         certs_test.go
- * @brief        Tests for the Muster certs package.
+ * @brief        Tests for the TopoTrace certs package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis

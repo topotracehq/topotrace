@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         bookmark_test.go
- * @brief        Tests for the Muster bookmark package.
+ * @brief        Tests for the TopoTrace bookmark package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -17,11 +17,11 @@ import (
 	"context"
 	"testing"
 
-	"muster/internal/compliance"
-	"muster/internal/model"
-	"muster/internal/policy"
-	"muster/internal/store/memstore"
-	"muster/internal/vuln"
+	"topotrace/internal/compliance"
+	"topotrace/internal/model"
+	"topotrace/internal/policy"
+	"topotrace/internal/store/memstore"
+	"topotrace/internal/vuln"
 )
 
 func TestSnapshotSaveCompare(t *testing.T) {

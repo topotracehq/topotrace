@@ -55,7 +55,7 @@ func NewSplunkHEC(url, token string) *SplunkHEC {
 
 // hecPayload is Splunk HEC's documented "event" wire format: the raw
 // event under "event", plus HEC-level metadata. sourcetype is fixed at
-// "muster" -- every event this package ever sends comes from Muster's
+// "topotrace" -- every event this package ever sends comes from TopoTrace's
 // own audit trail, so there's nothing per-event to vary it by.
 type hecPayload struct {
 	Event      SIEMEvent `json:"event"`
@@ -70,7 +70,7 @@ type hecPayload struct {
 func (f *SplunkHEC) Send(ctx context.Context, event SIEMEvent) error {
 	payload := hecPayload{
 		Event:      event,
-		Sourcetype: "muster",
+		Sourcetype: "topotrace",
 		Time:       event.Timestamp,
 	}
 	body, err := json.Marshal(payload)

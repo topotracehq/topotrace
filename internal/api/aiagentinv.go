@@ -16,7 +16,7 @@ package api
 import (
 	"net/http"
 
-	"muster/internal/aiagentinv"
+	"topotrace/internal/aiagentinv"
 )
 
 // handleHostAIAgents is GET /api/hosts/{host}/ai-agents -- every AI

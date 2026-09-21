@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         compliance.go
- * @brief        Package compliance rolls up Muster's other signals -- staleness, posture scoring, vulnerability correlation, and software allow/deny lists -- into named "frameworks," each a small, fixed set of pass/ fail checks, scored as a percentage.
+ * @brief        Package compliance rolls up TopoTrace's other signals -- staleness, posture scoring, vulnerability correlation, and software allow/deny lists -- into named "frameworks," each a small, fixed set of pass/ fail checks, scored as a percentage.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,7 +11,7 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package compliance rolls up Muster's other signals -- staleness,
+// Package compliance rolls up TopoTrace's other signals -- staleness,
 // posture scoring, vulnerability correlation, and software allow/deny
 // lists -- into named "frameworks," each a small, fixed set of pass/
 // fail checks, scored as a percentage. This is compliance TRACKING in
@@ -30,14 +30,14 @@ import (
 	"sort"
 	"strings"
 
-	"muster/internal/aiagentinv"
-	"muster/internal/allowlist"
-	"muster/internal/browserext"
-	"muster/internal/certs"
-	"muster/internal/eol"
-	"muster/internal/model"
-	"muster/internal/policy"
-	"muster/internal/vuln"
+	"topotrace/internal/aiagentinv"
+	"topotrace/internal/allowlist"
+	"topotrace/internal/browserext"
+	"topotrace/internal/certs"
+	"topotrace/internal/eol"
+	"topotrace/internal/model"
+	"topotrace/internal/policy"
+	"topotrace/internal/vuln"
 )
 
 // CheckResult is one framework check's outcome for a single host.
@@ -121,14 +121,14 @@ func (f Framework) Evaluate(in Input) Result {
 	return Result{Framework: f.Name, FrameworkID: f.ID, Host: in.Host.Name, Score: score, Checks: checks}
 }
 
-// Baseline is Muster's one built-in framework: four checks built
+// Baseline is TopoTrace's one built-in framework: four checks built
 // entirely from signals this project already computes for real. Not a
 // certified mapping to any named standard -- see the package doc
 // comment.
 var Baseline = Framework{
 	ID:          "baseline",
-	Name:        "Muster Baseline",
-	Description: "Illustrative checks built from Muster's own signals -- not a certified CIS/SOC2/PCI mapping.",
+	Name:        "TopoTrace Baseline",
+	Description: "Illustrative checks built from TopoTrace's own signals -- not a certified CIS/SOC2/PCI mapping.",
 	checks: []check{
 		{
 			id:          "reporting",
@@ -248,7 +248,7 @@ func EvaluateAll(in Input) []Result {
 }
 
 // VulnDetail words a set of vulnerability findings for a check's detail
-// line. Findings Muster produced itself come from matching installed
+// line. Findings TopoTrace produced itself come from matching installed
 // package versions against its dataset or feed, so "package" is the
 // right noun; findings imported from a third-party scanner (see
 // internal/scanner) carry a Source and may be network- or

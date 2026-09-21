@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         visibility_test.go
- * @brief        Tests for the Muster api package.
+ * @brief        Tests for the TopoTrace api package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"muster/internal/agenthealth"
-	"muster/internal/model"
-	"muster/internal/store/memstore"
+	"topotrace/internal/agenthealth"
+	"topotrace/internal/model"
+	"topotrace/internal/store/memstore"
 )
 
 func TestVisibilityDemoScenariosAndIsolation(t *testing.T) {

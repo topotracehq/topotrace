@@ -16,7 +16,7 @@ package api
 import (
 	"net/http"
 
-	"muster/internal/browserext"
+	"topotrace/internal/browserext"
 )
 
 // handleHostBrowserExtensions is GET /api/hosts/{host}/browser-extensions

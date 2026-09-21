@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"time"
 
-	"muster/internal/compliance"
-	"muster/internal/operations"
-	"muster/internal/signals"
-	"muster/internal/webhook"
+	"topotrace/internal/compliance"
+	"topotrace/internal/operations"
+	"topotrace/internal/signals"
+	"topotrace/internal/webhook"
 )
 
 func (e *Evaluator) escalateOverdue(ctx context.Context, now time.Time) {

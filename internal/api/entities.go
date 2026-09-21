@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"strings"
 
-	"muster/internal/entitygraph"
+	"topotrace/internal/entitygraph"
 )
 
 // entitiesResponse is the entity map plus, when the request focused on

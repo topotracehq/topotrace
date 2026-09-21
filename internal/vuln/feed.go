@@ -87,7 +87,7 @@ func NewFeed(log *slog.Logger) *Feed {
 
 // Run blocks, refreshing on interval (fetching once immediately first)
 // until ctx is done. Meant to be started with `go feed.Run(ctx,
-// interval)` from cmd/muster's main, the same pattern as
+// interval)` from cmd/topotrace's main, the same pattern as
 // evaluator.Evaluator.Run.
 func (f *Feed) Run(ctx context.Context, interval time.Duration) {
 	if interval <= 0 {

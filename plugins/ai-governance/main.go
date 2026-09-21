@@ -23,9 +23,9 @@
 // core internals or shares the core's Postgres store.
 //
 //	go build -o ai-governance ./plugins/ai-governance
-//	AI_GOVERNANCE_DATA_DIR=/var/lib/muster-plugins/ai-governance \
-//	MUSTER_CORE_URL=http://127.0.0.1:8080 \
-//	MUSTER_AUTH_TOKEN=<token> \
+//	AI_GOVERNANCE_DATA_DIR=/var/lib/topotrace-plugins/ai-governance \
+//	TOPOTRACE_CORE_URL=http://127.0.0.1:8080 \
+//	TOPOTRACE_AUTH_TOKEN=<token> \
 //	./ai-governance
 //
 // See plugins/ai-governance/README.md.
@@ -41,8 +41,8 @@ import (
 	"net/http/httptest"
 	"os"
 
-	"muster/internal/pluginhost"
-	"muster/plugins/ai-governance/governance"
+	"topotrace/internal/pluginhost"
+	"topotrace/plugins/ai-governance/governance"
 )
 
 const (
@@ -106,8 +106,8 @@ func main() {
 		log.Fatalf("ai-governance: opening policy store: %v", err)
 	}
 
-	coreURL := os.Getenv("MUSTER_CORE_URL")
-	coreToken := os.Getenv("MUSTER_AUTH_TOKEN")
+	coreURL := os.Getenv("TOPOTRACE_CORE_URL")
+	coreToken := os.Getenv("TOPOTRACE_AUTH_TOKEN")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /policy", func(w http.ResponseWriter, r *http.Request) {
@@ -176,7 +176,7 @@ func main() {
 // not just ones the core happens to have just evaluated.
 func fetchFindings(coreURL, token, host string) ([]governance.Finding, error) {
 	if coreURL == "" {
-		return nil, fmt.Errorf("MUSTER_CORE_URL is not configured")
+		return nil, fmt.Errorf("TOPOTRACE_CORE_URL is not configured")
 	}
 	req, err := http.NewRequest(http.MethodGet, coreURL+"/api/hosts/"+host+"/ai-agents", nil)
 	if err != nil {

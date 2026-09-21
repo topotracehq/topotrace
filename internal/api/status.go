@@ -18,12 +18,12 @@ import (
 	"net/http"
 	"time"
 
-	"muster/internal/alerts"
-	"muster/internal/compliance"
-	"muster/internal/history"
+	"topotrace/internal/alerts"
+	"topotrace/internal/compliance"
+	"topotrace/internal/history"
 )
 
-// StartedAt is stamped by cmd/muster so the status page can report
+// StartedAt is stamped by cmd/topotrace so the status page can report
 // uptime; zero means "unknown" (tests).
 var StartedAt time.Time
 

@@ -16,8 +16,8 @@ package aiquery
 import "sync"
 
 // ConfigStore holds a Config that can be replaced at runtime, so
-// PATCH /api/settings can reconfigure or disable Ask Muster on a
-// running server with no restart. cmd/muster constructs exactly one
+// PATCH /api/settings can reconfigure or disable Ask TopoTrace on a
+// running server with no restart. cmd/topotrace constructs exactly one
 // ConfigStore (even when starting with no -ai-api-key at all -- its
 // zero-value Config just means Enabled() == false, same as before) and
 // wires it into api.Server.AIQuery; handleAsk calls Get() on every
@@ -41,7 +41,7 @@ func (s *ConfigStore) Get() Config {
 }
 
 // Set replaces the current Config. Passing the zero value disables Ask
-// Muster, same as never setting -ai-api-key.
+// TopoTrace, same as never setting -ai-api-key.
 func (s *ConfigStore) Set(cfg Config) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

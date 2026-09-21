@@ -41,32 +41,32 @@ import (
 	"strings"
 	"time"
 
-	"muster/agent"
-	"muster/docs"
-	"muster/internal/agenthealth"
-	"muster/internal/aiagentinv"
-	"muster/internal/aiquery"
-	"muster/internal/allowlist"
-	"muster/internal/breach"
-	"muster/internal/browserext"
-	"muster/internal/certs"
-	"muster/internal/compliance"
-	"muster/internal/cook"
-	"muster/internal/eol"
-	"muster/internal/ingest"
-	"muster/internal/model"
-	"muster/internal/oauth"
-	"muster/internal/operations"
-	"muster/internal/pluginhost"
-	"muster/internal/policy"
-	"muster/internal/remediate"
-	"muster/internal/scanner"
-	"muster/internal/settingsstore"
-	"muster/internal/siemforward"
-	"muster/internal/signals"
-	"muster/internal/store"
-	"muster/internal/vuln"
-	"muster/internal/webhook"
+	"topotrace/agent"
+	"topotrace/docs"
+	"topotrace/internal/agenthealth"
+	"topotrace/internal/aiagentinv"
+	"topotrace/internal/aiquery"
+	"topotrace/internal/allowlist"
+	"topotrace/internal/breach"
+	"topotrace/internal/browserext"
+	"topotrace/internal/certs"
+	"topotrace/internal/compliance"
+	"topotrace/internal/cook"
+	"topotrace/internal/eol"
+	"topotrace/internal/ingest"
+	"topotrace/internal/model"
+	"topotrace/internal/oauth"
+	"topotrace/internal/operations"
+	"topotrace/internal/pluginhost"
+	"topotrace/internal/policy"
+	"topotrace/internal/remediate"
+	"topotrace/internal/scanner"
+	"topotrace/internal/settingsstore"
+	"topotrace/internal/siemforward"
+	"topotrace/internal/signals"
+	"topotrace/internal/store"
+	"topotrace/internal/vuln"
+	"topotrace/internal/webhook"
 )
 
 type Server struct {
@@ -80,7 +80,7 @@ type Server struct {
 	// demo-friendly default) but action-queuing is refused outright --
 	// see handleQueueAction -- rather than silently left unauthenticated.
 	// This should be the same value the ingest daemon was started with
-	// (cmd/muster wires both from one -auth-token flag).
+	// (cmd/topotrace wires both from one -auth-token flag).
 	AuthToken string
 
 	// Webhooks, when non-nil, is where notable events (a policy
@@ -98,7 +98,7 @@ type Server struct {
 
 	// Pipeline, when non-nil, is what handleAirgapReport uses to cook a
 	// base64-delivered capture the same way the TCP ingest daemon cooks
-	// one delivered over the network -- see cmd/muster, which wires the
+	// one delivered over the network -- see cmd/topotrace, which wires the
 	// exact same *cook.Pipeline into both the ingest server and this one.
 	// Left nil (e.g. in tests that only exercise the read side), the
 	// air-gap report endpoint refuses with 503 rather than panicking.
@@ -114,7 +114,7 @@ type Server struct {
 
 	// Sessions backs OAuth: the in-memory store of session cookies
 	// issued after a successful login. Only ever non-nil alongside
-	// OAuth -- cmd/muster constructs one iff -oauth-* flags parsed.
+	// OAuth -- cmd/topotrace constructs one iff -oauth-* flags parsed.
 	Sessions *oauth.SessionStore
 
 	// AIQuery is "Ask TopoTrace"'s Anthropic credential/model (see
@@ -130,13 +130,13 @@ type Server struct {
 	AIQuery *aiquery.ConfigStore
 
 	// The remaining fields exist purely for GET /api/settings to report
-	// on -- cmd/muster wires each straight from the flag it already
+	// on -- cmd/topotrace wires each straight from the flag it already
 	// parses. None of them affect this Server's own behavior; they're
 	// plumbed through instead of re-parsed from os.Args so the settings
 	// endpoint can't drift from what the process actually started with.
 
 	// StorageBackend is "memstore" or "postgres" -- which store.Store
-	// implementation cmd/muster constructed, never the -postgres-dsn
+	// implementation cmd/topotrace constructed, never the -postgres-dsn
 	// value itself.
 	StorageBackend string
 	// IngestAddr and APIAddr are the -ingest-addr/-api-addr the process
@@ -152,7 +152,7 @@ type Server struct {
 	// admin live-reconfigure, SIEM forwarding (see internal/siemforward
 	// -- Configured()/Backend() report "splunk-hec"/true once
 	// SetSplunkHEC has been called, false/"" otherwise; never the HEC
-	// token itself). cmd/muster always constructs a non-nil
+	// token itself). cmd/topotrace always constructs a non-nil
 	// *siemforward.Dynamic and always wraps the Store with it (even
 	// when starting with neither -siem-hec-* flag set), so forwarding
 	// can be turned on later with no restart. A nil SIEMForwarder (as
@@ -173,7 +173,7 @@ type Server struct {
 	Breach *breach.Client
 
 	// PublicStatus enables the unauthenticated GET /status page and
-	// /status.json (aggregates only -- see status.go). cmd/muster's
+	// /status.json (aggregates only -- see status.go). cmd/topotrace's
 	// -public-status flag, default true.
 	PublicStatus bool
 
@@ -199,7 +199,7 @@ func (s *Server) log() *slog.Logger {
 	return slog.Default()
 }
 
-// Register adds the API's routes to an existing mux -- used by cmd/muster
+// Register adds the API's routes to an existing mux -- used by cmd/topotrace
 // to serve the API and the web UI (internal/webui) from one HTTP server
 // on one port, rather than each owning its own listener.
 func (s *Server) Register(mux *http.ServeMux) {
@@ -349,13 +349,13 @@ type settingsAuth struct {
 	// page can display what's configured; only the client secret is
 	// withheld, as a plain configured bool, same pattern as
 	// BearerTokenConfigured.
-	OAuthClientID              string `json:"oauth_client_id,omitempty"`
+	OAuthClientID               string `json:"oauth_client_id,omitempty"`
 	OAuthClientSecretConfigured bool   `json:"oauth_client_secret_configured"`
-	OAuthAuthURL               string `json:"oauth_auth_url,omitempty"`
-	OAuthTokenURL              string `json:"oauth_token_url,omitempty"`
-	OAuthUserInfoURL           string `json:"oauth_userinfo_url,omitempty"`
-	OAuthRedirectURL           string `json:"oauth_redirect_url,omitempty"`
-	OAuthScopes                string `json:"oauth_scopes,omitempty"`
+	OAuthAuthURL                string `json:"oauth_auth_url,omitempty"`
+	OAuthTokenURL               string `json:"oauth_token_url,omitempty"`
+	OAuthUserInfoURL            string `json:"oauth_userinfo_url,omitempty"`
+	OAuthRedirectURL            string `json:"oauth_redirect_url,omitempty"`
+	OAuthScopes                 string `json:"oauth_scopes,omitempty"`
 }
 
 // settingsVulnFeed is GET /api/settings's vuln-feed slice.
@@ -364,9 +364,9 @@ type settingsVulnFeed struct {
 	Interval string `json:"interval,omitempty"`
 }
 
-// settingsAskMuster is GET /api/settings's Ask TopoTrace (AI query) slice
+// settingsAskTopoTrace is GET /api/settings's Ask TopoTrace (AI query) slice
 // -- never AIQuery.APIKey itself.
-type settingsAskMuster struct {
+type settingsAskTopoTrace struct {
 	Configured bool     `json:"configured"`
 	Model      string   `json:"model,omitempty"`
 	Backend    string   `json:"backend,omitempty"`
@@ -415,15 +415,15 @@ type settingsSIEM struct {
 // settingsResponse is GET /api/settings's full shape -- see
 // handleSettings's doc comment for what this deliberately omits.
 type settingsResponse struct {
-	StorageBackend    string            `json:"storage_backend"`
-	IngestAddr        string            `json:"ingest_addr"`
-	APIAddr           string            `json:"api_addr"`
-	EvaluatorInterval string            `json:"evaluator_interval"`
-	Auth              settingsAuth      `json:"auth"`
-	VulnFeed          settingsVulnFeed  `json:"vuln_feed"`
-	AskMuster         settingsAskMuster `json:"ask_muster"`
-	Webhooks          settingsWebhooks  `json:"webhooks"`
-	SIEM              settingsSIEM      `json:"siem"`
+	StorageBackend    string               `json:"storage_backend"`
+	IngestAddr        string               `json:"ingest_addr"`
+	APIAddr           string               `json:"api_addr"`
+	EvaluatorInterval string               `json:"evaluator_interval"`
+	Auth              settingsAuth         `json:"auth"`
+	VulnFeed          settingsVulnFeed     `json:"vuln_feed"`
+	AskTopoTrace      settingsAskTopoTrace `json:"ask_topotrace"`
+	Webhooks          settingsWebhooks     `json:"webhooks"`
+	SIEM              settingsSIEM         `json:"siem"`
 
 	// RestartRequired is set only on PATCH /api/settings's response
 	// (never GET's): the section names whose edits were accepted this
@@ -438,11 +438,11 @@ type settingsResponse struct {
 // policies or API keys -- this is operator-facing server configuration,
 // not fleet data). It exists so "what is this server actually running
 // with" has one place to look instead of cross-referencing CLI flags,
-// env vars, and process arguments -- see cmd/muster's flag list, which
+// env vars, and process arguments -- see cmd/topotrace's flag list, which
 // is where every value here ultimately comes from.
 //
-// Deliberately never returns MUSTER_AUTH_TOKEN, MUSTER_POSTGRES_DSN,
-// MUSTER_AI_API_KEY, the OAuth client secret, or any webhook/OAuth URL
+// Deliberately never returns TOPOTRACE_AUTH_TOKEN, TOPOTRACE_POSTGRES_DSN,
+// TOPOTRACE_AI_API_KEY, the OAuth client secret, or any webhook/OAuth URL
 // -- only whether each is configured, and non-secret metadata (mode,
 // counts, intervals, model name, role-map policy) about it.
 func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
@@ -487,7 +487,7 @@ func (s *Server) settingsSnapshot() settingsResponse {
 	}
 	if s.AIQuery != nil {
 		cfg := s.AIQuery.Get()
-		resp.AskMuster = settingsAskMuster{
+		resp.AskTopoTrace = settingsAskTopoTrace{
 			Configured: cfg.Enabled(),
 			Model:      cfg.Model,
 			Backend:    cfg.Normalized().Backend,
@@ -499,7 +499,7 @@ func (s *Server) settingsSnapshot() settingsResponse {
 		// while Anthropic is selected reads as "this is in use," which
 		// it is not.
 		if cfg.Normalized().Backend == aiquery.BackendOpenAI {
-			resp.AskMuster.BaseURL = redactURL(cfg.BaseURL)
+			resp.AskTopoTrace.BaseURL = redactURL(cfg.BaseURL)
 		}
 	}
 	if s.SIEMForwarder != nil {
@@ -520,7 +520,7 @@ func (s *Server) settingsSnapshot() settingsResponse {
 // field or it's rejected as a no-op.
 //
 // SIEM forwarding's URL and token must be provided together (same
-// all-or-nothing pairing cmd/muster's own -siem-hec-* flags already
+// all-or-nothing pairing cmd/topotrace's own -siem-hec-* flags already
 // enforce) since internal/siemforward.Dynamic doesn't expose its
 // current URL/token to merge a partial update against -- deliberately,
 // since that value is a live secret this endpoint otherwise never
@@ -569,18 +569,18 @@ type settingsPatchRequest struct {
 	// Notification sinks -- persist-for-next-restart.
 	// notifications_disable clears every saved sink override in one
 	// shot; individual fields set/replace that one sink's saved value.
-	WebhookURLs           *string `json:"webhook_url,omitempty"`
-	SlackWebhookURL       *string `json:"slack_webhook_url,omitempty"`
-	TeamsWebhookURL       *string `json:"teams_webhook_url,omitempty"`
-	JiraURL               *string `json:"jira_url,omitempty"`
-	JiraEmail             *string `json:"jira_email,omitempty"`
-	JiraToken             *string `json:"jira_token,omitempty"`
-	JiraProject           *string `json:"jira_project,omitempty"`
-	JiraIssueType         *string `json:"jira_issue_type,omitempty"`
-	ServiceNowURL         *string `json:"servicenow_url,omitempty"`
-	ServiceNowUser        *string `json:"servicenow_user,omitempty"`
-	ServiceNowPassword    *string `json:"servicenow_password,omitempty"`
-	NotificationsDisable  bool    `json:"notifications_disable,omitempty"`
+	WebhookURLs          *string `json:"webhook_url,omitempty"`
+	SlackWebhookURL      *string `json:"slack_webhook_url,omitempty"`
+	TeamsWebhookURL      *string `json:"teams_webhook_url,omitempty"`
+	JiraURL              *string `json:"jira_url,omitempty"`
+	JiraEmail            *string `json:"jira_email,omitempty"`
+	JiraToken            *string `json:"jira_token,omitempty"`
+	JiraProject          *string `json:"jira_project,omitempty"`
+	JiraIssueType        *string `json:"jira_issue_type,omitempty"`
+	ServiceNowURL        *string `json:"servicenow_url,omitempty"`
+	ServiceNowUser       *string `json:"servicenow_user,omitempty"`
+	ServiceNowPassword   *string `json:"servicenow_password,omitempty"`
+	NotificationsDisable bool    `json:"notifications_disable,omitempty"`
 }
 
 // looksLikeAddr is a light sanity check for a "host:port" / ":port"
@@ -699,7 +699,7 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 		overrides.AIModel = ""
 		overrides.AIBackend = ""
 		overrides.AIBaseURL = ""
-		actions = append(actions, "ask muster disabled")
+		actions = append(actions, "ask topotrace disabled")
 	case req.AIAPIKey != nil || req.AIModel != nil || req.AIBackend != nil || req.AIBaseURL != nil:
 		if s.AIQuery == nil {
 			s.writeError(w, http.StatusServiceUnavailable, "Ask TopoTrace is not available on this server")
@@ -747,7 +747,7 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 		overrides.AIModel = newModel
 		overrides.AIBackend = backend
 		overrides.AIBaseURL = baseURL
-		actions = append(actions, "ask muster configured ("+backend+")")
+		actions = append(actions, "ask topotrace configured ("+backend+")")
 	}
 
 	var restartRequired []string
@@ -785,7 +785,7 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 
 	// OAuth2/OIDC dashboard login -- persist-for-next-restart,
 	// all-or-nothing. Validated with oauth.NewConfig (the same
-	// validation cmd/muster applies to the -oauth-* flags) before
+	// validation cmd/topotrace applies to the -oauth-* flags) before
 	// saving, so a broken config can't lock out admin access on the
 	// next restart.
 	switch {
@@ -1125,7 +1125,7 @@ func (s *Server) requireRoleStrict(w http.ResponseWriter, r *http.Request, need 
 }
 
 // sessionFromCookie looks up the OAuth session (see internal/oauth)
-// named by the request's muster_session cookie, if any. ok is false
+// named by the request's topotrace_session cookie, if any. ok is false
 // whenever OAuth login isn't configured, the cookie is missing, or the
 // session it names doesn't exist or has expired -- callers treat all
 // of those the same way: fall through to "no credential."
@@ -1206,23 +1206,23 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var b strings.Builder
-	b.WriteString("# HELP muster_hosts_total Total number of hosts TopoTrace has ever received a report from.\n")
-	b.WriteString("# TYPE muster_hosts_total gauge\n")
-	fmt.Fprintf(&b, "muster_hosts_total %d\n", len(hosts))
+	b.WriteString("# HELP topotrace_hosts_total Total number of hosts TopoTrace has ever received a report from.\n")
+	b.WriteString("# TYPE topotrace_hosts_total gauge\n")
+	fmt.Fprintf(&b, "topotrace_hosts_total %d\n", len(hosts))
 
-	b.WriteString("# HELP muster_hosts_stale_total Hosts that haven't reported in over the staleness threshold (internal/policy.StaleAfter, 24h).\n")
-	b.WriteString("# TYPE muster_hosts_stale_total gauge\n")
-	fmt.Fprintf(&b, "muster_hosts_stale_total %d\n", stale)
+	b.WriteString("# HELP topotrace_hosts_stale_total Hosts that haven't reported in over the staleness threshold (internal/policy.StaleAfter, 24h).\n")
+	b.WriteString("# TYPE topotrace_hosts_stale_total gauge\n")
+	fmt.Fprintf(&b, "topotrace_hosts_stale_total %d\n", stale)
 
-	b.WriteString("# HELP muster_hosts_by_platform Hosts reporting, broken down by platform.\n")
-	b.WriteString("# TYPE muster_hosts_by_platform gauge\n")
+	b.WriteString("# HELP topotrace_hosts_by_platform Hosts reporting, broken down by platform.\n")
+	b.WriteString("# TYPE topotrace_hosts_by_platform gauge\n")
 	platforms := make([]string, 0, len(byPlatform))
 	for p := range byPlatform {
 		platforms = append(platforms, p)
 	}
 	sort.Strings(platforms)
 	for _, p := range platforms {
-		fmt.Fprintf(&b, "muster_hosts_by_platform{platform=%q} %d\n", p, byPlatform[p])
+		fmt.Fprintf(&b, "topotrace_hosts_by_platform{platform=%q} %d\n", p, byPlatform[p])
 	}
 
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
@@ -2056,7 +2056,7 @@ func (s *Server) buildAskContext(r *http.Request) (askContext, error) {
 		}
 		in, err := s.complianceInput(ctx, h, softwareRules)
 		if err != nil {
-			s.log().Error("ask muster: gathering compliance input", "host", h.Name, "err", err)
+			s.log().Error("ask topotrace: gathering compliance input", "host", h.Name, "err", err)
 			continue
 		}
 		result := compliance.Baseline.Evaluate(in)
@@ -2143,14 +2143,14 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 
 	fleetCtx, err := s.buildAskContext(r)
 	if err != nil {
-		s.log().Error("ask muster: building fleet context", "err", err)
+		s.log().Error("ask topotrace: building fleet context", "err", err)
 		s.writeError(w, http.StatusInternalServerError, "gathering fleet context")
 		return
 	}
 
 	answer, err := aiquery.Ask(r.Context(), s.AIQuery.Get(), req.Question, fleetCtx)
 	if err != nil {
-		s.log().Error("ask muster", "err", err)
+		s.log().Error("ask topotrace", "err", err)
 		if errors.Is(err, aiquery.ErrNotConfigured) {
 			s.writeError(w, http.StatusServiceUnavailable, err.Error())
 			return
@@ -2160,7 +2160,7 @@ func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	detail := fmt.Sprintf("Q: %s | A: %s", truncateForAudit(req.Question, 200), truncateForAudit(answer, 500))
-	if _, err := s.Store.RecordAudit(r.Context(), actor, "ask-muster", "", detail); err != nil {
+	if _, err := s.Store.RecordAudit(r.Context(), actor, "ask-topotrace", "", detail); err != nil {
 		s.log().Error("recording audit entry", "err", err)
 	}
 
@@ -2466,7 +2466,7 @@ func (s *Server) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 }
 
 // mobileReportRequest is the body of POST /api/mobile-report -- a
-// simpler, JSON-over-HTTP alternative to the TCP MUSTER1 protocol for
+// simpler, JSON-over-HTTP alternative to the TCP TOPOTRACE1 protocol for
 // agents where a raw socket + tar.gz payload is the wrong shape: the
 // Android app (agent/android/), the iOS Shortcuts-based flow
 // (agent/ios/README.md), and the ChromeOS extension (agent/chromeos/)
@@ -2560,8 +2560,8 @@ func (s *Server) handleListEnrollments(w http.ResponseWriter, r *http.Request) {
 }
 
 // validHostName mirrors the agent scripts' own assert_safe_token charset
-// (agent/ubuntu/muster-agent.sh, agent/windows/muster-agent.ps1) and
-// cmd/muster's validAuthToken: letters, digits, '.', '_', '-' only, 1-128
+// (agent/ubuntu/topotrace-agent.sh, agent/windows/topotrace-agent.ps1) and
+// cmd/topotrace's validAuthToken: letters, digits, '.', '_', '-' only, 1-128
 // chars. This isn't cosmetic -- the TCP wire protocol header is
 // space-delimited (internal/ingest/protocol.go, parsed with
 // strings.Fields), and the generated install command drops the host name
@@ -2643,7 +2643,7 @@ func (s *Server) handleDeleteEnrollment(w http.ResponseWriter, r *http.Request) 
 // handleDownloadAgent is GET /api/agents/download/{platform} -- serves
 // the real agent script for platform straight from the compiled binary
 // (see the agent package's doc comment): the same file committed at
-// agent/ubuntu/muster-agent.sh etc., never a second copy that can drift
+// agent/ubuntu/topotrace-agent.sh etc., never a second copy that can drift
 // out of sync with it. Unauthenticated, matching /healthz and
 // /metrics' posture -- these are public install scripts, nothing
 // sensitive about serving them (the enrollment/API token an operator
@@ -2930,8 +2930,8 @@ func (s *Server) handleCloudReport(w http.ResponseWriter, r *http.Request) {
 // the caller has a valid session, who they're logged in as.
 
 const (
-	oauthStateCookie    = "muster_oauth_state"
-	oauthVerifierCookie = "muster_oauth_verifier"
+	oauthStateCookie    = "topotrace_oauth_state"
+	oauthVerifierCookie = "topotrace_oauth_verifier"
 )
 
 // transientCookie sets a short-lived, HttpOnly cookie used only to

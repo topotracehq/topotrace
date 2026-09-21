@@ -1,0 +1,26 @@
+# Runs topotrace-agent.sh as a one-shot report -- paired with
+# topotrace-agent.timer for the actual schedule. Install both under
+# /etc/systemd/system/, then:
+#
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now topotrace-agent.timer
+#   sudo systemctl start topotrace-agent.service   # run once right now, don't wait for the timer
+#
+# This is the bare-metal/VM equivalent of what charts/topotrace/templates/
+# cronjob-agent.yaml already does inside Kubernetes -- same script, same
+# schedule-by-default (15 minutes), just started by systemd instead of
+# the cluster.
+[Unit]
+Description=TopoTrace agent (one-shot system report)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Runs as a dedicated, unprivileged user -- nothing this script collects
+# (/proc/cpuinfo, /etc/os-release, its own crontab, etc.) needs root.
+# Create the user first: sudo useradd --system --no-create-home topotrace-agent
+User=topotrace-agent
+EnvironmentFile=-/etc/topotrace-agent.env
+WorkingDirectory=/opt/topotrace
+ExecStart=/bin/bash -c '/opt/topotrace/topotrace-agent.sh --topotrace-host "$TOPOTRACE_HOST" --topotrace-port "${TOPOTRACE_PORT:-9090}" ${TOPOTRACE_TOKEN:+--token "$TOPOTRACE_TOKEN"} ${TOPOTRACE_HOST_NAME:+--host-name "$TOPOTRACE_HOST_NAME"}'

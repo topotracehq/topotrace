@@ -15,7 +15,7 @@
 // format windows.go introduced and its generic parser directly -- the
 // format itself was never actually Windows-specific, that's just where
 // the pattern was first written. One capture file, system.txt, produced
-// entirely by agent/macos/muster-agent.sh via `sw_vers`/`sysctl`/
+// entirely by agent/macos/topotrace-agent.sh via `sw_vers`/`sysctl`/
 // `uname`/`uptime` -- no parsing on the agent side, same division of
 // labor as every other platform.
 package cook

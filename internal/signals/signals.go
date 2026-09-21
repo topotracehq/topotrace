@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         signals.go
- * @brief        Package signals gathers, for one host, everything Muster's higher-level evaluations need -- facts by category, staleness, posture score, vulnerability findings, software allow/deny violations, Shadow AI detections -- into one compliance.Input.
+ * @brief        Package signals gathers, for one host, everything TopoTrace's higher-level evaluations need -- facts by category, staleness, posture score, vulnerability findings, software allow/deny violations, Shadow AI detections -- into one compliance.Input.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,7 +11,7 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package signals gathers, for one host, everything Muster's higher-level
+// Package signals gathers, for one host, everything TopoTrace's higher-level
 // evaluations need -- facts by category, staleness, posture score,
 // vulnerability findings, software allow/deny violations, Shadow AI
 // detections -- into one compliance.Input. It exists so internal/api
@@ -24,17 +24,17 @@ import (
 	"context"
 	"time"
 
-	"muster/internal/aiagentinv"
-	"muster/internal/allowlist"
-	"muster/internal/browserext"
-	"muster/internal/certs"
-	"muster/internal/compliance"
-	"muster/internal/eol"
-	"muster/internal/model"
-	"muster/internal/policy"
-	"muster/internal/scanner"
-	"muster/internal/store"
-	"muster/internal/vuln"
+	"topotrace/internal/aiagentinv"
+	"topotrace/internal/allowlist"
+	"topotrace/internal/browserext"
+	"topotrace/internal/certs"
+	"topotrace/internal/compliance"
+	"topotrace/internal/eol"
+	"topotrace/internal/model"
+	"topotrace/internal/policy"
+	"topotrace/internal/scanner"
+	"topotrace/internal/store"
+	"topotrace/internal/vuln"
 )
 
 // FactsByCategory loads a host's facts keyed by category.

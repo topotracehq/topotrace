@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         oauth.go
- * @brief        Package oauth implements a minimal, dependency-free OAuth2 authorization-code login flow (with PKCE) for Muster's web dashboard, plus an in-memory session store for the cookie that flow leaves behind.
+ * @brief        Package oauth implements a minimal, dependency-free OAuth2 authorization-code login flow (with PKCE) for TopoTrace's web dashboard, plus an in-memory session store for the cookie that flow leaves behind.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -12,7 +12,7 @@
  ******************************************************************************/
 
 // Package oauth implements a minimal, dependency-free OAuth2
-// authorization-code login flow (with PKCE) for Muster's web
+// authorization-code login flow (with PKCE) for TopoTrace's web
 // dashboard, plus an in-memory session store for the cookie that flow
 // leaves behind.
 //
@@ -63,7 +63,7 @@ import (
 // cookie is only as dangerous as a stolen session ID for any other
 // cookie-session web app, and a session can be revoked (logout, or
 // restarting the server) without needing a token-revocation scheme.
-const SessionCookieName = "muster_session"
+const SessionCookieName = "topotrace_session"
 
 // SessionTTL is how long a session lasts after login, independent of
 // activity (no sliding-expiration bookkeeping to get wrong). Once it
@@ -71,7 +71,7 @@ const SessionCookieName = "muster_session"
 const SessionTTL = 12 * time.Hour
 
 // Config holds one server's OAuth2/OIDC login configuration, built by
-// NewConfig from the -oauth-* flags in cmd/muster. A nil *Config (or
+// NewConfig from the -oauth-* flags in cmd/topotrace. A nil *Config (or
 // one with Enabled false) means OAuth login is off entirely -- every
 // caller in internal/api checks for that before touching it.
 type Config struct {
@@ -177,7 +177,7 @@ func parseRoleMap(s string) ([]roleMapping, error) {
 	return out, nil
 }
 
-// RoleFor maps a logged-in user's email to one of Muster's three fixed
+// RoleFor maps a logged-in user's email to one of TopoTrace's three fixed
 // roles per -oauth-role-map, or "" if nothing matched (handleAuthCallback
 // treats that as "not authorized," not as a default role -- there's no
 // implicit access just for having a login at some IdP).

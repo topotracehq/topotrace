@@ -1,15 +1,15 @@
-# Muster Ubuntu / Linux agent
+# TopoTrace Ubuntu / Linux agent
 
 A minimal, dependency-free bash agent that scans a Linux host and reports
-it to a running Muster server. See `muster-agent.sh`'s own header
-comment (`./muster-agent.sh --help` prints it) for the full option list
+it to a running TopoTrace server. See `topotrace-agent.sh`'s own header
+comment (`./topotrace-agent.sh --help` prints it) for the full option list
 and design notes -- this file is a short pointer, not a duplicate.
 
 ## Requirements
 
 - bash (uses `/dev/tcp`, a bash built-in -- no netcat/socat needed).
 - `tar` and `gzip` on PATH. Standard on any Ubuntu install.
-- Network access from this host to the Muster server's ingest port
+- Network access from this host to the TopoTrace server's ingest port
   (`9090` by default).
 - No root/sudo needed -- everything it reads (`/proc/cpuinfo`,
   `/proc/meminfo`, `/etc/os-release`, plus the newer feeds' sources --
@@ -19,24 +19,24 @@ and design notes -- this file is a short pointer, not a duplicate.
 ## Quick start
 
 ```bash
-./muster-agent.sh --muster-host <server-ip-or-hostname>
+./topotrace-agent.sh --topotrace-host <server-ip-or-hostname>
 ```
 
-Reports this machine under its own `hostname`. Run `./muster-agent.sh
+Reports this machine under its own `hostname`. Run `./topotrace-agent.sh
 --help` for every option (`--host-name` to report under a different
-name, `--platform`, `--muster-port`, `--out-dir`, `--keep-files` to
+name, `--platform`, `--topotrace-port`, `--out-dir`, `--keep-files` to
 inspect what was collected/sent).
 
 ## No spare Ubuntu box handy? Use the bundled Docker image
 
 `Dockerfile` in this same directory packages the script into a plain
 Ubuntu image, so you can run a real copy of it in a container against
-your `muster` container instead of needing an actual second machine.
+your `topotrace` container instead of needing an actual second machine.
 From the repo root, via Compose (see `docker-compose.yml`'s
 `ubuntu-agent` service):
 
 ```bash
-docker compose up -d muster
+docker compose up -d topotrace
 docker compose --profile ubuntu-agent run --rm ubuntu-agent
 ```
 
@@ -53,23 +53,23 @@ unbuilt is specifically the container image.
 
 ## Running on a schedule
 
-Two supported ways, same idea as `charts/muster/templates/
+Two supported ways, same idea as `charts/topotrace/templates/
 cronjob-agent.yaml` inside Kubernetes:
 
 - **cron** — the simplest option: `crontab -e` and add
-  `*/15 * * * * /opt/muster/muster-agent.sh --muster-host <host> >> /var/log/muster-agent.log 2>&1`.
-- **systemd timer** — `systemd/muster-agent.service` +
-  `systemd/muster-agent.timer` in this directory. Preferred on any host
+  `*/15 * * * * /opt/topotrace/topotrace-agent.sh --topotrace-host <host> >> /var/log/topotrace-agent.log 2>&1`.
+- **systemd timer** — `systemd/topotrace-agent.service` +
+  `systemd/topotrace-agent.timer` in this directory. Preferred on any host
   that already uses systemd: you get `systemctl status`/`journalctl`
   for free instead of a log file you have to remember to rotate. Copy
   both units to `/etc/systemd/system/`, copy `systemd/
-  muster-agent.env.example` to `/etc/muster-agent.env` and fill it in,
+  topotrace-agent.env.example` to `/etc/topotrace-agent.env` and fill it in,
   then:
 
   ```bash
-  sudo useradd --system --no-create-home muster-agent
+  sudo useradd --system --no-create-home topotrace-agent
   sudo systemctl daemon-reload
-  sudo systemctl enable --now muster-agent.timer
+  sudo systemctl enable --now topotrace-agent.timer
   ```
 
 ## What it collects
@@ -78,16 +78,16 @@ The same five raw command outputs `internal/cook/linux.go` was designed
 around: `/proc/cpuinfo`, `/proc/meminfo`, `uname -a`, `/etc/os-release`,
 and `uptime`. No parsing on the agent side -- it just captures the raw
 text and lets the server-side cook pipeline do the parsing, same as
-every other Muster agent.
+every other TopoTrace agent.
 
 ## Verification status
 
 Unlike the Windows agent, this one **has** been run and verified for
 real in the environment it was built in (a genuine Linux sandbox) --
-end to end against a live Muster server: real `/proc/cpuinfo`/
+end to end against a live TopoTrace server: real `/proc/cpuinfo`/
 `/proc/meminfo`/`uname -a`/`/etc/os-release`/`uptime` output was
 collected, packaged, sent over the wire, and confirmed via the API to
 have parsed into accurate CPU/memory/kernel/distribution facts. Still
-worth a first run against a test/dev Muster instance on your own
+worth a first run against a test/dev TopoTrace instance on your own
 machines before relying on it, as with any new script -- but this one
 isn't a "written but untested" caveat the way the Windows script is.

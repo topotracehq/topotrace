@@ -18,8 +18,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"muster/internal/model"
 	"time"
+	"topotrace/internal/model"
 )
 
 const HealthKind = "notification_success"

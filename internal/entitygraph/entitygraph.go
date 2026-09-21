@@ -21,7 +21,7 @@
 // The point is the questions a list cannot answer: which hosts share
 // this CVE, which packages carry it, what does this one rule actually
 // touch, which extension is on half the fleet. Every relationship here
-// already existed somewhere in Muster; this package is the one place
+// already existed somewhere in TopoTrace; this package is the one place
 // they are assembled into a single traversable structure.
 //
 // Two design constraints shape it.
@@ -50,11 +50,11 @@ import (
 	"sort"
 	"strings"
 
-	"muster/internal/certs"
-	"muster/internal/compliance"
-	"muster/internal/model"
-	"muster/internal/risk"
-	"muster/internal/sprawl"
+	"topotrace/internal/certs"
+	"topotrace/internal/compliance"
+	"topotrace/internal/model"
+	"topotrace/internal/risk"
+	"topotrace/internal/sprawl"
 )
 
 // Kinds are the entity kinds a node can be, in the order the legend
@@ -292,7 +292,7 @@ func Build(inputs []compliance.Input, rules []model.Rule, softwareRules []model.
 			b.edge(hostID, pn.ID, "installs")
 		}
 
-		// CVEs: Muster's own matches hang off the package they were
+		// CVEs: TopoTrace's own matches hang off the package they were
 		// found in; imported scanner findings have no package, so they
 		// hang off the host directly.
 		for _, f := range in.VulnFindings {

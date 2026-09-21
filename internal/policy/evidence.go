@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"muster/internal/model"
+	"topotrace/internal/model"
 )
 
 // Evidence describes collection confidence, not whether a security check passed.

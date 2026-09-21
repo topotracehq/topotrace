@@ -23,7 +23,7 @@ import (
 	"context"
 	"errors"
 
-	"muster/internal/model"
+	"topotrace/internal/model"
 )
 
 // Store is the full persistence contract. UpsertFact is expected to

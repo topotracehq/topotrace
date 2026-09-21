@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         dynamic_test.go
- * @brief        Tests for the Muster siemforward package.
+ * @brief        Tests for the TopoTrace siemforward package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis

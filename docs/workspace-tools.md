@@ -52,7 +52,7 @@ To restore:
 4. Check the restored groups, views, and preferences. Private views retain their
    original account name and group; that account and scope must exist to use them.
 
-The format is `muster-workspace-config-v1`, limited to 1,000 records and a 4 MB
+The format is `topotrace-workspace-config-v1`, limited to 1,000 records and a 4 MB
 request. Export rejects data too large for this portable format. Imports reject
 unknown record types and action records. The preview fingerprint binds the exact
 file to the current configuration, but is not a cryptographic signature of the

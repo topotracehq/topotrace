@@ -18,8 +18,8 @@ import (
 	"log/slog"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/store"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
 )
 
 // forwardTimeout bounds how long one SIEM delivery attempt is allowed
@@ -31,7 +31,7 @@ const forwardTimeout = 5 * time.Second
 // auditForwardingStore wraps a store.Store, forwarding every
 // successfully recorded audit entry to a Forwarder. Every other method
 // is promoted unchanged from the embedded store.Store, so WrapStore is
-// a one-line change in cmd/muster with zero changes to any of the
+// a one-line change in cmd/topotrace with zero changes to any of the
 // existing RecordAudit call sites across internal/api and
 // internal/evaluator.
 type auditForwardingStore struct {

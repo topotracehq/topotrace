@@ -22,11 +22,11 @@ import (
 // PATCH /api/settings can turn SIEM forwarding on, reconfigure it, or
 // turn it off on a running server -- no restart, and no re-wrapping of
 // the Store. A plain Forwarder built once at startup (SplunkHEC) has no
-// way to do this; cmd/muster constructs exactly one Dynamic and always
+// way to do this; cmd/topotrace constructs exactly one Dynamic and always
 // passes it to WrapStore, even when starting with neither -siem-hec-*
 // flag set, so forwarding can be enabled later purely by calling
 // SetSplunkHEC. Send is a safe no-op whenever no backend is configured,
-// which is what lets cmd/muster always wrap the Store instead of only
+// which is what lets cmd/topotrace always wrap the Store instead of only
 // wrapping it once a forwarder already exists (WrapStore's own
 // nil-Forwarder short-circuit still exists and is unrelated to this --
 // it's for callers who never want the wrapping overhead at all).

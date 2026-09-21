@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         baseline_test.go
- * @brief        Tests for the Muster baseline package.
+ * @brief        Tests for the TopoTrace baseline package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -17,8 +17,8 @@ import (
 	"context"
 	"testing"
 
-	"muster/internal/model"
-	"muster/internal/store/memstore"
+	"topotrace/internal/model"
+	"topotrace/internal/store/memstore"
 )
 
 func sw(rows ...[2]string) map[string]any {

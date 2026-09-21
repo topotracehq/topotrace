@@ -7,10 +7,10 @@ scores/policies/webhooks act on what changed.
 ## Running the server
 
 ```
-go run ./cmd/muster
+go run ./cmd/topotrace
 ```
 
-Defaults to an in-memory store snapshotted to `./data/muster.json`, an
+Defaults to an in-memory store snapshotted to `./data/topotrace.json`, an
 HTTP API + web dashboard on `:8080`, and a raw-TCP agent ingest daemon
 on `:9090`. See the top-level README's "Running it" section for
 Docker, Kubernetes, and standalone-systemd paths, and `-postgres-dsn`

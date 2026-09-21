@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         webhook_test.go
- * @brief        Tests for the Muster webhook package.
+ * @brief        Tests for the TopoTrace webhook package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"muster/internal/store/memstore"
+	"topotrace/internal/store/memstore"
 )
 
 func TestQueueDeliversRetriesAndDeadLetters(t *testing.T) {

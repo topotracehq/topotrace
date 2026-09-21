@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         main.go
- * @brief        Command aws is Muster's AWS EC2 scanner: a read-only, one-shot CLI that lists running instances in one region via the EC2 API and reports them to Muster's POST /api/cloud-report, the same way an OS agent reports the machine it runs on --...
+ * @brief        Command aws is TopoTrace's AWS EC2 scanner: a read-only, one-shot CLI that lists running instances in one region via the EC2 API and reports them to TopoTrace's POST /api/cloud-report, the same way an OS agent reports the machine it runs on --...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,9 +11,9 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Command aws is Muster's AWS EC2 scanner: a read-only, one-shot CLI
+// Command aws is TopoTrace's AWS EC2 scanner: a read-only, one-shot CLI
 // that lists running instances in one region via the EC2 API and
-// reports them to Muster's POST /api/cloud-report, the same way an OS
+// reports them to TopoTrace's POST /api/cloud-report, the same way an OS
 // agent reports the machine it runs on -- except here, one run can
 // report many "hosts" at once (every instance the credential can see).
 //
@@ -72,8 +72,8 @@ func main() {
 	accessKey := flag.String("access-key", os.Getenv("AWS_ACCESS_KEY_ID"), "AWS access key ID (default: $AWS_ACCESS_KEY_ID)")
 	secretKey := flag.String("secret-key", os.Getenv("AWS_SECRET_ACCESS_KEY"), "AWS secret access key (default: $AWS_SECRET_ACCESS_KEY)")
 	sessionToken := flag.String("session-token", os.Getenv("AWS_SESSION_TOKEN"), "AWS session token, for temporary/STS credentials (default: $AWS_SESSION_TOKEN)")
-	server := flag.String("server", "http://localhost:8080", "Muster server base URL to report results to")
-	token := flag.String("token", "", "Muster master token (POST /api/cloud-report requires the master token, not a per-host enrollment)")
+	server := flag.String("server", "http://localhost:8080", "TopoTrace server base URL to report results to")
+	token := flag.String("token", "", "TopoTrace master token (POST /api/cloud-report requires the master token, not a per-host enrollment)")
 	includeStopped := flag.Bool("include-stopped", false, "also report stopped instances, not just running ones")
 	dryRun := flag.Bool("dry-run", false, "scan and print results, but don't POST a report")
 	flag.Parse()
@@ -102,7 +102,7 @@ func main() {
 		return
 	}
 	if err := reportInstances(*server, *token, "aws", instances); err != nil {
-		fmt.Fprintln(os.Stderr, "reporting to Muster:", err)
+		fmt.Fprintln(os.Stderr, "reporting to TopoTrace:", err)
 		os.Exit(1)
 	}
 	fmt.Fprintln(os.Stderr, "aws: report sent")
@@ -349,7 +349,7 @@ func deriveSigningKey(secretKey, dateStamp, region, service string) []byte {
 	return hmacSHA256(kService, []byte("aws4_request"))
 }
 
-// --- reporting to Muster ------------------------------------------------
+// --- reporting to TopoTrace ------------------------------------------------
 
 type cloudReportRequest struct {
 	Provider  string                `json:"provider"`

@@ -37,7 +37,7 @@ target host yourself; the host reports in under its own steam from
 then on.
 
 An enrollment token only ever authorizes that one host's fact reports
-(`POST /api/mobile-report`, the TCP `MUSTER1` protocol, or
+(`POST /api/mobile-report`, the TCP `TOPOTRACE1` protocol, or
 `POST /api/airgap-report` -- see below). It can never queue a
 remediation action, read another host's data, or call any other
 endpoint. Revoke it from the Agents tab and that host immediately
@@ -53,7 +53,7 @@ section below).
 
 | Path | Transport | Used by |
 |---|---|---|
-| TCP `MUSTER1` | raw socket, gzip+tar payload | Linux, macOS, Windows agent scripts |
+| TCP `TOPOTRACE1` | raw socket, gzip+tar payload | Linux, macOS, Windows agent scripts |
 | `POST /api/mobile-report` | JSON over HTTPS | Android app, iOS Shortcuts flow |
 | `POST /api/cloud-report` | JSON over HTTPS | AWS, Azure, GCP scanners |
 | `POST /api/airgap-report` | JSON over HTTPS, base64 payload | the air-gapped import flow |

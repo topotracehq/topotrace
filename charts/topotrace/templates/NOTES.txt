@@ -1,0 +1,41 @@
+TopoTrace is deploying.
+
+Check pod status:
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+Open the dashboard (port-forward, works regardless of Service type):
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "topotrace.fullname" . }}-api {{ .Values.server.apiPort }}:{{ .Values.server.apiPort }}
+  open http://localhost:{{ .Values.server.apiPort }}/
+
+{{- if eq .Values.server.service.ingest.type "NodePort" }}
+
+Point a real agent (outside the cluster) at:
+  <any-node-ip>:{{ .Values.server.service.ingest.nodePort }}
+Find a node IP with: kubectl get nodes -o wide
+{{- else if eq .Values.server.service.ingest.type "LoadBalancer" }}
+
+Point a real agent (outside the cluster) at the LoadBalancer's external IP,
+port {{ .Values.server.ingestPort }} -- check it with:
+  kubectl get svc -n {{ .Release.Namespace }} {{ include "topotrace.fullname" . }}-ingest
+{{- end }}
+
+{{- if .Values.agent.cronjob.enabled }}
+
+A CronJob agent is scheduled: {{ .Values.agent.cronjob.schedule }}
+Trigger one run right now instead of waiting:
+  kubectl create job -n {{ .Release.Namespace }} --from=cronjob/{{ include "topotrace.fullname" . }}-agent manual-test-run
+{{- end }}
+
+{{- if .Values.agent.daemonset.enabled }}
+
+A DaemonSet agent is running on every schedulable node, reporting every
+{{ .Values.agent.daemonset.reportIntervalSeconds }}s. Check it with:
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/component=agent-daemon
+{{- end }}
+
+{{- if not .Values.postgres.enabled }}
+
+Running without Postgres (memstore mode): data lives in the server pod's
+emptyDir and is lost on restart. Set postgres.enabled=true if you want
+that to survive.
+{{- end }}

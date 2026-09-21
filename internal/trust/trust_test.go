@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         trust_test.go
- * @brief        Tests for the Muster trust package.
+ * @brief        Tests for the TopoTrace trust package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -17,10 +17,10 @@ import (
 	"testing"
 	"time"
 
-	"muster/internal/compliance"
-	"muster/internal/model"
-	"muster/internal/policy"
-	"muster/internal/vuln"
+	"topotrace/internal/compliance"
+	"topotrace/internal/model"
+	"topotrace/internal/policy"
+	"topotrace/internal/vuln"
 )
 
 func TestEvaluate(t *testing.T) {

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         report_test.go
- * @brief        Tests for the Muster report package.
+ * @brief        Tests for the TopoTrace report package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -19,11 +19,11 @@ import (
 	"testing"
 	"time"
 
-	"muster/internal/aiquery"
-	"muster/internal/compliance"
-	"muster/internal/model"
-	"muster/internal/policy"
-	"muster/internal/vuln"
+	"topotrace/internal/aiquery"
+	"topotrace/internal/compliance"
+	"topotrace/internal/model"
+	"topotrace/internal/policy"
+	"topotrace/internal/vuln"
 )
 
 func sample() Data {

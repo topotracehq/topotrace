@@ -9,23 +9,23 @@ WORKDIR /src
 # so the build below never touches the network, no `go mod download`
 # step needed or wanted.
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -trimpath -ldflags="-s -w" -o /out/muster ./cmd/muster
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -trimpath -ldflags="-s -w" -o /out/topotrace ./cmd/topotrace
 RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -trimpath -ldflags="-s -w" -o /out/demoagent ./cmd/demoagent
 
 # --- runtime image ---
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates && \
-    addgroup -S muster && adduser -S muster -G muster
+    addgroup -S topotrace && adduser -S topotrace -G topotrace
 
 WORKDIR /app
-COPY --from=build /out/muster /out/demoagent ./
+COPY --from=build /out/topotrace /out/demoagent ./
 COPY testdata ./testdata
 
-RUN mkdir -p /app/data && chown -R muster:muster /app
-USER muster
+RUN mkdir -p /app/data && chown -R topotrace:topotrace /app
+USER topotrace
 
 EXPOSE 8080 9090
 VOLUME ["/app/data"]
 
-ENTRYPOINT ["/app/muster"]
+ENTRYPOINT ["/app/topotrace"]
 CMD ["-data-dir", "/app/data"]

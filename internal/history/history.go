@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         history.go
- * @brief        Package history keeps a per-host time series of the scores Muster otherwise only ever computes fresh per request -- posture, compliance, vulnerability count, staleness -- so the dashboard can show a trend ("this fleet's posture over the ...
+ * @brief        Package history keeps a per-host time series of the scores TopoTrace otherwise only ever computes fresh per request -- posture, compliance, vulnerability count, staleness -- so the dashboard can show a trend ("this fleet's posture over the ...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -11,7 +11,7 @@
  * Licensed under the Apache License, Version 2.0 -- see the LICENSE file at the repository root.
  ******************************************************************************/
 
-// Package history keeps a per-host time series of the scores Muster
+// Package history keeps a per-host time series of the scores TopoTrace
 // otherwise only ever computes fresh per request -- posture, compliance,
 // vulnerability count, staleness -- so the dashboard can show a trend
 // ("this fleet's posture over the last 30 days") instead of a single
@@ -34,8 +34,8 @@ import (
 	"sort"
 	"time"
 
-	"muster/internal/model"
-	"muster/internal/store"
+	"topotrace/internal/model"
+	"topotrace/internal/store"
 )
 
 // Kind is the model.Document kind this package owns.

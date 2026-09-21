@@ -52,8 +52,8 @@ type Job struct {
 	NextRun       time.Time `json:"next_run"`
 	Platform      string    `json:"platform"`
 	Profile       string    `json:"profile"`
-	MusterHost    string    `json:"muster_host"`
-	MusterPort    int       `json:"muster_port"`
+	TopoTraceHost string    `json:"topotrace_host"`
+	TopoTracePort int       `json:"topotrace_port"`
 	Targets       []Target  `json:"targets"`
 	Pilot         int       `json:"pilot"`
 	Phase         string    `json:"phase"`
@@ -107,7 +107,7 @@ func (j Job) Validate() error {
 		}
 		return nil
 	}
-	if j.Kind != "deploy" || (j.Platform != "linux" && j.Platform != "windows") || !Name.MatchString(j.Profile) || !Name.MatchString(j.MusterHost) || j.MusterPort < 1 || j.MusterPort > 65535 {
+	if j.Kind != "deploy" || (j.Platform != "linux" && j.Platform != "windows") || !Name.MatchString(j.Profile) || !Name.MatchString(j.TopoTraceHost) || j.TopoTracePort < 1 || j.TopoTracePort > 65535 {
 		return fmt.Errorf("invalid platform, credential profile or ingest destination")
 	}
 	if len(j.Targets) == 0 || len(j.Targets) > 100 || j.Pilot < 1 || j.Pilot > len(j.Targets) {

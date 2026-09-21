@@ -25,7 +25,7 @@
 // notification sinks -- persists for the *next* restart only: PATCH
 // /api/settings validates and saves the value here, but the running
 // process keeps behaving as it was started until it's restarted with
-// this file present, at which point cmd/muster's startup logic uses it
+// this file present, at which point cmd/topotrace's startup logic uses it
 // as a fallback default wherever the matching -flag/env var was left
 // unset (flag/env always wins). These fields can't be swapped safely
 // into a live process (a new listen address needs a new listener, a
@@ -85,16 +85,16 @@ type Overrides struct {
 
 	// Persist-for-next-restart: notification sinks.
 	WebhookURLs        string `json:"webhook_urls,omitempty"`
-	SlackWebhookURL     string `json:"slack_webhook_url,omitempty"`
-	TeamsWebhookURL     string `json:"teams_webhook_url,omitempty"`
-	JiraURL             string `json:"jira_url,omitempty"`
-	JiraEmail           string `json:"jira_email,omitempty"`
-	JiraToken           string `json:"jira_token,omitempty"`
-	JiraProject         string `json:"jira_project,omitempty"`
-	JiraIssueType       string `json:"jira_issue_type,omitempty"`
-	ServiceNowURL       string `json:"servicenow_url,omitempty"`
-	ServiceNowUser      string `json:"servicenow_user,omitempty"`
-	ServiceNowPassword  string `json:"servicenow_password,omitempty"`
+	SlackWebhookURL    string `json:"slack_webhook_url,omitempty"`
+	TeamsWebhookURL    string `json:"teams_webhook_url,omitempty"`
+	JiraURL            string `json:"jira_url,omitempty"`
+	JiraEmail          string `json:"jira_email,omitempty"`
+	JiraToken          string `json:"jira_token,omitempty"`
+	JiraProject        string `json:"jira_project,omitempty"`
+	JiraIssueType      string `json:"jira_issue_type,omitempty"`
+	ServiceNowURL      string `json:"servicenow_url,omitempty"`
+	ServiceNowUser     string `json:"servicenow_user,omitempty"`
+	ServiceNowPassword string `json:"servicenow_password,omitempty"`
 }
 
 // Load reads path and decodes it as Overrides. A missing file is not

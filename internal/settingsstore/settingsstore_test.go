@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         settingsstore_test.go
- * @brief        Tests for the Muster settingsstore package.
+ * @brief        Tests for the TopoTrace settingsstore package.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -32,11 +32,11 @@ func TestLoadMissingFileReturnsZeroValue(t *testing.T) {
 func TestSaveThenLoadRoundTrips(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings-overrides.json")
 	want := Overrides{
-		SIEMBackend:  "splunk-hec",
-		SIEMHECURL:   "https://splunk.example.com:8088",
-		SIEMHECToken: "s3cr3t",
-		AIAPIKey:     "sk-ant-test",
-		AIModel:      "test-model",
+		SIEMBackend:       "splunk-hec",
+		SIEMHECURL:        "https://splunk.example.com:8088",
+		SIEMHECToken:      "s3cr3t",
+		AIAPIKey:          "sk-ant-test",
+		AIModel:           "test-model",
 		IngestAddr:        ":9090",
 		APIAddr:           ":8080",
 		EvaluatorInterval: "5m0s",

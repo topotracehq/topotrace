@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file         scanner.go
- * @brief        Package scanner imports findings from a vulnerability scanner an organization already runs -- Tenable Nessus and Qualys CSV exports, plus a small generic CSV -- and attaches them to Muster's hosts, so the "we already have a scanner" conv...
+ * @brief        Package scanner imports findings from a vulnerability scanner an organization already runs -- Tenable Nessus and Qualys CSV exports, plus a small generic CSV -- and attaches them to TopoTrace's hosts, so the "we already have a scanner" conv...
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -13,12 +13,12 @@
 
 // Package scanner imports findings from a vulnerability scanner an
 // organization already runs -- Tenable Nessus and Qualys CSV exports,
-// plus a small generic CSV -- and attaches them to Muster's hosts, so
+// plus a small generic CSV -- and attaches them to TopoTrace's hosts, so
 // the "we already have a scanner" conversation ends with "good, feed it
 // in" rather than a second, competing list. Imported findings live in
 // a scanner_findings fact per host (so they get change tracking like
 // any other fact) and are merged into the same vulnerability list
-// Muster's own OSV/static correlation produces, tagged with their
+// TopoTrace's own OSV/static correlation produces, tagged with their
 // source, so compliance, risk, reports and the SBOM see one set.
 //
 // Column names follow each vendor's default CSV export as documented;
@@ -36,7 +36,7 @@ import (
 	"sort"
 	"strings"
 
-	"muster/internal/vuln"
+	"topotrace/internal/vuln"
 )
 
 // Finding is one imported scanner result.
@@ -159,7 +159,7 @@ func parseFloat(s string) float64 {
 	return f
 }
 
-// Match groups findings by Muster host name. hosts maps every known
+// Match groups findings by TopoTrace host name. hosts maps every known
 // host name to its IPv4 addresses (from network_interfaces facts) so a
 // scanner that names hosts by IP or FQDN still lands. Unmatched
 // findings come back grouped by the scanner's own name for them.
@@ -220,7 +220,7 @@ func ToFact(source string, findings []Finding) map[string]any {
 
 // FromFact converts a scanner_findings fact's Data["items"] back into
 // vuln.Findings so imported results ride the same compliance, risk and
-// summary paths as Muster's own version matching. The package column
+// summary paths as TopoTrace's own version matching. The package column
 // carries the scanner title (there is no package for a network finding)
 // and Source records which scanner reported it.
 func FromFact(itemsRaw any) []vuln.Finding {
