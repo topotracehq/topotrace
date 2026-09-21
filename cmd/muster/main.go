@@ -134,6 +134,79 @@ func main() {
 		logger.Warn("loading settings overrides, starting with none", "path", overridesPath, "err", err)
 	}
 
+	// Persist-for-next-restart fallback defaults (see
+	// internal/settingsstore's doc comment): for each of these fields,
+	// if the flag/env var was left at its built-in zero value, and the
+	// override saved from the dashboard has a non-empty value, use the
+	// override instead. An explicit -flag or env var always wins --
+	// this only fills in what wasn't set at the process level.
+	if *ingestAddr == ":9090" && overrides.IngestAddr != "" {
+		*ingestAddr = overrides.IngestAddr
+	}
+	if *apiAddr == ":8080" && overrides.APIAddr != "" {
+		*apiAddr = overrides.APIAddr
+	}
+	if *evalInterval == 5*time.Minute && overrides.EvaluatorInterval != "" {
+		if d, err := time.ParseDuration(overrides.EvaluatorInterval); err == nil {
+			*evalInterval = d
+		}
+	}
+	// vulnFeedOn is a bool flag: there is no way to distinguish
+	// "explicitly set to false" from "never set", so the override is
+	// only ever applied as a fallback when the flag is still at its
+	// default false. Once the vuln feed is turned on from Settings,
+	// turning it back off from Settings works fine (the override
+	// simply goes back to false, which is also the flag's default).
+	// But a saved "off" override can't be forced back on by a bare
+	// -vuln-feed flag with no value -- that's a known, accepted
+	// limitation of bool flags, not a bug.
+	if !*vulnFeedOn && overrides.VulnFeedEnabled {
+		*vulnFeedOn = true
+	}
+	if *vulnFeedInterval == 6*time.Hour && overrides.VulnFeedInterval != "" {
+		if d, err := time.ParseDuration(overrides.VulnFeedInterval); err == nil {
+			*vulnFeedInterval = d
+		}
+	}
+	// OAuth is all-or-nothing (internal/oauth.NewConfig enforces this
+	// for the flags already): the override group is applied only when
+	// every current -oauth-* flag is empty, never partially merged
+	// with flag-set fields.
+	if *oauthClientID == "" && *oauthClientSecret == "" && *oauthAuthURL == "" && *oauthTokenURL == "" &&
+		*oauthUserInfoURL == "" && *oauthRedirectURL == "" && *oauthScopes == "" && *oauthRoleMap == "" &&
+		overrides.OAuthClientID != "" {
+		*oauthClientID = overrides.OAuthClientID
+		*oauthClientSecret = overrides.OAuthClientSecret
+		*oauthAuthURL = overrides.OAuthAuthURL
+		*oauthTokenURL = overrides.OAuthTokenURL
+		*oauthUserInfoURL = overrides.OAuthUserInfoURL
+		*oauthRedirectURL = overrides.OAuthRedirectURL
+		*oauthScopes = overrides.OAuthScopes
+		*oauthRoleMap = overrides.OAuthRoleMap
+		logger.Info("OAuth: using settings saved from the dashboard (no -oauth-* flags set)")
+	}
+	if *webhookURLs == "" && overrides.WebhookURLs != "" {
+		*webhookURLs = overrides.WebhookURLs
+	}
+	if *slackWebhookURL == "" && overrides.SlackWebhookURL != "" {
+		*slackWebhookURL = overrides.SlackWebhookURL
+	}
+	if *teamsWebhookURL == "" && overrides.TeamsWebhookURL != "" {
+		*teamsWebhookURL = overrides.TeamsWebhookURL
+	}
+	if *jiraURL == "" && overrides.JiraURL != "" {
+		*jiraURL = overrides.JiraURL
+		*jiraEmail = overrides.JiraEmail
+		*jiraToken = overrides.JiraToken
+		*jiraProject = overrides.JiraProject
+		*jiraIssueType = overrides.JiraIssueType
+	}
+	if *snowURL == "" && overrides.ServiceNowURL != "" {
+		*snowURL = overrides.ServiceNowURL
+		*snowUser = overrides.ServiceNowUser
+		*snowPassword = overrides.ServiceNowPassword
+	}
+
 	var st store.Store
 	var storageBackend string
 	if *postgresDSN != "" {
@@ -309,6 +382,7 @@ func main() {
 		SettingsOverridePath: overridesPath,
 		Breach:               breach.New(*hibpAPIKey),
 		PublicStatus:         *publicStatus,
+		PluginDir:            *pluginDir,
 	}
 	pluginMgr := pluginhost.NewManager(*pluginDir, logger.With("component", "pluginhost"))
 	pluginMgr.Load(ctx)

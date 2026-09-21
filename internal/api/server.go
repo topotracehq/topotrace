@@ -28,9 +28,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -180,6 +182,14 @@ type Server struct {
 	// no -plugin-dir was configured -- GET /api/plugins then reports an
 	// empty list and no plugin routes are mounted.
 	Plugins *pluginhost.Manager
+
+	// PluginDir is the -plugin-dir value itself (not just whether
+	// Plugins is set) -- POST /api/plugins/upload needs somewhere to
+	// write an uploaded plugin executable to, which is the same
+	// directory Plugins loads from at startup. Empty means plugin
+	// uploads are refused with a clear 503, same as Plugins being nil
+	// for GET /api/plugins.
+	PluginDir string
 }
 
 func (s *Server) log() *slog.Logger {
@@ -234,6 +244,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/bookmarks", s.handleCreateBookmark)
 	mux.HandleFunc("GET /api/bookmarks/{id}/diff", s.handleBookmarkDiff)
 	mux.HandleFunc("GET /api/plugins", s.handleListPlugins)
+	mux.HandleFunc("POST /api/plugins/upload", s.handleUploadPlugin)
 	if s.Plugins != nil {
 		s.Plugins.Mount(mux)
 	}
@@ -331,6 +342,20 @@ type settingsAuth struct {
 	BearerTokenConfigured bool     `json:"bearer_token_configured"`
 	OAuthConfigured       bool     `json:"oauth_configured"`
 	OAuthRoleMap          []string `json:"oauth_role_map,omitempty"`
+
+	// The remaining OAuth fields are non-secret (a client ID, endpoint
+	// URLs, requested scopes -- all things visible in a browser's
+	// network tab during login anyway) and are shown so the settings
+	// page can display what's configured; only the client secret is
+	// withheld, as a plain configured bool, same pattern as
+	// BearerTokenConfigured.
+	OAuthClientID              string `json:"oauth_client_id,omitempty"`
+	OAuthClientSecretConfigured bool   `json:"oauth_client_secret_configured"`
+	OAuthAuthURL               string `json:"oauth_auth_url,omitempty"`
+	OAuthTokenURL              string `json:"oauth_token_url,omitempty"`
+	OAuthUserInfoURL           string `json:"oauth_userinfo_url,omitempty"`
+	OAuthRedirectURL           string `json:"oauth_redirect_url,omitempty"`
+	OAuthScopes                string `json:"oauth_scopes,omitempty"`
 }
 
 // settingsVulnFeed is GET /api/settings's vuln-feed slice.
@@ -399,6 +424,14 @@ type settingsResponse struct {
 	AskMuster         settingsAskMuster `json:"ask_muster"`
 	Webhooks          settingsWebhooks  `json:"webhooks"`
 	SIEM              settingsSIEM      `json:"siem"`
+
+	// RestartRequired is set only on PATCH /api/settings's response
+	// (never GET's): the section names whose edits were accepted this
+	// call but only take effect on the next restart (see
+	// internal/settingsstore's doc comment) -- "general", "oauth",
+	// "vuln_feed", "notifications". SIEM/Ask TopoTrace edits never
+	// appear here since they take effect immediately.
+	RestartRequired []string `json:"restart_required,omitempty"`
 }
 
 // handleSettings is GET /api/settings, gated admin (same as managing
@@ -439,6 +472,15 @@ func (s *Server) settingsSnapshot() settingsResponse {
 			Enabled: s.VulnFeed != nil,
 		},
 		Webhooks: notifySettings(s.Webhooks),
+	}
+	if s.OAuth != nil {
+		resp.Auth.OAuthClientID = s.OAuth.ClientID
+		resp.Auth.OAuthClientSecretConfigured = s.OAuth.ClientSecret != ""
+		resp.Auth.OAuthAuthURL = s.OAuth.AuthURL
+		resp.Auth.OAuthTokenURL = s.OAuth.TokenURL
+		resp.Auth.OAuthUserInfoURL = s.OAuth.UserInfoURL
+		resp.Auth.OAuthRedirectURL = s.OAuth.RedirectURL
+		resp.Auth.OAuthScopes = s.OAuth.Scopes
 	}
 	if s.VulnFeed != nil {
 		resp.VulnFeed.Interval = s.VulnFeedInterval.String()
@@ -497,6 +539,70 @@ type settingsPatchRequest struct {
 	AIBackend *string `json:"ai_backend,omitempty"`  // "anthropic" or "openai-compatible"
 	AIBaseURL *string `json:"ai_base_url,omitempty"` // required by openai-compatible
 	AIDisable bool    `json:"ai_disable,omitempty"`
+
+	// General/ports -- persist-for-next-restart (see
+	// internal/settingsstore's doc comment). Validated to look like
+	// ":PORT" or "host:PORT" (general_ingest_addr/general_api_addr) or
+	// a parseable time.Duration (general_evaluator_interval).
+	GeneralIngestAddr        *string `json:"general_ingest_addr,omitempty"`
+	GeneralAPIAddr           *string `json:"general_api_addr,omitempty"`
+	GeneralEvaluatorInterval *string `json:"general_evaluator_interval,omitempty"`
+
+	// OAuth2/OIDC dashboard login -- persist-for-next-restart,
+	// all-or-nothing (validated with oauth.NewConfig before saving).
+	// oauth_disable clears every saved oauth_* override.
+	OAuthClientID     *string `json:"oauth_client_id,omitempty"`
+	OAuthClientSecret *string `json:"oauth_client_secret,omitempty"`
+	OAuthAuthURL      *string `json:"oauth_auth_url,omitempty"`
+	OAuthTokenURL     *string `json:"oauth_token_url,omitempty"`
+	OAuthUserInfoURL  *string `json:"oauth_userinfo_url,omitempty"`
+	OAuthRedirectURL  *string `json:"oauth_redirect_url,omitempty"`
+	OAuthScopes       *string `json:"oauth_scopes,omitempty"`
+	OAuthRoleMap      *string `json:"oauth_role_map,omitempty"`
+	OAuthDisable      bool    `json:"oauth_disable,omitempty"`
+
+	// Vulnerability feed (OSV.dev, free, no API key) -- persist-for-
+	// next-restart.
+	VulnFeedEnabled  *bool   `json:"vuln_feed_enabled,omitempty"`
+	VulnFeedInterval *string `json:"vuln_feed_interval,omitempty"`
+
+	// Notification sinks -- persist-for-next-restart.
+	// notifications_disable clears every saved sink override in one
+	// shot; individual fields set/replace that one sink's saved value.
+	WebhookURLs           *string `json:"webhook_url,omitempty"`
+	SlackWebhookURL       *string `json:"slack_webhook_url,omitempty"`
+	TeamsWebhookURL       *string `json:"teams_webhook_url,omitempty"`
+	JiraURL               *string `json:"jira_url,omitempty"`
+	JiraEmail             *string `json:"jira_email,omitempty"`
+	JiraToken             *string `json:"jira_token,omitempty"`
+	JiraProject           *string `json:"jira_project,omitempty"`
+	JiraIssueType         *string `json:"jira_issue_type,omitempty"`
+	ServiceNowURL         *string `json:"servicenow_url,omitempty"`
+	ServiceNowUser        *string `json:"servicenow_user,omitempty"`
+	ServiceNowPassword    *string `json:"servicenow_password,omitempty"`
+	NotificationsDisable  bool    `json:"notifications_disable,omitempty"`
+}
+
+// looksLikeAddr is a light sanity check for a "host:port" / ":port"
+// listen address string -- not a full validation (net.Listen would
+// catch anything this misses), just enough to reject an obviously
+// wrong value (empty, no colon) before it's persisted for the next
+// restart.
+func looksLikeAddr(v string) bool {
+	if v == "" {
+		return false
+	}
+	idx := strings.LastIndex(v, ":")
+	if idx < 0 || idx == len(v)-1 {
+		return false
+	}
+	port := v[idx+1:]
+	for _, c := range port {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func strPtrVal(p *string) string {
@@ -644,6 +750,173 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 		actions = append(actions, "ask muster configured ("+backend+")")
 	}
 
+	var restartRequired []string
+
+	// General/ports -- persist-for-next-restart only (see
+	// internal/settingsstore's doc comment): no live listener swap.
+	if req.GeneralIngestAddr != nil || req.GeneralAPIAddr != nil || req.GeneralEvaluatorInterval != nil {
+		if req.GeneralIngestAddr != nil {
+			v := strings.TrimSpace(*req.GeneralIngestAddr)
+			if !looksLikeAddr(v) {
+				s.writeError(w, http.StatusBadRequest, "general_ingest_addr must look like \":PORT\" or \"host:PORT\"")
+				return
+			}
+			overrides.IngestAddr = v
+		}
+		if req.GeneralAPIAddr != nil {
+			v := strings.TrimSpace(*req.GeneralAPIAddr)
+			if !looksLikeAddr(v) {
+				s.writeError(w, http.StatusBadRequest, "general_api_addr must look like \":PORT\" or \"host:PORT\"")
+				return
+			}
+			overrides.APIAddr = v
+		}
+		if req.GeneralEvaluatorInterval != nil {
+			v := strings.TrimSpace(*req.GeneralEvaluatorInterval)
+			if _, err := time.ParseDuration(v); err != nil {
+				s.writeError(w, http.StatusBadRequest, "general_evaluator_interval must be a valid duration (e.g. 5m, 1h)")
+				return
+			}
+			overrides.EvaluatorInterval = v
+		}
+		actions = append(actions, "general settings saved for next restart")
+		restartRequired = append(restartRequired, "general")
+	}
+
+	// OAuth2/OIDC dashboard login -- persist-for-next-restart,
+	// all-or-nothing. Validated with oauth.NewConfig (the same
+	// validation cmd/muster applies to the -oauth-* flags) before
+	// saving, so a broken config can't lock out admin access on the
+	// next restart.
+	switch {
+	case req.OAuthDisable:
+		overrides.OAuthClientID = ""
+		overrides.OAuthClientSecret = ""
+		overrides.OAuthAuthURL = ""
+		overrides.OAuthTokenURL = ""
+		overrides.OAuthUserInfoURL = ""
+		overrides.OAuthRedirectURL = ""
+		overrides.OAuthScopes = ""
+		overrides.OAuthRoleMap = ""
+		actions = append(actions, "oauth override cleared for next restart")
+		restartRequired = append(restartRequired, "oauth")
+	case req.OAuthClientID != nil || req.OAuthClientSecret != nil || req.OAuthAuthURL != nil ||
+		req.OAuthTokenURL != nil || req.OAuthUserInfoURL != nil || req.OAuthRedirectURL != nil ||
+		req.OAuthScopes != nil || req.OAuthRoleMap != nil:
+		clientID := strings.TrimSpace(strPtrVal(req.OAuthClientID))
+		clientSecret := strings.TrimSpace(strPtrVal(req.OAuthClientSecret))
+		authURL := strings.TrimSpace(strPtrVal(req.OAuthAuthURL))
+		tokenURL := strings.TrimSpace(strPtrVal(req.OAuthTokenURL))
+		userInfoURL := strings.TrimSpace(strPtrVal(req.OAuthUserInfoURL))
+		redirectURL := strings.TrimSpace(strPtrVal(req.OAuthRedirectURL))
+		scopes := strings.TrimSpace(strPtrVal(req.OAuthScopes))
+		roleMap := strings.TrimSpace(strPtrVal(req.OAuthRoleMap))
+		if _, err := oauth.NewConfig(clientID, clientSecret, authURL, tokenURL, userInfoURL, redirectURL, scopes, roleMap); err != nil {
+			s.writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		overrides.OAuthClientID = clientID
+		overrides.OAuthClientSecret = clientSecret
+		overrides.OAuthAuthURL = authURL
+		overrides.OAuthTokenURL = tokenURL
+		overrides.OAuthUserInfoURL = userInfoURL
+		overrides.OAuthRedirectURL = redirectURL
+		overrides.OAuthScopes = scopes
+		overrides.OAuthRoleMap = roleMap
+		actions = append(actions, "oauth saved for next restart")
+		restartRequired = append(restartRequired, "oauth")
+	}
+
+	// Vulnerability feed (OSV.dev) -- persist-for-next-restart.
+	if req.VulnFeedEnabled != nil || req.VulnFeedInterval != nil {
+		if req.VulnFeedInterval != nil {
+			v := strings.TrimSpace(*req.VulnFeedInterval)
+			if _, err := time.ParseDuration(v); err != nil {
+				s.writeError(w, http.StatusBadRequest, "vuln_feed_interval must be a valid duration (e.g. 6h)")
+				return
+			}
+			overrides.VulnFeedInterval = v
+		}
+		if req.VulnFeedEnabled != nil {
+			overrides.VulnFeedEnabled = *req.VulnFeedEnabled
+		}
+		actions = append(actions, "vulnerability feed settings saved for next restart")
+		restartRequired = append(restartRequired, "vuln_feed")
+	}
+
+	// Notification sinks -- persist-for-next-restart.
+	switch {
+	case req.NotificationsDisable:
+		overrides.WebhookURLs = ""
+		overrides.SlackWebhookURL = ""
+		overrides.TeamsWebhookURL = ""
+		overrides.JiraURL = ""
+		overrides.JiraEmail = ""
+		overrides.JiraToken = ""
+		overrides.JiraProject = ""
+		overrides.JiraIssueType = ""
+		overrides.ServiceNowURL = ""
+		overrides.ServiceNowUser = ""
+		overrides.ServiceNowPassword = ""
+		actions = append(actions, "notification sinks cleared for next restart")
+		restartRequired = append(restartRequired, "notifications")
+	case req.WebhookURLs != nil || req.SlackWebhookURL != nil || req.TeamsWebhookURL != nil ||
+		req.JiraURL != nil || req.JiraEmail != nil || req.JiraToken != nil || req.JiraProject != nil ||
+		req.JiraIssueType != nil || req.ServiceNowURL != nil || req.ServiceNowUser != nil || req.ServiceNowPassword != nil:
+		if req.WebhookURLs != nil {
+			overrides.WebhookURLs = strings.TrimSpace(*req.WebhookURLs)
+		}
+		if req.SlackWebhookURL != nil {
+			overrides.SlackWebhookURL = strings.TrimSpace(*req.SlackWebhookURL)
+		}
+		if req.TeamsWebhookURL != nil {
+			overrides.TeamsWebhookURL = strings.TrimSpace(*req.TeamsWebhookURL)
+		}
+		jiraURL := overrides.JiraURL
+		jiraEmail := overrides.JiraEmail
+		jiraToken := overrides.JiraToken
+		jiraProject := overrides.JiraProject
+		if req.JiraURL != nil {
+			jiraURL = strings.TrimSpace(*req.JiraURL)
+		}
+		if req.JiraEmail != nil {
+			jiraEmail = strings.TrimSpace(*req.JiraEmail)
+		}
+		if req.JiraToken != nil {
+			jiraToken = strings.TrimSpace(*req.JiraToken)
+		}
+		if req.JiraProject != nil {
+			jiraProject = strings.TrimSpace(*req.JiraProject)
+		}
+		if jiraURL != "" && (jiraEmail == "" || jiraToken == "" || jiraProject == "") {
+			s.writeError(w, http.StatusBadRequest, "jira_url needs jira_email, jira_token and jira_project together")
+			return
+		}
+		overrides.JiraURL, overrides.JiraEmail, overrides.JiraToken, overrides.JiraProject = jiraURL, jiraEmail, jiraToken, jiraProject
+		if req.JiraIssueType != nil {
+			overrides.JiraIssueType = strings.TrimSpace(*req.JiraIssueType)
+		}
+		snowURL := overrides.ServiceNowURL
+		snowUser := overrides.ServiceNowUser
+		snowPassword := overrides.ServiceNowPassword
+		if req.ServiceNowURL != nil {
+			snowURL = strings.TrimSpace(*req.ServiceNowURL)
+		}
+		if req.ServiceNowUser != nil {
+			snowUser = strings.TrimSpace(*req.ServiceNowUser)
+		}
+		if req.ServiceNowPassword != nil {
+			snowPassword = strings.TrimSpace(*req.ServiceNowPassword)
+		}
+		if snowURL != "" && (snowUser == "" || snowPassword == "") {
+			s.writeError(w, http.StatusBadRequest, "servicenow_url needs servicenow_user and servicenow_password together")
+			return
+		}
+		overrides.ServiceNowURL, overrides.ServiceNowUser, overrides.ServiceNowPassword = snowURL, snowUser, snowPassword
+		actions = append(actions, "notification sinks saved for next restart")
+		restartRequired = append(restartRequired, "notifications")
+	}
+
 	if len(actions) == 0 {
 		s.writeError(w, http.StatusBadRequest, "no recognized settings fields in request")
 		return
@@ -660,7 +933,89 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 		s.log().Error("recording settings-update audit entry", "err", err)
 	}
 
-	s.writeJSON(w, http.StatusOK, s.settingsSnapshot())
+	resp := s.settingsSnapshot()
+	resp.RestartRequired = restartRequired
+	s.writeJSON(w, http.StatusOK, resp)
+}
+
+// handleUploadPlugin is POST /api/plugins/upload, gated
+// requireRoleStrict "admin" (this writes an executable file to disk,
+// the same bar as handlePatchSettings). Accepts multipart/form-data
+// with a single "plugin" file field, writes it into Server.PluginDir
+// with 0o755 permissions, and returns a plain "restart to load it"
+// message -- internal/pluginhost deliberately has no hot-reload (see
+// its doc comment), so this never touches the running Plugins manager.
+func (s *Server) handleUploadPlugin(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.requireRoleStrict(w, r, "admin")
+	if !ok {
+		return
+	}
+	if s.PluginDir == "" {
+		s.writeError(w, http.StatusServiceUnavailable, "plugin uploads require the server to be started with -plugin-dir")
+		return
+	}
+
+	const maxUploadBytes = 200 << 20 // 200 MiB
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes+1<<20)
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid multipart upload: "+err.Error())
+		return
+	}
+	file, header, err := r.FormFile("plugin")
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "missing \"plugin\" file field")
+		return
+	}
+	defer file.Close()
+
+	name := filepath.Base(strings.TrimSpace(header.Filename))
+	if name == "" || name == "." || name == string(filepath.Separator) {
+		s.writeError(w, http.StatusBadRequest, "invalid filename")
+		return
+	}
+	if header.Size > maxUploadBytes {
+		s.writeError(w, http.StatusBadRequest, "plugin file too large (limit 200 MiB)")
+		return
+	}
+
+	if err := os.MkdirAll(s.PluginDir, 0o755); err != nil {
+		s.log().Error("creating plugin dir", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "could not prepare plugin directory")
+		return
+	}
+	destPath := filepath.Join(s.PluginDir, name)
+	dest, err := os.OpenFile(destPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
+	if err != nil {
+		s.log().Error("creating plugin file", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "could not write plugin file")
+		return
+	}
+	written, err := io.CopyN(dest, file, maxUploadBytes+1)
+	dest.Close()
+	if err != nil && err != io.EOF {
+		os.Remove(destPath)
+		s.log().Error("writing plugin file", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "could not write plugin file")
+		return
+	}
+	if written > maxUploadBytes {
+		os.Remove(destPath)
+		s.writeError(w, http.StatusBadRequest, "plugin file too large (limit 200 MiB)")
+		return
+	}
+	if err := os.Chmod(destPath, 0o755); err != nil {
+		s.log().Warn("chmod plugin file", "err", err)
+	}
+
+	if _, err := s.Store.RecordAudit(r.Context(), actor, "plugin_uploaded", name, "uploaded to "+destPath); err != nil {
+		s.log().Error("recording plugin-upload audit entry", "err", err)
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]any{
+		"filename": name,
+		"path":     destPath,
+		"message":  "uploaded; restart the service to load it (internal/pluginhost has no hot-reload)",
+	})
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, status int, v any) {

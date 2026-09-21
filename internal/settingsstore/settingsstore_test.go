@@ -37,6 +37,16 @@ func TestSaveThenLoadRoundTrips(t *testing.T) {
 		SIEMHECToken: "s3cr3t",
 		AIAPIKey:     "sk-ant-test",
 		AIModel:      "test-model",
+		IngestAddr:        ":9090",
+		APIAddr:           ":8080",
+		EvaluatorInterval: "5m0s",
+		OAuthClientID:     "client-id",
+		OAuthRoleMap:      "admin@example.com=admin",
+		VulnFeedEnabled:   true,
+		VulnFeedInterval:  "6h0m0s",
+		WebhookURLs:       "https://example.com/hook",
+		JiraProject:       "OPS",
+		ServiceNowUser:    "svc",
 	}
 	if err := Save(path, want); err != nil {
 		t.Fatalf("Save: %v", err)

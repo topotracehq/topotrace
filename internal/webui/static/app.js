@@ -195,6 +195,10 @@
         // Scanner CSV exports go up as-is, not wrapped in JSON.
         headers["Content-Type"] = "text/csv";
         fetchOpts.body = opts.raw;
+      } else if (opts.formData !== undefined) {
+        // Plugin uploads: let the browser set Content-Type (with the
+        // multipart boundary) itself -- never set it by hand for FormData.
+        fetchOpts.body = opts.formData;
       } else {
         headers["Content-Type"] = "application/json";
         fetchOpts.body = JSON.stringify(opts.body ?? {});
@@ -2447,6 +2451,252 @@
   }
 
 
+  // restartNote renders the "Saved -- restart the service to apply"
+  // message for the four persist-for-next-restart sections, distinct
+  // from the live SIEM/Ask TopoTrace "Saved".
+  function restartMessage(resp, section) {
+    if (resp && Array.isArray(resp.restart_required) && resp.restart_required.includes(section)) {
+      return "Saved -- restart the service to apply";
+    }
+    return "Saved";
+  }
+
+  // generalEditor edits ports and the evaluator interval -- persist-
+  // for-next-restart (PATCH /api/settings's general_* fields).
+  function generalEditor(s) {
+    const ingestInput = el("input", { type: "text", placeholder: ":9090", value: s.ingest_addr || "" });
+    const apiInput = el("input", { type: "text", placeholder: ":8080", value: s.api_addr || "" });
+    const evalInput = el("input", { type: "text", placeholder: "5m", value: s.evaluator_interval || "" });
+    const msg = el("span", { class: "save-msg" });
+    const form = el(
+      "form",
+      { class: "editor-row" },
+      el("label", { text: "Ingest address" }), ingestInput,
+      el("label", { text: "API address" }), apiInput,
+      el("label", { text: "Evaluator interval" }), evalInput,
+      el("button", { type: "submit", text: "Save" }),
+      msg
+    );
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = {};
+      if (ingestInput.value.trim()) body.general_ingest_addr = ingestInput.value.trim();
+      if (apiInput.value.trim()) body.general_api_addr = apiInput.value.trim();
+      if (evalInput.value.trim()) body.general_evaluator_interval = evalInput.value.trim();
+      if (!Object.keys(body).length) { msg.textContent = "Nothing to save"; return; }
+      msg.textContent = "Saving…";
+      try {
+        const r = await api("/api/settings", { method: "PATCH", body });
+        msg.textContent = restartMessage(r, "general");
+        setTimeout(showSettings, 1200);
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    return form;
+  }
+
+  // authOAuthEditor edits OAuth2/OIDC dashboard login -- persist-for-
+  // next-restart, all-or-nothing (server validates with oauth.NewConfig).
+  function authOAuthEditor(s) {
+    const clientIdInput = el("input", { type: "text", value: s.auth.oauth_client_id || "" });
+    const clientSecretInput = el("input", { type: "password", placeholder: s.auth.oauth_client_secret_configured ? "leave blank to keep current secret" : "" });
+    const authUrlInput = el("input", { type: "text", class: "wide", value: s.auth.oauth_auth_url || "" });
+    const tokenUrlInput = el("input", { type: "text", class: "wide", value: s.auth.oauth_token_url || "" });
+    const userInfoUrlInput = el("input", { type: "text", class: "wide", value: s.auth.oauth_userinfo_url || "" });
+    const redirectUrlInput = el("input", { type: "text", class: "wide", value: s.auth.oauth_redirect_url || "" });
+    const scopesInput = el("input", { type: "text", value: s.auth.oauth_scopes || "" });
+    const roleMapInput = el("input", { type: "text", class: "wide", placeholder: "admin@example.com=admin,*@example.com=readonly", value: (s.auth.oauth_role_map || []).join(",") });
+    const disableBox = el("input", { type: "checkbox" });
+    const msg = el("span", { class: "save-msg" });
+    const form = el(
+      "form",
+      { class: "editor-row" },
+      el("label", { text: "Client ID" }), clientIdInput,
+      el("label", { text: "Client secret" }), clientSecretInput,
+      el("label", { text: "Auth URL" }), authUrlInput,
+      el("label", { text: "Token URL" }), tokenUrlInput,
+      el("label", { text: "UserInfo URL" }), userInfoUrlInput,
+      el("label", { text: "Redirect URL" }), redirectUrlInput,
+      el("label", { text: "Scopes" }), scopesInput,
+      el("label", { text: "Role map" }), roleMapInput,
+      el("label", { text: "Disable" }), disableBox,
+      el("button", { type: "submit", text: "Save" }),
+      msg
+    );
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = {};
+      if (disableBox.checked) {
+        body.oauth_disable = true;
+      } else {
+        body.oauth_client_id = clientIdInput.value.trim();
+        if (clientSecretInput.value.trim()) body.oauth_client_secret = clientSecretInput.value.trim();
+        body.oauth_auth_url = authUrlInput.value.trim();
+        body.oauth_token_url = tokenUrlInput.value.trim();
+        body.oauth_userinfo_url = userInfoUrlInput.value.trim();
+        body.oauth_redirect_url = redirectUrlInput.value.trim();
+        body.oauth_scopes = scopesInput.value.trim();
+        body.oauth_role_map = roleMapInput.value.trim();
+      }
+      msg.textContent = "Saving…";
+      try {
+        const r = await api("/api/settings", { method: "PATCH", body });
+        msg.textContent = restartMessage(r, "oauth");
+        setTimeout(showSettings, 1200);
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    return form;
+  }
+
+  // vulnFeedEditor edits the OSV.dev feed toggle/interval -- persist-
+  // for-next-restart.
+  function vulnFeedEditor(s) {
+    const enabledBox = el("input", { type: "checkbox" });
+    enabledBox.checked = !!s.vuln_feed.enabled;
+    const intervalInput = el("input", { type: "text", placeholder: "6h", value: s.vuln_feed.interval || "" });
+    const msg = el("span", { class: "save-msg" });
+    const form = el(
+      "form",
+      { class: "editor-row" },
+      el("label", { text: "Enabled (OSV.dev, free, no API key)" }), enabledBox,
+      el("label", { text: "Interval" }), intervalInput,
+      el("button", { type: "submit", text: "Save" }),
+      msg
+    );
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = { vuln_feed_enabled: enabledBox.checked };
+      if (intervalInput.value.trim()) body.vuln_feed_interval = intervalInput.value.trim();
+      msg.textContent = "Saving…";
+      try {
+        const r = await api("/api/settings", { method: "PATCH", body });
+        msg.textContent = restartMessage(r, "vuln_feed");
+        setTimeout(showSettings, 1200);
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    return form;
+  }
+
+  // notificationsEditor edits the notification sink URLs/credentials --
+  // persist-for-next-restart. Jira/ServiceNow are collapsed behind a
+  // "show more" toggle to keep the common case (webhook/Slack/Teams)
+  // short.
+  function notificationsEditor(s) {
+    const webhookInput = el("input", { type: "text", class: "wide", placeholder: "https://example.com/hook,https://other.example.com/hook" });
+    const slackInput = el("input", { type: "password", placeholder: "Slack incoming webhook URL" });
+    const teamsInput = el("input", { type: "password", placeholder: "Teams webhook / workflow URL" });
+    const more = el("div", { class: "editor-row", style: "display:none" });
+    const jiraUrl = el("input", { type: "text", placeholder: "Jira URL" });
+    const jiraEmail = el("input", { type: "text", placeholder: "Jira email" });
+    const jiraToken = el("input", { type: "password", placeholder: "Jira API token" });
+    const jiraProject = el("input", { type: "text", placeholder: "Jira project key" });
+    const jiraIssueType = el("input", { type: "text", placeholder: "Issue type (default Task)" });
+    const snowUrl = el("input", { type: "text", placeholder: "ServiceNow URL" });
+    const snowUser = el("input", { type: "text", placeholder: "ServiceNow user" });
+    const snowPassword = el("input", { type: "password", placeholder: "ServiceNow password" });
+    more.append(
+      el("label", { text: "Jira" }), jiraUrl, jiraEmail, jiraToken, jiraProject, jiraIssueType,
+      el("label", { text: "ServiceNow" }), snowUrl, snowUser, snowPassword
+    );
+    const moreToggle = el("button", { type: "button", class: "ghost", text: "Show Jira / ServiceNow" });
+    moreToggle.addEventListener("click", () => {
+      const hidden = more.style.display === "none";
+      more.style.display = hidden ? "" : "none";
+      moreToggle.textContent = hidden ? "Hide Jira / ServiceNow" : "Show Jira / ServiceNow";
+    });
+    const disableBox = el("input", { type: "checkbox" });
+    const msg = el("span", { class: "save-msg" });
+    const form = el(
+      "form",
+      { class: "editor-row" },
+      el("label", { text: "Webhook URL(s)" }), webhookInput,
+      el("label", { text: "Slack" }), slackInput,
+      el("label", { text: "Teams" }), teamsInput,
+      moreToggle, more,
+      el("label", { text: "Clear all" }), disableBox,
+      el("button", { type: "submit", text: "Save" }),
+      msg
+    );
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = {};
+      if (disableBox.checked) {
+        body.notifications_disable = true;
+      } else {
+        if (webhookInput.value.trim()) body.webhook_url = webhookInput.value.trim();
+        if (slackInput.value.trim()) body.slack_webhook_url = slackInput.value.trim();
+        if (teamsInput.value.trim()) body.teams_webhook_url = teamsInput.value.trim();
+        if (jiraUrl.value.trim()) body.jira_url = jiraUrl.value.trim();
+        if (jiraEmail.value.trim()) body.jira_email = jiraEmail.value.trim();
+        if (jiraToken.value.trim()) body.jira_token = jiraToken.value.trim();
+        if (jiraProject.value.trim()) body.jira_project = jiraProject.value.trim();
+        if (jiraIssueType.value.trim()) body.jira_issue_type = jiraIssueType.value.trim();
+        if (snowUrl.value.trim()) body.servicenow_url = snowUrl.value.trim();
+        if (snowUser.value.trim()) body.servicenow_user = snowUser.value.trim();
+        if (snowPassword.value.trim()) body.servicenow_password = snowPassword.value.trim();
+        if (!Object.keys(body).length) { msg.textContent = "Nothing to save"; return; }
+      }
+      msg.textContent = "Saving…";
+      try {
+        const r = await api("/api/settings", { method: "PATCH", body });
+        msg.textContent = restartMessage(r, "notifications");
+        setTimeout(showSettings, 1200);
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    return form;
+  }
+
+  // pluginsCard lists loaded plugins (GET /api/plugins) and lets an
+  // admin upload a new plugin executable (POST /api/plugins/upload) --
+  // written to disk only, never hot-loaded (internal/pluginhost has no
+  // hot-reload by design).
+  function pluginsCard() {
+    const listSlot = el("div", {});
+    api("/api/plugins").then((plugins) => {
+      if (!Array.isArray(plugins) || !plugins.length) {
+        listSlot.replaceChildren(el("p", { class: "meta", text: "No plugins loaded." }));
+        return;
+      }
+      const table = el("table", { class: "fact-table" });
+      table.appendChild(el("tr", {}, el("th", { text: "Name" }), el("th", { text: "Version" }), el("th", { text: "Mount" }), el("th", { text: "Description" })));
+      for (const p of plugins) {
+        table.appendChild(el("tr", {},
+          el("td", { text: p.name || p.Name || "" }),
+          el("td", { text: p.version || p.Version || "" }),
+          el("td", { text: p.mount_prefix || p.MountPrefix || "" }),
+          el("td", { text: p.description || p.Description || "" })
+        ));
+      }
+      listSlot.replaceChildren(table);
+    }).catch((err) => listSlot.replaceChildren(el("p", { class: "meta", text: `Couldn't load plugins: ${err.message}` })));
+
+    const fileInput = el("input", { type: "file" });
+    const uploadBtn = el("button", { type: "button", text: "Upload plugin" });
+    const msg = el("span", { class: "save-msg" });
+    uploadBtn.addEventListener("click", async () => {
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) { msg.textContent = "Choose a file first"; return; }
+      const fd = new FormData();
+      fd.append("plugin", f);
+      msg.textContent = "Uploading…";
+      try {
+        await api("/api/plugins/upload", { method: "POST", formData: fd });
+        msg.textContent = "Uploaded -- restart the service to load it";
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    return el("div", { class: "fact-card" }, el("h2", { text: "Plugins" }), listSlot,
+      el("div", { class: "editor-row" }, el("label", { text: "Upload plugin executable" }), fileInput, uploadBtn, msg));
+  }
+
   // showSettings is GET /api/settings, rendered read-only -- admin-gated
   // server-side (internal/api's handleSettings), not hidden client-side:
   // same "always show the tab, let a failed call explain why" pattern
@@ -2468,23 +2718,26 @@
       return;
     }
 
-    const general = settingsTable("General", [
+    const general = settingsCardWithForm("General", [
       ["Storage backend", s.storage_backend],
       ["Ingest address", s.ingest_addr],
       ["API address", s.api_addr],
       ["Evaluator interval", s.evaluator_interval],
-    ]);
+    ], generalEditor(s));
 
-    const auth = settingsTable("Authentication", [
+    const auth = settingsCardWithForm("Authentication", [
       ["Bearer token configured", boolLabel(s.auth.bearer_token_configured)],
       ["OAuth configured", boolLabel(s.auth.oauth_configured)],
+      ["OAuth client ID", s.auth.oauth_client_id || null],
+      ["OAuth client secret configured", boolLabel(s.auth.oauth_client_secret_configured)],
       ["OAuth role map", (s.auth.oauth_role_map || []).join(", ") || null],
-    ]);
+    ], authOAuthEditor(s));
 
-    const vulnFeed = settingsTable("Vulnerability feed", [
+    const vulnFeed = settingsCardWithForm("Vulnerability feed", [
       ["Enabled", boolLabel(s.vuln_feed.enabled)],
       ["Interval", s.vuln_feed.interval || null],
-    ]);
+      ["Source", "OSV.dev, free, no API key"],
+    ], vulnFeedEditor(s));
 
     const askMuster = settingsCardWithForm("Ask TopoTrace", [
       ["Configured", boolLabel(s.ask_muster.configured)],
@@ -2498,14 +2751,14 @@
       ["Sinks", (s.webhooks.sinks || []).join(", ") || null],
       ["Queued deliveries", s.webhooks.pending],
       ["Dead letters", s.webhooks.dead],
-    ], notificationsTester(s));
+    ], el("div", {}, notificationsEditor(s), notificationsTester(s)));
 
     const siem = settingsCardWithForm("SIEM forwarding", [
       ["Configured", boolLabel(s.siem.configured)],
       ["Backend", s.siem.backend || null],
     ], siemForwardingEditor(s));
 
-    app.replaceChildren(heading, general, auth, vulnFeed, askMuster, webhooks, siem, demoCard());
+    app.replaceChildren(heading, general, auth, vulnFeed, askMuster, webhooks, siem, pluginsCard(), demoCard());
   }
 
   // demoCard is the Settings page's simulator: fire synthetic events
