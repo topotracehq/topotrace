@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         embed.go
  * @brief        Package agent embeds a copy of every real agent script this repo ships, so the web dashboard's Agents/download page (internal/api's handleDownloadAgent) can serve them straight from the compiled binary -- the exact same file a human woul...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

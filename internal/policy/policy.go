@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         policy.go
  * @brief        Package policy is Muster's start on a rule-evaluation layer over cooked facts -- deliberately small: one real rule (staleness), evaluated server-side so /api and the web UI's board agree on the same answer, instead of the board computing...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

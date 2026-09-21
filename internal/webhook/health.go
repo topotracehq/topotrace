@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         health.go
- * @brief        Part of the Muster webhook module.
- * @project      Muster
+ * @brief        Part of the TopoTrace webhook module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

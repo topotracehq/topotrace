@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         0001_init.sql
 -- @brief        0001_init: hosts, facts, changes -- the original schema, from before muster had a migration runner at all.
--- @project      Muster
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-14

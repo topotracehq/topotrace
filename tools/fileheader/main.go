@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         main.go
  * @brief        Command fileheader stamps every source file in the repository with the TopoTrace LLC file header (see headerFor for the exact text per language) -- idempotent, so it can be re-run after adding files: a file that already carries the header is left alone.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18
@@ -40,7 +40,7 @@ import (
 
 const (
 	company = "TopoTrace LLC"
-	project = "Muster"
+	project = "TopoTrace"
 	author  = "Michael McGinnis"
 	version = "1.0.0"
 	marker  = "Copyright (c) 2026 " + company

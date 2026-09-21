@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         0012_api_keys_group.sql
 -- @brief        0012_api_keys_group: an API key can be scoped to one board group -- see model.APIKey.Group and internal/api's scope enforcement.
--- @project      Muster
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-18

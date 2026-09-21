@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         pgstore_test.go
  * @brief        Tests for the Muster pgstore package.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-14

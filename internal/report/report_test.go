@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         report_test.go
  * @brief        Tests for the Muster report package.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

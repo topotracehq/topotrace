@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         baseline.go
  * @brief        Package baseline is config-drift detection: an operator captures a host's current facts as its "golden" baseline, and from then on Muster can say exactly how the host has drifted from that known-good state -- packages added or removed, s...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

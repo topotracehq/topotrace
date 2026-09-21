@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         types.go
  * @brief        Package model holds the core data shapes Muster passes between its ingest, cook, storage, and API layers.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-14

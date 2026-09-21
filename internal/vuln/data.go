@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         data.go
  * @brief        Package vuln does small, honest vulnerability correlation against Muster's own installed_software fact category.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         risk.go
- * @brief        Part of the Muster api module.
- * @project      Muster
+ * @brief        Part of the TopoTrace api module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

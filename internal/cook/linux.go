@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         linux.go
  * @brief        Package cook turns a raw capture directory (whatever an agent uploaded and the ingest layer unpacked) into structured facts.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-14

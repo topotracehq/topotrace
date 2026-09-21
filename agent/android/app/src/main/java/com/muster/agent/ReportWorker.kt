@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         ReportWorker.kt
- * @brief        Part of the Muster agent module.
- * @project      Muster
+ * @brief        Part of the TopoTrace agent module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

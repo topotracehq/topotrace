@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         trust.go
  * @brief        Package trust turns a host's blended risk into a yes/no another system can act on: a zero-trust gateway, an enterprise browser, a VPN concentrator or an SSO policy that wants to ask "should this device get in right now?" before it grants access.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

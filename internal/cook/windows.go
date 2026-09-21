@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         windows.go
  * @brief        Windows support for the cook pipeline.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-14

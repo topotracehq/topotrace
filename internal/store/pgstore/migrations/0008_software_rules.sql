@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         0008_software_rules.sql
 -- @brief        0008_software_rules: persisted, optionally group-scoped software allow/deny rules -- see model.SoftwareRule and internal/allowlist.
--- @project      Muster
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-17

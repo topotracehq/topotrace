@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         scanner.go
  * @brief        Package scanner imports findings from a vulnerability scanner an organization already runs -- Tenable Nessus and Qualys CSV exports, plus a small generic CSV -- and attaches them to Muster's hosts, so the "we already have a scanner" conv...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

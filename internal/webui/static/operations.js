@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         operations.js
  * @brief        Operator workflows: evidence, ownership, exceptions, dynamic groups and staged changes.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

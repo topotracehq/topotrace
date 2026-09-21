@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         migrate.go
- * @brief        Part of the Muster pgstore module.
- * @project      Muster
+ * @brief        Part of the TopoTrace pgstore module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

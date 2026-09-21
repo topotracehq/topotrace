@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         runner.go
- * @brief        Part of the Muster siteops module.
- * @project      Muster
+ * @brief        Part of the TopoTrace siteops module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

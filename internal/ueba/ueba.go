@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         ueba.go
  * @brief        Package ueba is a small set of behavioral heuristics over Muster's own audit trail -- the user-and-entity-behavior-analytics idea (who is doing something unusual?) applied to the one dataset this project already has about its operators: ...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

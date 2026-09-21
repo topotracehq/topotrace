@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         feed.go
  * @brief        Package vuln's live feed: a small, best-effort supplement to the static Dataset, pulled from OSV.dev (https://osv.dev/docs/#tag/api) -- a free, no-API-key-required vulnerability database covering, among others, the Debian ecosystem this project's dataset already targets.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

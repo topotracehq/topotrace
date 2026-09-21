@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         types.go
  * @brief        Package siteops defines bounded work sent to a site-local worker.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

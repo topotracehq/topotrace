@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         store.go
  * @brief        Package store defines the persistence contract every backend (in-memory, Postgres, whatever comes next) implements.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-14

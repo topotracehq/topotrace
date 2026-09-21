@@ -1,7 +1,7 @@
 ################################################################################
 # @file         muster-agent.ps1
-# @brief        Part of the Muster windows module.
-# @project      Muster
+# @brief        Part of the TopoTrace windows module.
+# @project      TopoTrace
 #
 # @author       Michael McGinnis
 # @date         2026-09-14

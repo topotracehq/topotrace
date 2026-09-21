@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         0011_rules_require_approval.sql
 -- @brief        0011_rules_require_approval: a rule with an auto-remediation can ask for a human to approve each queued action first -- see model.Rule.RequireApproval and internal/alerts.
--- @project      Muster
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-18

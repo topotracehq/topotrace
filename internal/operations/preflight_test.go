@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         preflight_test.go
  * @brief        Tests for the Muster operations package.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

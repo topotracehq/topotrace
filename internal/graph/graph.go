@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         graph.go
  * @brief        Package graph builds the network/asset relationship picture the dashboard draws: managed hosts and discovered-but-unmanaged assets as nodes, grouped by the subnet they sit on (from network_interfaces facts and discovery sweeps' CIDRs) an...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

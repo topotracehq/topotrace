@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         alerts.go
  * @brief        Package alerts is the state the background evaluator keeps between runs so it can stop shouting: which (rule, host) violations are currently open, when each was first seen and last announced, whether an operator has snoozed it, and which...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

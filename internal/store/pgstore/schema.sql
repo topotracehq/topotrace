@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         schema.sql
 -- @brief        This file is no longer used.
--- @project      Muster
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-14

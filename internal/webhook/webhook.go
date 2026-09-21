@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         webhook.go
  * @brief        Package webhook is Muster's outbound notification path: on a notable event (a policy or software violation, a remediation proposed, approved or executed, a violation resolved), deliver a small payload to every configured Sink -- generic ...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         0009_discovered_assets.sql
 -- @brief        0009_discovered_assets: network/asset discovery sightings (cmd/discover) -- see model.DiscoveredAsset.
--- @project      Muster
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-17

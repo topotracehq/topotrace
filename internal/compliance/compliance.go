@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         compliance.go
  * @brief        Package compliance rolls up Muster's other signals -- staleness, posture scoring, vulnerability correlation, and software allow/deny lists -- into named "frameworks," each a small, fixed set of pass/ fail checks, scored as a percentage.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

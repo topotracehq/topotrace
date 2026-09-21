@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         main.go
  * @brief        Command azure is Muster's Azure VM scanner: a read-only, one-shot CLI that lists virtual machines in one subscription via the Azure Resource Manager REST API and reports them to Muster's POST /api/cloud-report, the same way agent/aws doe...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         history.go
- * @brief        Part of the Muster seed module.
- * @project      Muster
+ * @brief        Part of the TopoTrace seed module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

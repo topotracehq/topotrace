@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         allowlist.go
  * @brief        Package allowlist cross-references a host's installed_software fact against operator-defined SoftwareRules -- deny rules (banned software) and allow rules (an explicit allowlist, once one exists for a scope).
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         check.go
- * @brief        Part of the Muster vuln module.
- * @project      Muster
+ * @brief        Part of the TopoTrace vuln module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

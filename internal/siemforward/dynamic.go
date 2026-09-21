@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         dynamic.go
- * @brief        Part of the Muster siemforward module.
- * @project      Muster
+ * @brief        Part of the TopoTrace siemforward module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

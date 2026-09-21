@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         0010_documents.sql
 -- @brief        0010_documents: generic (kind, id) -> JSON records for secondary per-object state -- see model.Document for what belongs here (score history, config baselines, remediation approvals, demo bookmarks, agent health) and what deliberately do...
--- @project      Muster
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-18

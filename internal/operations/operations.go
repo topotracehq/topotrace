@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         operations.go
  * @brief        Package operations holds operator-owned workflow records, separate from agent facts.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

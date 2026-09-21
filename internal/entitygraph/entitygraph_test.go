@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         entitygraph_test.go
  * @brief        Tests for the Muster entitygraph package.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         breach.go
  * @brief        Package breach asks Have I Been Pwned (https://haveibeenpwned.com) whether an organization's domain shows up in known credential breaches -- the "are our people's credentials already out there" signal, which no amount of endpoint inventory can answer on its own.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

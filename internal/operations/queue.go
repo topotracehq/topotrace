@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         queue.go
- * @brief        Part of the Muster operations module.
- * @project      Muster
+ * @brief        Part of the TopoTrace operations module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

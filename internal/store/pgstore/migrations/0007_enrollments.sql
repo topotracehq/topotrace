@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         0007_enrollments.sql
--- @brief        Part of the Muster migrations module.
--- @project      Muster
+-- @brief        Part of the TopoTrace migrations module.
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-17

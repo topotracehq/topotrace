@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         entitygraph.go
  * @brief        Package entitygraph builds the fleet's entity relationship map: not the network picture internal/graph draws (hosts and discovered assets grouped by subnet), but the data-level one -- hosts, board groups, notable software packages, CVEs,...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

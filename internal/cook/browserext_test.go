@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         browserext_test.go
  * @brief        Tests for the Muster cook package.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

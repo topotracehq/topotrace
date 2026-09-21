@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         evidence.go
- * @brief        Part of the Muster policy module.
- * @project      Muster
+ * @brief        Part of the TopoTrace policy module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

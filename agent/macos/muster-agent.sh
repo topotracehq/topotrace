@@ -2,7 +2,7 @@
 ################################################################################
 # @file         muster-agent.sh
 # @brief        Minimal macOS agent for Muster: collects basic system facts and pushes them to a Muster ingest daemon over the MUSTER1 wire protocol.
-# @project      Muster
+# @project      TopoTrace
 #
 # @author       Michael McGinnis
 # @date         2026-09-17

@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         risk.go
  * @brief        Package risk blends the separate signals Muster already computes for a host -- vulnerability findings and their severity, posture score, staleness, Shadow AI and software-policy violations -- with two operator-supplied facts about the ho...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

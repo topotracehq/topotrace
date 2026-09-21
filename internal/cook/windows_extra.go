@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         windows_extra.go
  * @brief        Windows support for the newer capture categories beyond system_summary: disk usage, installed software, running services, listening ports, local users, network interfaces, scheduled tasks, installed patches, and firewall status.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

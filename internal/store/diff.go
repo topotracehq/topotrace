@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         diff.go
- * @brief        Part of the Muster store module.
- * @project      Muster
+ * @brief        Part of the TopoTrace store module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-14

@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         eol.go
  * @brief        Package eol answers "is this host's operating system still supported?" from its system_summary fact, against a small built-in table of vendor end-of-support dates.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

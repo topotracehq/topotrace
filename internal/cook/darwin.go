@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         darwin.go
  * @brief        Package cook: macOS support.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

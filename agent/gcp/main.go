@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         main.go
  * @brief        Command gcp is Muster's Google Compute Engine scanner: a read-only, one-shot CLI that lists instances across every zone in one project via the Compute Engine REST API and reports them to Muster's POST /api/cloud-report, the same way agen...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

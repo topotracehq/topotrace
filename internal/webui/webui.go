@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         webui.go
  * @brief        Package webui serves Muster's web dashboard: a small, dependency-free single-page app (plain HTML/CSS/JS, no build step) that talks to the REST API in internal/api.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-14

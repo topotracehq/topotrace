@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         config_store.go
- * @brief        Part of the Muster aiquery module.
- * @project      Muster
+ * @brief        Part of the TopoTrace aiquery module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         browserext.go
  * @brief        Package browserext evaluates a host's browser_extensions fact (see internal/cook.parseBrowserExtensions) for risk: the browser is where most of an endpoint's sensitive work happens now, and an extension with broad host access plus reques...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

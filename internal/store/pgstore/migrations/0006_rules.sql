@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         0006_rules.sql
 -- @brief        0006_rules: persisted, optionally group-scoped compliance rules -- see model.Rule and internal/evaluator.
--- @project      Muster
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-17

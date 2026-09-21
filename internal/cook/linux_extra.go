@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         linux_extra.go
  * @brief        Linux support for the newer capture categories beyond system_summary: disk usage, installed packages, running services, listening ports, local users, network interfaces, scheduled (cron) tasks, pending package updates, and firewall status.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

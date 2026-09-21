@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         certs.go
  * @brief        Package certs evaluates a host's tls_certificates fact (see internal/cook: server certs from Let's Encrypt/nginx/apache/haproxy dirs on Linux and macOS, the machine Personal store on Windows) for expiry -- the classic silent outage: nobo...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

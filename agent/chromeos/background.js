@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         background.js
  * @brief        background.js -- Muster Agent for ChromeOS, a Manifest V3 service worker.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

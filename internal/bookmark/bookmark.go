@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         bookmark.go
  * @brief        Package bookmark is "what's changed since I last showed this?" -- a named snapshot of the fleet's headline state (every host's scores, the rule and asset counts) that a later request diffs against the live fleet.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

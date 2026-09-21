@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         history.go
  * @brief        Package history keeps a per-host time series of the scores Muster otherwise only ever computes fresh per request -- posture, compliance, vulnerability count, staleness -- so the dashboard can show a trend ("this fleet's posture over the ...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

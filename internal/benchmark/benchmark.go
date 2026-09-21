@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         benchmark.go
  * @brief        Package benchmark compares a fleet's headline numbers against a static reference baseline, so the Fleet tab can answer "how do we compare?" -- a question every security review asks and a snapshot of one fleet can't answer on its own.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

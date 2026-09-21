@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         sbom.go
  * @brief        Package sbom renders a host's installed_software fact as a CycloneDX 1.5 JSON software bill of materials, with the host's known vulnerability findings attached in CycloneDX's own vulnerabilities section -- so the inventory Muster already...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

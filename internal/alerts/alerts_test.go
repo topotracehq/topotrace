@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         alerts_test.go
  * @brief        Tests for the Muster alerts package.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

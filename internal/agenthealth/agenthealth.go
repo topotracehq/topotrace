@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         agenthealth.go
  * @brief        Package agenthealth tracks the agents themselves, separately from the data they report: when each host's agent last checked in, how regularly it has been checking in, whether it's late against its own cadence, and how many reports failed...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

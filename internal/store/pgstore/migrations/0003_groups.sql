@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         0003_groups.sql
 -- @brief        0003_groups: board columns known to exist even with no host currently in them -- see store.Store.CreateGroup's doc comment.
--- @project      Muster
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-17

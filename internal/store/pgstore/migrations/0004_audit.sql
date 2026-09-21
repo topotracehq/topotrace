@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         0004_audit.sql
 -- @brief        0004_audit: an append-only log of authenticated writes and remediation events, for after-the-fact accountability.
--- @project      Muster
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-17

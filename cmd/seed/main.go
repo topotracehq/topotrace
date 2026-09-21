@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         main.go
  * @brief        Command seed populates a Muster store with a realistic, varied set of synthetic demo data -- a dozen-plus hosts across Linux/Windows/macOS, a mix of compliant and non-compliant posture, real-looking vulnerability findings, a couple of st...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

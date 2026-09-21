@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         server.go
- * @brief        Part of the Muster ingest module.
- * @project      Muster
+ * @brief        Part of the TopoTrace ingest module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-14

@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         settingsstore.go
  * @brief        Package settingsstore persists the small, explicit set of settings that PATCH /api/settings can change live -- SIEM forwarding's HEC credentials and Ask Muster's API key/model -- so a value set from the dashboard survives a process resta...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

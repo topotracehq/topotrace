@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         signals.go
  * @brief        Package signals gathers, for one host, everything Muster's higher-level evaluations need -- facts by category, staleness, posture score, vulnerability findings, software allow/deny violations, Shadow AI detections -- into one compliance.Input.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

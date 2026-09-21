@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         sprawl.go
  * @brief        Package sprawl rolls the fleet's installed software up against a small catalog of commercial and SaaS desktop products, so the question "what are we paying for, how many seats of it are actually deployed, and how many different tools do ...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

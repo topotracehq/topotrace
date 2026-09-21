@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         certs.go
- * @brief        Part of the Muster cook module.
- * @project      Muster
+ * @brief        Part of the TopoTrace cook module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

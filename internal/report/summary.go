@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         summary.go
- * @brief        Part of the Muster report module.
- * @project      Muster
+ * @brief        Part of the TopoTrace report module.
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

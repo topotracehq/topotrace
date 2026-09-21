@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         main.go
  * @brief        site-worker polls for explicitly approved discovery and deployment jobs.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

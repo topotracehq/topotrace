@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         certs_test.go
  * @brief        Tests for the Muster certs package.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

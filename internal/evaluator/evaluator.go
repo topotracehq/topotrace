@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         evaluator.go
  * @brief        Package evaluator runs Muster's background compliance loop: on a fixed interval, it computes each host's posture (internal/policy), evaluates every persisted rule (model.Rule, via internal/store) against it, auto-queues a remediation act...
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

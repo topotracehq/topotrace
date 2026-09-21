@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         pgstore.go
  * @brief        Package pgstore is a Postgres-backed implementation of store.Store.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-14

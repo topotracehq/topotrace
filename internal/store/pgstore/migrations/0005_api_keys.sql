@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         0005_api_keys.sql
 -- @brief        0005_api_keys: named, role-scoped credentials on top of the original single shared -auth-token (which keeps working unchanged as a permanent "admin" master credential -- see internal/api).
--- @project      Muster
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-17

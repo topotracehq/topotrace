@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         main.go
  * @brief        Command muster runs the Muster server: the TCP ingest daemon and the HTTP reporting API, side by side in one process, sharing one store.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-14

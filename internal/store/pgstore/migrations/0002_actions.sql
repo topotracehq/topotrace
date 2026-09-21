@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- @file         0002_actions.sql
 -- @brief        0002_actions: remediation action queue.
--- @project      Muster
+-- @project      TopoTrace
 --
 -- @author       Michael McGinnis
 -- @date         2026-09-17

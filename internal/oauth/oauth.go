@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         oauth.go
  * @brief        Package oauth implements a minimal, dependency-free OAuth2 authorization-code login flow (with PKCE) for Muster's web dashboard, plus an in-memory session store for the cookie that flow leaves behind.
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-17

@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file         main.go
  * @brief        Command erd generates Muster's data-model documentation from the Go types themselves: docs/data-model.md (entity tables plus the relationships between them) and docs/data-model.svg (the entity relationship diagram the README shows).
- * @project      Muster
+ * @project      TopoTrace
  *
  * @author       Michael McGinnis
  * @date         2026-09-18

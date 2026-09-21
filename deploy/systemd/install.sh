@@ -2,7 +2,7 @@
 ################################################################################
 # @file         install.sh
 # @brief        Convenience installer for a standalone systemd deployment of Muster.
-# @project      Muster
+# @project      TopoTrace
 #
 # @author       Michael McGinnis
 # @date         2026-09-17
