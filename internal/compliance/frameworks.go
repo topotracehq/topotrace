@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"strings"
 
+	"muster/internal/aiagentinv"
 	"muster/internal/browserext"
 )
 
@@ -161,6 +162,9 @@ var HIPAA = Framework{
 				if n := len(in.ShadowAIViolations); n > 0 {
 					parts = append(parts, fmt.Sprintf("%d unsanctioned AI tool(s)", n))
 				}
+				if n := len(aiagentinv.Risky(in.AIAgents)); n > 0 {
+					parts = append(parts, fmt.Sprintf("%d risky AI agent inventory finding(s)", n))
+				}
 				if len(parts) > 0 {
 					return false, strings.Join(parts, "; ")
 				}
@@ -234,6 +238,9 @@ var NIST80053 = Framework{
 				}
 				if n := len(browserext.Risky(in.BrowserExtensions)); n > 0 {
 					parts = append(parts, fmt.Sprintf("%d risky browser extension(s)", n))
+				}
+				if n := len(aiagentinv.Risky(in.AIAgents)); n > 0 {
+					parts = append(parts, fmt.Sprintf("%d risky AI agent inventory finding(s)", n))
 				}
 				if len(parts) > 0 {
 					return false, strings.Join(parts, "; ")

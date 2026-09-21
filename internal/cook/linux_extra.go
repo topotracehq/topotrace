@@ -66,6 +66,7 @@ func CookLinuxCategories(rawDir string) (map[string]map[string]any, error) {
 		{"patch_update_status", parseLinuxUpdates},
 		{"firewall_av_status", parseLinuxFirewall},
 		{"browser_extensions", parseBrowserExtensions},
+		{"ai_agent_inventory", parseAIAgentInventory},
 		{"tls_certificates", parseLinuxCerts},
 	}
 	for _, st := range steps {

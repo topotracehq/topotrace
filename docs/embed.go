@@ -49,4 +49,5 @@ var Index = []struct {
 	{"data-model", "Data Model"},
 	{"ask-muster", "Ask TopoTrace"},
 	{"siem-integration", "SIEM Integration"},
+	{"ai-agent-inventory", "AI Agent Inventory"},
 }

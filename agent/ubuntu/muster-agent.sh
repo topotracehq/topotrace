@@ -349,6 +349,189 @@ else
     rm -f "$ext_out"
 fi
 
+# --- AI agent inventory (visibility only) --------------------------------
+# Community-edition visibility slice: presence of common AI CLI/IDE-agent
+# tools, MCP server config locations and the command each one runs, and
+# whether a model-provider API key env var is SET -- never its value.
+# One JSON object per line in ai_agent_inventory.txt, tagged by "kind":
+# "tool", "mcp_server", or "key_presence". Linux only, no screenshots;
+# governance (approval workflows, alerting, policy) is a separate,
+# future Commercial layer on top of this -- see
+# docs/ai-agent-inventory.md. Needs python3 for JSON parsing/encoding
+# (present on virtually every Ubuntu box); skipped entirely without it,
+# same as the ufw-only firewall capture above. Best-effort throughout --
+# a permission error or unreadable file just means that record is
+# skipped, never a hard failure.
+if command -v python3 >/dev/null 2>&1; then
+    ai_out="$OUT_DIR/ai_agent_inventory.txt"
+    python3 - "$ai_out" > /dev/null 2>&1 <<'PYEOF' || true
+import glob, json, os, shutil, stat, subprocess, sys
+
+out_path = sys.argv[1]
+records = []
+
+# 1. AI CLI tools / IDE agent integrations: presence in PATH plus a few
+# common non-PATH install locations. --version is best-effort and
+# time-boxed so a hung or interactive tool can't stall collection.
+TOOLS = {
+    "claude": "claude",
+    "gh": "gh copilot",
+    "cursor": "cursor",
+    "aider": "aider",
+    "codex": "codex",
+    "continue": "continue",
+    "cody": "cody",
+    "windsurf": "windsurf",
+    "ollama": "ollama",
+}
+extra_dirs = ["/usr/local/bin", "/opt"]
+for home in glob.glob("/home/*") + ["/root"]:
+    extra_dirs.append(os.path.join(home, ".local", "bin"))
+
+for binname, display in TOOLS.items():
+    path = shutil.which(binname)
+    if not path:
+        for d in extra_dirs:
+            cand = os.path.join(d, binname)
+            if os.path.isfile(cand) and os.access(cand, os.X_OK):
+                path = cand
+                break
+    if not path:
+        continue
+    version = ""
+    try:
+        argv = [path, "copilot", "--version"] if binname == "gh" else [path, "--version"]
+        version = subprocess.run(argv, capture_output=True, text=True, timeout=3).stdout.strip().splitlines()[0:1]
+        version = version[0] if version else ""
+    except Exception:
+        version = ""
+    records.append({"kind": "tool", "name": display, "path": path, "version": version})
+
+# 2. MCP server config files in common Linux locations. Best-effort JSON
+# parse -- a file that doesn't parse, or whose shape doesn't match, is
+# skipped, not treated as an error.
+def world_group_readable(path):
+    try:
+        st = os.stat(path)
+        return bool(st.st_mode & (stat.S_IRGRP | stat.S_IROTH))
+    except Exception:
+        return False
+
+PROVIDER_KEYS = [
+    "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
+    "AZURE_OPENAI_API_KEY", "COHERE_API_KEY", "MISTRAL_API_KEY", "GROQ_API_KEY",
+    "HUGGINGFACE_API_KEY", "OPENROUTER_API_KEY",
+]
+
+def servers_from_config(data):
+    for key in ("mcpServers", "mcp_servers", "servers"):
+        v = data.get(key)
+        if isinstance(v, dict):
+            return v
+    return {}
+
+def scan_mcp_file(path):
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+    except Exception:
+        return
+    if not isinstance(data, dict):
+        return
+    wg = world_group_readable(path)
+    for name, spec in servers_from_config(data).items():
+        if not isinstance(spec, dict):
+            continue
+        command = spec.get("command", "")
+        args = spec.get("args", [])
+        if not isinstance(args, list):
+            args = []
+        records.append({
+            "kind": "mcp_server",
+            "source": path,
+            "name": str(name),
+            "command": str(command),
+            "args": [str(a) for a in args],
+        })
+        env = spec.get("env", {})
+        if isinstance(env, dict):
+            for k, v in env.items():
+                if k in PROVIDER_KEYS and v:
+                    records.append({
+                        "kind": "key_presence",
+                        "provider": k,
+                        "source": path,
+                        "world_group_readable": wg,
+                    })
+
+mcp_candidates = []
+for home in glob.glob("/home/*") + ["/root"]:
+    mcp_candidates += [
+        os.path.join(home, ".config", "Claude", "claude_desktop_config.json"),
+        os.path.join(home, ".claude.json"),
+        os.path.join(home, ".claude", "settings.json"),
+        os.path.join(home, ".cursor", "mcp.json"),
+    ]
+    mcp_candidates += glob.glob(os.path.join(home, ".codeium", "**", "mcp*.json"), recursive=True)
+    mcp_candidates += glob.glob(os.path.join(home, ".config", "*", "mcp.json"))
+    mcp_candidates += glob.glob(os.path.join(home, ".config", "*", "mcp_servers.json"))
+
+for path in mcp_candidates:
+    if os.path.isfile(path) and os.access(path, os.R_OK):
+        scan_mcp_file(path)
+
+# 3. Provider API key env vars set (non-empty) in common shell rc files.
+# Value is never read past a non-empty check; only the var name, the
+# file, and that file's group/other readability are recorded.
+def scan_rc_file(path):
+    if not (os.path.isfile(path) and os.access(path, os.R_OK)):
+        return
+    wg = world_group_readable(path)
+    try:
+        with open(path, "r", errors="ignore") as f:
+            lines = f.readlines()
+    except Exception:
+        return
+    for line in lines:
+        line = line.strip()
+        if line.startswith("#") or "=" not in line:
+            continue
+        for prefix in ("export ",):
+            if line.startswith(prefix):
+                line = line[len(prefix):]
+        name, _, val = line.partition("=")
+        name = name.strip()
+        val = val.strip().strip('"').strip("'")
+        if name in PROVIDER_KEYS and val:
+            records.append({
+                "kind": "key_presence",
+                "provider": name,
+                "source": path,
+                "world_group_readable": wg,
+            })
+
+rc_candidates = ["/etc/environment"]
+for home in glob.glob("/home/*") + ["/root"]:
+    rc_candidates += [
+        os.path.join(home, ".bashrc"),
+        os.path.join(home, ".profile"),
+        os.path.join(home, ".zshrc"),
+    ]
+for path in rc_candidates:
+    scan_rc_file(path)
+
+if records:
+    with open(out_path, "w") as f:
+        for rec in records:
+            f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+PYEOF
+    if [[ -s "$ai_out" ]]; then
+        collected+=("ai_agent_inventory.txt")
+    else
+        rm -f "$ai_out"
+    fi
+fi
+
 # --- TLS certificates ----------------------------------------------------
 # Server certificates in the places they usually live (Let's Encrypt,
 # nginx/apache/haproxy config dirs, the RHEL and Debian private cert

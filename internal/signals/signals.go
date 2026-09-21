@@ -24,6 +24,7 @@ import (
 	"context"
 	"time"
 
+	"muster/internal/aiagentinv"
 	"muster/internal/allowlist"
 	"muster/internal/browserext"
 	"muster/internal/certs"
@@ -84,6 +85,10 @@ func FromFacts(host model.Host, byCategory map[string]model.Fact, softwareRules 
 	}
 	if ext, ok := byCategory["browser_extensions"]; ok {
 		in.BrowserExtensions = browserext.Evaluate(browserext.FromFact(ext.Data["items"]))
+	}
+	if aiInv, ok := byCategory["ai_agent_inventory"]; ok {
+		tools, servers, keys := aiagentinv.FromFact(aiInv.Data)
+		in.AIAgents = aiagentinv.Evaluate(tools, servers, keys)
 	}
 	if sum, ok := byCategory["system_summary"]; ok {
 		in.OSLifecycle = eol.Check(sum.Data, now)

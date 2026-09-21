@@ -593,6 +593,41 @@
       list);
   }
 
+  // aiAgentInventoryCard lists every AI CLI/IDE-agent tool, MCP server
+  // config, and model-provider API key presence record the agent found
+  // on the host, riskiest first, with the reasons internal/aiagentinv
+  // gave. Community-edition visibility only -- presence and location,
+  // never secret values. See docs/ai-agent-inventory.md.
+  function aiAgentInventoryCard(data) {
+    if (!data || !data.reported) {
+      return el("div", { class: "fact-card" }, el("h2", { text: "AI agent inventory" }),
+        el("p", { class: "meta", text: "Not reported -- this host's agent predates AI agent inventory collection, isn't Linux, or nothing was found." }));
+    }
+    if (!data.findings.length) {
+      return el("div", { class: "fact-card" }, el("h2", { text: "AI agent inventory" }), el("p", { text: "No AI CLI tools, MCP server configs, or provider API keys found." }));
+    }
+    const list = el("ul", { class: "vuln-list" });
+    for (const f of data.findings) {
+      const pillCls = f.level === "high" ? "severity-critical" : f.level === "medium" ? "severity-medium" : "severity-low";
+      let detail;
+      if (f.kind === "tool") {
+        detail = el("span", { class: "vuln-detail" }, el("strong", { text: `${f.tool.name} ${f.tool.version || ""}` }), ` — ${f.tool.path}`);
+      } else if (f.kind === "mcp_server") {
+        detail = el("span", { class: "vuln-detail" }, el("strong", { text: `MCP server: ${f.mcp_server.name}` }), ` — ${f.mcp_server.command} ${(f.mcp_server.args || []).join(" ")}, from ${f.mcp_server.source}`);
+      } else {
+        detail = el("span", { class: "vuln-detail" }, el("strong", { text: f.key_presence.provider }), ` — set in ${f.key_presence.source}`);
+      }
+      if (f.reasons && f.reasons.length) {
+        detail.appendChild(el("ul", { class: "posture-findings" }, ...f.reasons.map((r) => el("li", { text: r }))));
+      }
+      list.appendChild(el("li", { class: "vuln-row" }, el("span", { class: `severity-pill ${pillCls}`, text: f.level }), detail));
+    }
+    return el("div", { class: "fact-card" },
+      el("h2", { text: `AI agent inventory (${data.total}, ${data.risky} risky)` }),
+      el("p", { class: "meta", text: "Visibility only, Community edition: which AI CLI/agent tools are installed, which MCP servers are configured and what they run, and whether a model-provider API key env var is set -- never its value. A plaintext-readable key file scores high; an MCP server command outside the curated known-expected list scores medium; recognized tools are informational. See internal/aiagentinv." }),
+      list);
+  }
+
   // frameworksCard shows every built-in compliance framework's verdict
   // for one host -- score plus the failing checks by name, so the three
   // mappings (Baseline, HIPAA, NIST) can be compared side by side.
@@ -839,6 +874,9 @@
     const extSlot = el("div", {});
     nodes.push(extSlot);
     api(`/api/hosts/${encodeURIComponent(name)}/browser-extensions`).then((d) => extSlot.replaceChildren(browserExtensionsCard(d))).catch(() => extSlot.replaceChildren(browserExtensionsCard(null)));
+    const aiAgentSlot = el("div", {});
+    nodes.push(aiAgentSlot);
+    api(`/api/hosts/${encodeURIComponent(name)}/ai-agents`).then((d) => aiAgentSlot.replaceChildren(aiAgentInventoryCard(d))).catch(() => aiAgentSlot.replaceChildren(aiAgentInventoryCard(null)));
 
     if (!facts || facts.length === 0) {
       nodes.push(el("p", { text: "No facts recorded for this host yet." }));

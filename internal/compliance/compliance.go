@@ -30,6 +30,7 @@ import (
 	"sort"
 	"strings"
 
+	"muster/internal/aiagentinv"
 	"muster/internal/allowlist"
 	"muster/internal/browserext"
 	"muster/internal/certs"
@@ -71,6 +72,11 @@ type Input struct {
 	// BrowserExtensions is every installed extension the agent found,
 	// already evaluated -- checks look at browserext.Risky(...).
 	BrowserExtensions []browserext.Finding
+	// AIAgents is every AI CLI/agent tool, MCP server config, and
+	// provider-API-key presence record the agent found, already
+	// evaluated -- checks look at aiagentinv.Risky(...). Community-
+	// edition visibility only; see docs/ai-agent-inventory.md.
+	AIAgents []aiagentinv.Finding
 	// OSLifecycle is the host's operating-system support status.
 	OSLifecycle eol.Status
 	// Certificates is every server certificate the agent found,
@@ -190,6 +196,16 @@ var Baseline = Framework{
 			evaluate: func(in Input) (bool, string) {
 				if n := len(browserext.Risky(in.BrowserExtensions)); n > 0 {
 					return false, fmt.Sprintf("%d risky browser extension(s)", n)
+				}
+				return true, ""
+			},
+		},
+		{
+			id:          "no-risky-ai-agent-findings",
+			description: "No plaintext-readable AI provider API keys and no unrecognized MCP server commands",
+			evaluate: func(in Input) (bool, string) {
+				if n := len(aiagentinv.Risky(in.AIAgents)); n > 0 {
+					return false, fmt.Sprintf("%d risky AI agent inventory finding(s)", n)
 				}
 				return true, ""
 			},

@@ -42,6 +42,7 @@ import (
 	"muster/agent"
 	"muster/docs"
 	"muster/internal/agenthealth"
+	"muster/internal/aiagentinv"
 	"muster/internal/aiquery"
 	"muster/internal/allowlist"
 	"muster/internal/breach"
@@ -211,6 +212,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/risk", s.handleFleetRisk)
 	mux.HandleFunc("GET /api/hosts/{host}/risk", s.handleHostRisk)
 	mux.HandleFunc("GET /api/hosts/{host}/browser-extensions", s.handleHostBrowserExtensions)
+	mux.HandleFunc("GET /api/hosts/{host}/ai-agents", s.handleHostAIAgents)
 	mux.HandleFunc("GET /api/hosts/{host}/sbom", s.handleHostSBOM)
 	mux.HandleFunc("GET /api/hosts/{host}/lifecycle", s.handleHostLifecycle)
 	mux.HandleFunc("GET /api/software/sprawl", s.handleSprawl)
@@ -1524,6 +1526,8 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 	totalShadowAI := 0
 	riskyExtHosts := 0
 	totalRiskyExt := 0
+	riskyAIAgentHosts := 0
+	totalRiskyAIAgent := 0
 	eolHosts := 0
 	certIssueHosts := 0
 
@@ -1561,6 +1565,13 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 				totalRiskyExt += len(risky)
 			}
 		}
+		if aiInv, ok := byCategory["ai_agent_inventory"]; ok {
+			tools, servers, keys := aiagentinv.FromFact(aiInv.Data)
+			if risky := aiagentinv.Risky(aiagentinv.Evaluate(tools, servers, keys)); len(risky) > 0 {
+				riskyAIAgentHosts++
+				totalRiskyAIAgent += len(risky)
+			}
+		}
 		if sum, ok := byCategory["system_summary"]; ok && eol.Check(sum.Data, now).State == "eol" {
 			eolHosts++
 		}
@@ -1584,6 +1595,8 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		"total_shadow_ai_findings":     totalShadowAI,
 		"hosts_with_risky_extensions":  riskyExtHosts,
 		"total_risky_extensions":       totalRiskyExt,
+		"hosts_with_risky_ai_agents":   riskyAIAgentHosts,
+		"total_risky_ai_agents":        totalRiskyAIAgent,
 		"hosts_os_eol":                 eolHosts,
 		"hosts_with_cert_issues":       certIssueHosts,
 	})
