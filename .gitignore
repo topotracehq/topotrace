@@ -4,3 +4,4 @@
 
 # Android Studio local project state -- never belongs in git
 .idea/
+cmd/topotrace/*.syso
