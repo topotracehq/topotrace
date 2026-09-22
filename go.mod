@@ -1,5 +1,6 @@
 module topotrace
 
-go 1.24.7
+go 1.26.1
+toolchain go1.27.1
 
 require github.com/lib/pq v1.12.3
