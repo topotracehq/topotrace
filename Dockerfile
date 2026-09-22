@@ -1,7 +1,7 @@
 # Multi-stage build: compile with the full Go toolchain, ship only the
 # static binary in a minimal runtime image.
 
-FROM golang:1.25-alpine AS build
+FROM golang:1.27.1-alpine AS build
 WORKDIR /src
 
 # Dependencies (currently just github.com/lib/pq, for pgstore) are
