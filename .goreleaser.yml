@@ -1,0 +1,117 @@
+# GoReleaser config for TopoTrace
+# https://goreleaser.com
+# Run locally to test: goreleaser release --snapshot --clean
+version: 2
+
+project_name: topotrace
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: topotrace
+    main: ./cmd/topotrace
+    binary: topotrace
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: topotrace
+    ids: [topotrace]
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - docs/**
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+
+release:
+  github:
+    owner: topotracehq
+    name: topotrace
+  draft: false
+  prerelease: auto
+  name_template: "TopoTrace {{.Version}}"
+
+dockers:
+  - id: topotrace-amd64
+    goos: linux
+    goarch: amd64
+    ids: [topotrace]
+    image_templates:
+      - "ghcr.io/topotracehq/topotrace:{{ .Version }}-amd64"
+      - "ghcr.io/topotracehq/topotrace:latest-amd64"
+    dockerfile: Dockerfile.goreleaser
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source=https://github.com/topotracehq/topotrace"
+      - "--label=org.opencontainers.image.licenses=Apache-2.0"
+  - id: topotrace-arm64
+    goos: linux
+    goarch: arm64
+    ids: [topotrace]
+    image_templates:
+      - "ghcr.io/topotracehq/topotrace:{{ .Version }}-arm64"
+      - "ghcr.io/topotracehq/topotrace:latest-arm64"
+    dockerfile: Dockerfile.goreleaser
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source=https://github.com/topotracehq/topotrace"
+      - "--label=org.opencontainers.image.licenses=Apache-2.0"
+
+docker_manifests:
+  - name_template: "ghcr.io/topotracehq/topotrace:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/topotracehq/topotrace:{{ .Version }}-amd64"
+      - "ghcr.io/topotracehq/topotrace:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/topotracehq/topotrace:latest"
+    image_templates:
+      - "ghcr.io/topotracehq/topotrace:latest-amd64"
+      - "ghcr.io/topotracehq/topotrace:latest-arm64"
+
+# Homebrew tap: uncomment once topotracehq/homebrew-tap exists and
+# HOMEBREW_TAP_GITHUB_TOKEN is set as a repo secret.
+# brews:
+#   - name: topotrace
+#     repository:
+#       owner: topotracehq
+#       name: homebrew-tap
+#     directory: Formula
+#     homepage: "https://topotrace.org"
+#     description: "Fleet hardware/software/config inventory and compliance posture tooling"
+#     license: "Apache-2.0"
+#     test: |
+#       system "#{bin}/topotrace -version"
+
+checksum_template: "checksums.txt"
