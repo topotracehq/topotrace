@@ -16,12 +16,6 @@ inbox, integration health, guided onboarding, and branded report selection.
 [Site workers](docs/site-operations.md) support bounded scheduled discovery
 and explicitly staged Linux SSH / Windows WinRM agent deployment.
 
-This is a **from-scratch project**, written in Go, inspired by — but not
-ported from — an older Perl system I modernized separately. The domain
-(agents → central collector → parsed/"cooked" facts → queryable reports)
-is the same well-worn shape a lot of inventory/config-management tooling
-uses; the design and code here are new.
-
 ## Why this exists
 
 TopoTrace started as a from-scratch systems project: a concurrent TCP
@@ -448,7 +442,7 @@ port could report data as any host. That's closed now, and the same
 shared secret bootstraps a small RBAC layer plus a remediation-action
 pipeline built on top of it, in the order the project settled on: auth
 first, then roles, then remediation, never the other way around.
-
+ 
 ### Turning auth on
 
 ```
