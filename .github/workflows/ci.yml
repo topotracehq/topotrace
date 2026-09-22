@@ -8,6 +8,10 @@ on:
 
 permissions:
   contents: read
+  security-events: write
+  # Needed by gosec's github/codeql-action/upload-sarif step, which calls
+  # the Actions API for workflow-run metadata (same issue CodeQL itself hits).
+  actions: read
 
 jobs:
   build-test:
@@ -76,7 +80,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          curl -sL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz \
+            -o /tmp/gitleaks.tar.gz
+          mkdir -p /tmp/gitleaks-extract
+          tar -C /tmp/gitleaks-extract -xzf /tmp/gitleaks.tar.gz gitleaks
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: /tmp/gitleaks-extract/gitleaks detect --source . --redact -v
