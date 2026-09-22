@@ -18,9 +18,13 @@ builds:
     goos:
       - linux
       - darwin
+      - windows
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
     ldflags:
       - -s -w
 
@@ -113,5 +117,3 @@ docker_manifests:
 #     license: "Apache-2.0"
 #     test: |
 #       system "#{bin}/topotrace -version"
-
-checksum_template: "checksums.txt"
