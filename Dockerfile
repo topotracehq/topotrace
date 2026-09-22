@@ -13,7 +13,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -trimpath -ldflags="-s -w" -o 
 RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -trimpath -ldflags="-s -w" -o /out/demoagent ./cmd/demoagent
 
 # --- runtime image ---
-FROM alpine:3.20
+FROM alpine:3.24
 RUN apk add --no-cache ca-certificates && \
     addgroup -S topotrace && adduser -S topotrace -G topotrace
 
