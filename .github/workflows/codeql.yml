@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
   security-events: write
+  # Needed by CodeQL's diff-informed analysis, which calls the Actions API
+  # to fetch workflow-run metadata (GET /repos/{owner}/{repo}/actions/runs/{id}).
+  # Without it, analysis fails with "Resource not accessible by integration".
+  actions: read
 
 jobs:
   analyze:
