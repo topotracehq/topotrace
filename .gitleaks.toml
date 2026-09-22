@@ -1,0 +1,24 @@
+title = "TopoTrace gitleaks config"
+
+# Extend the default gitleaks ruleset rather than replacing it.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known false positives: README.md curl examples using the literal placeholder token 'some-shared-secret', not a real credential."
+regexes = [
+  '''some-shared-secret''',
+]
+
+# Belt-and-suspenders: pin the exact known-good findings by fingerprint too,
+# so if the regex above is ever narrowed, these specific historical matches
+# stay explicitly allowed rather than silently reappearing as failures.
+[[allowlist.rules]]
+fingerprints = [
+  "f3ba2848156b211160a2436604d765850034cb5d:README.md:curl-auth-header:463",
+  "f3ba2848156b211160a2436604d765850034cb5d:README.md:curl-auth-header:466",
+  "f3ba2848156b211160a2436604d765850034cb5d:README.md:curl-auth-header:467",
+  "f3ba2848156b211160a2436604d765850034cb5d:README.md:curl-auth-header:677",
+  "f3ba2848156b211160a2436604d765850034cb5d:README.md:curl-auth-header:679",
+  "f3ba2848156b211160a2436604d765850034cb5d:README.md:curl-auth-header:680",
+]
