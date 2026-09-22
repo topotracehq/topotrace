@@ -4,6 +4,12 @@
 
 ![TopoTrace](internal/webui/static/img/topotrace-lockup-light.svg)
 
+[![CI](https://github.com/topotracehq/topotrace/actions/workflows/ci.yml/badge.svg)](https://github.com/topotracehq/topotrace/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/topotracehq/topotrace/actions/workflows/codeql.yml/badge.svg)](https://github.com/topotracehq/topotrace/actions/workflows/codeql.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/topotracehq/topotrace)](https://goreportcard.com/report/github.com/topotracehq/topotrace)
+[![License](https://img.shields.io/github/license/topotracehq/topotrace)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/topotracehq/topotrace)](https://github.com/topotracehq/topotrace/releases)
+
 Formerly Muster. See the [brand guide](docs/brand-guide.md) for assets and compatibility details.
 
 A hardware/software/configuration inventory system: lightweight agents
