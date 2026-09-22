@@ -1,7 +1,7 @@
 # Used by GoReleaser to build the container image from the already-built
 # binary (see .goreleaser.yml). Not used for a normal `docker build .` —
 # for that, use ./Dockerfile if one exists, or `go build ./cmd/topotrace`.
-FROM alpine:3.20
+FROM alpine:3.24
 
 RUN apk add --no-cache ca-certificates tzdata && \
     addgroup -S topotrace && adduser -S topotrace -G topotrace
