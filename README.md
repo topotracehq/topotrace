@@ -214,6 +214,22 @@ tidy`, then `go mod vendor` to refresh `vendor/`.
 
 ### In Docker
 
+The easiest way: pull the prebuilt image published with every release
+(built for both amd64 and arm64) instead of building it yourself:
+
+```
+docker pull ghcr.io/topotracehq/topotrace:latest
+docker run --rm -p 8080:8080 -p 9090:9090 -v topotrace-data:/app/data ghcr.io/topotracehq/topotrace:latest
+```
+
+Pin a specific version instead of `latest` with the release tag minus
+its `v` (e.g. `ghcr.io/topotracehq/topotrace:0.1.1` for the
+[v0.1.1 release](https://github.com/topotracehq/topotrace/releases/tag/v0.1.1)).
+All published tags are on the
+[package page](https://github.com/topotracehq/topotrace/pkgs/container/topotrace).
+
+To build it yourself from source instead:
+
 Multi-stage build (compiles with the full Go toolchain, ships a static
 binary in a minimal Alpine runtime image, runs as a non-root user):
 
