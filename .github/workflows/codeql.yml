@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
   security-events: write
+  # Needed by CodeQL's diff-informed analysis, which calls the Actions API
+  # to fetch workflow-run metadata (GET /repos/{owner}/{repo}/actions/runs/{id}).
+  # Without it, analysis fails with "Resource not accessible by integration".
+  actions: read
 
 jobs:
   analyze:
@@ -34,5 +38,10 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
+        # Same Advanced-Security-requires-public-repo constraint as gosec's
+        # SARIF upload (see ci.yml): the scan itself runs fine, but
+        # uploading results 403s while this repo is private. Remove once
+        # the repo goes public.
+        continue-on-error: true
         with:
           category: "/language:go"
