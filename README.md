@@ -4,7 +4,7 @@
 
 ![TopoTrace](internal/webui/static/img/topotrace-lockup-light.svg)
 
-Formerly TopoTrace. See the [brand guide](docs/brand-guide.md) for assets and compatibility details.
+Formerly Muster. See the [brand guide](docs/brand-guide.md) for assets and compatibility details.
 
 A hardware/software/configuration inventory system: lightweight agents
 report data from managed hosts, a Go server ingests and parses it, and a
@@ -24,10 +24,11 @@ uses; the design and code here are new.
 
 ## Why this exists
 
-Built as a portfolio project to demonstrate backend/systems Go: a
-concurrent TCP network service, a text-parsing pipeline, a clean
-storage abstraction, and a REST API — the kind of thing that shows up
-directly in infrastructure, security, and observability tooling.
+TopoTrace started as a from-scratch systems project: a concurrent TCP
+network service, a text-parsing pipeline, a clean storage abstraction,
+and a REST API. It's now the foundation of TopoTrace LLC's Community
+edition, built for teams who want self-hosted fleet inventory and
+compliance posture tooling they can run and audit themselves.
 
 ## Architecture
 
