@@ -76,12 +76,6 @@ jobs:
       - name: Upload SARIF to code scanning
         uses: github/codeql-action/upload-sarif@v3
         if: always()
-        # GitHub code scanning (Advanced Security) is free for public repos
-        # but paywalled for private ones; this repo is still private, so
-        # the upload 403s. Once the repo goes public this starts working
-        # and this line can be removed - the gosec scan itself (above) is
-        # still the real pass/fail signal either way.
-        continue-on-error: true
         with:
           sarif_file: gosec-results.sarif
 
