@@ -38,5 +38,10 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
+        # Same Advanced-Security-requires-public-repo constraint as gosec's
+        # SARIF upload (see ci.yml): the scan itself runs fine, but
+        # uploading results 403s while this repo is private. Remove once
+        # the repo goes public.
+        continue-on-error: true
         with:
           category: "/language:go"
