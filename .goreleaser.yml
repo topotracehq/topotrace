@@ -9,7 +9,7 @@ before:
   hooks:
     - go mod tidy
     - go install github.com/tc-hib/go-winres@latest
-    - sh -c "cd cmd/topotrace && /home/mcginnis/go/bin/go-winres make --arch amd64,arm64"
+    - sh -c 'cd cmd/topotrace && $(go env GOPATH)/bin/go-winres make --arch amd64,arm64'
 
 builds:
   - id: topotrace
