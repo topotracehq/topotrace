@@ -22,7 +22,7 @@ jobs:
 
       - name: gofmt check
         run: |
-          fmt_out="$(gofmt -l .)"
+          fmt_out="$(gofmt -l $(find . -type f -name '*.go' -not -path './vendor/*'))"
           if [ -n "$fmt_out" ]; then
             echo "The following files are not gofmt'd:"
             echo "$fmt_out"
@@ -30,13 +30,13 @@ jobs:
           fi
 
       - name: go vet
-        run: go vet ./...
+        run: go vet $(go list ./... | grep -v /vendor/)
 
       - name: go build
         run: go build ./...
 
       - name: go test
-        run: go test ./... -race -covermode=atomic
+        run: go test $(go list ./... | grep -v /vendor/) -race -covermode=atomic
 
   govulncheck:
     name: Vulnerability scan (govulncheck)
@@ -62,7 +62,7 @@ jobs:
       - name: Run gosec
         uses: securego/gosec@master
         with:
-          args: "-fmt sarif -out gosec-results.sarif -exclude-generated ./..."
+          args: "-fmt sarif -out gosec-results.sarif -exclude-generated -exclude-dir=vendor ./..."
       - name: Upload SARIF to code scanning
         uses: github/codeql-action/upload-sarif@v3
         if: always()
