@@ -1,8 +1,10 @@
 # Security model
 
 TopoTrace's authorization model layers three kinds of credential, each
-narrower than the last, and access controls now extend that with an
-optional OAuth2/OIDC login for humans using the dashboard.
+narrower than the last, and access controls now extend that with
+optional OAuth2/OIDC, AD/LDAP, or SAML 2.0 login for humans using the
+dashboard -- any or all three can be enabled at once, alongside the
+bearer-token schemes below.
 
 ## The master token
 
@@ -45,6 +47,50 @@ token pasted into the Auth control every time.
 what was and wasn't testable in the environment this was built in.
 Test it against your actual IdP (Google, Okta, Azure AD, GitHub, ...)
 before relying on it to gate anything real.
+
+## AD/LDAP login for the dashboard
+
+Configured with `-ldap-*` flags. Unlike OAuth/SAML there's no external
+IdP UI to redirect to -- the dashboard's own login form posts a
+username/password to `POST /api/auth/ldap-login`, which binds a service
+account (`-ldap-bind-dn`/`-ldap-bind-password`) to search the directory
+for the user's entry (`-ldap-user-base-dn`, `-ldap-user-attr`), then
+re-binds as that entry's own DN with the supplied password to verify
+the credential -- the standard "search, then bind" LDAP auth pattern.
+Group membership (`-ldap-group-attr`, default `memberOf`) maps to one
+of the three fixed roles via `-ldap-role-map`, matched by full DN or
+bare CN. Shares the same session store as OAuth and SAML, so all three
+can be enabled at once.
+
+This endpoint has no built-in rate limiting or account lockout -- rely
+on the directory's own lockout policy (most AD/LDAP deployments already
+enforce one) or a reverse proxy in front of it. See `internal/ldap`'s
+doc comment for this package's scope (simple bind and a single-filter
+search only, no SASL, no paging) and its "solid first draft, untested
+against a live directory" caveat.
+
+## SAML 2.0 SSO login for the dashboard
+
+Configured with `-saml-*` flags. SP-initiated only: `GET
+/api/auth/saml/login` redirects to the IdP's SSO endpoint, and the IdP
+posts a signed assertion back to `POST /api/auth/saml/acs`. The user's
+NameID (or an `email`/`mail` attribute) maps to a role via
+`-saml-role-map`, same email/domain syntax as `-oauth-role-map`. SP
+metadata for the IdP-side setup is at `GET /api/auth/saml/metadata`.
+
+**Read `internal/saml`'s doc comment before enabling this against a
+production IdP.** Full XML-DSig signature verification requires exact
+W3C Exclusive Canonicalization, a genuinely hard transform to implement
+correctly by hand -- getting it subtly wrong is exactly the kind of bug
+that becomes a silent authentication bypass. Rather than risk that,
+this package verifies signatures over the assertion's *exact original
+bytes* (enveloped-signature only, no re-canonicalization), which is
+correct for every mainstream IdP's typical output (Okta, Azure AD/Entra
+ID, ADFS, Google Workspace) and fails *closed* on anything it can't
+handle -- but it is not a general XML-DSig verifier, does not support
+encrypted assertions, and has never been round-tripped against a live
+IdP in this environment. Test it against your actual IdP's real
+response format before relying on it to gate anything real.
 
 ## What's still a single shared secret, on purpose
 

@@ -587,6 +587,75 @@ actual IdP (Google, Okta, Azure AD, Auth0, ...) before relying on it.
 See `docs/security-model.md` for the full picture alongside the other
 credential tiers.
 
+### AD/LDAP dashboard login
+
+For directories where an OAuth app registration isn't an option, `-ldap-*`
+flags turn on a username/password login backed by Active Directory or any
+LDAPv3 directory -- no external redirect, the dashboard's own login form
+posts straight to `POST /api/auth/ldap-login`:
+
+```
+go run ./cmd/topotrace -auth-token some-shared-secret   -ldap-host dc.example.com -ldap-use-tls   -ldap-bind-dn "CN=svc-topotrace,OU=Service Accounts,DC=example,DC=com"   -ldap-bind-password "..."   -ldap-user-base-dn "OU=People,DC=example,DC=com"   -ldap-user-attr sAMAccountName   -ldap-role-map "CN=TopoTrace Admins,OU=Groups,DC=example,DC=com=admin;*=readonly"
+```
+
+Every `-ldap-*` flag is required together or not at all, same shape as
+OAuth. Login runs the standard "search, then bind" pattern: a service
+account (`-ldap-bind-dn`/`-ldap-bind-password`) binds and searches
+`-ldap-user-base-dn` for an entry whose `-ldap-user-attr` matches the
+submitted username, then a fresh connection re-binds as that entry's own
+DN with the submitted password to verify it. Group membership
+(`-ldap-group-attr`, default `memberOf`) maps to a role via
+`-ldap-role-map` -- **semicolon-separated, not comma-separated**, since a
+group DN already contains commas of its own (e.g.
+`CN=Admins,OU=Groups,DC=example,DC=com=admin;*=readonly`); entries are
+matched by full DN or bare CN, case-insensitively. LDAP shares the same
+session store as OAuth and SAML, so all three can be enabled at once.
+
+Implementation notes: also stdlib-only Go (`internal/ldap`), for the same
+vendoring-access reason as OAuth -- a hand-rolled minimal BER/LDAPv3
+client (simple bind and a single-filter search only, no SASL, no paging).
+**This has not been round-tripped against a live Active Directory or
+OpenLDAP server** -- treat it as a solid first draft and test it against
+your actual directory before relying on it. There's no built-in rate
+limiting or account lockout on the login endpoint; rely on the
+directory's own lockout policy or a reverse proxy in front of it. See
+`docs/security-model.md` and `internal/ldap`'s doc comment.
+
+### SAML 2.0 SSO dashboard login
+
+`-saml-*` flags add SP-initiated SAML 2.0 login for identity providers
+that speak SAML rather than OIDC (ADFS, many enterprise Okta/Azure AD
+setups, etc.):
+
+```
+go run ./cmd/topotrace -auth-token some-shared-secret   -saml-entity-id "https://topotrace.example.com/saml/metadata"   -saml-acs-url "https://topotrace.example.com/api/auth/saml/acs"   -saml-idp-sso-url "https://idp.example.com/sso/saml"   -saml-idp-cert "$(cat idp-signing-cert.pem)"   -saml-role-map "admin@example.com=admin,*@example.com=readonly"
+```
+
+Every `-saml-*` flag is required together or not at all. `GET
+/api/auth/saml/login` redirects the browser to the IdP's SSO endpoint
+(HTTP-Redirect binding); the IdP posts a signed assertion back to `POST
+/api/auth/saml/acs` (HTTP-POST binding). The user's NameID (or an
+`email`/`mail` attribute) maps to a role via `-saml-role-map`, same
+email/domain syntax as `-oauth-role-map`. SP metadata for the IdP-side
+setup is published at `GET /api/auth/saml/metadata`. SAML shares the same
+session store as OAuth and LDAP.
+
+Implementation notes -- **read this before pointing it at a production
+IdP**: also stdlib-only Go (`internal/saml`). Full XML-DSig verification
+requires exact W3C Exclusive Canonicalization, which is genuinely hard to
+implement correctly by hand and an easy way to introduce a silent
+authentication bypass. Rather than risk that, this package verifies
+signatures over the assertion's *exact original bytes* (enveloped
+signature only, no re-canonicalization) -- correct for every mainstream
+IdP's typical output, and it fails *closed* on anything it can't handle,
+but it is not a general XML-DSig verifier and doesn't support encrypted
+assertions. **This has never been round-tripped against a live IdP** in
+this environment -- it's proven against a self-signed-cert test suite
+(valid signatures accepted; tampering, expiry, and wrong-key signatures
+all rejected), not a real Okta/Azure AD/ADFS response. Test it against
+your actual IdP before relying on it. See `docs/security-model.md` and
+`internal/saml`'s doc comment.
+
 ### Remediation actions
 
 The self-healing/remediation item from every earlier "what's next" list

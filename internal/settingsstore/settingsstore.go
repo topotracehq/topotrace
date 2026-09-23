@@ -63,6 +63,34 @@ type Overrides struct {
 	AIBackend string `json:"ai_backend,omitempty"`  // "anthropic" (default) or "openai-compatible"
 	AIBaseURL string `json:"ai_base_url,omitempty"` // OpenAI-compatible server root, e.g. https://router.huggingface.co/v1
 
+	// Live-reconfigurable: the process's slog level -- "debug", "info"
+	// (default), "warn", or "error". See internal/api's LogLevel field
+	// (a *slog.LevelVar) for how PATCH /api/settings applies this to
+	// the running process immediately, with no restart, the same way
+	// SIEM forwarding and Ask TopoTrace already work.
+	LogLevel string `json:"log_level,omitempty"`
+
+	// Persist-for-next-restart: AD/LDAP dashboard login. All-or-
+	// nothing, same as the -ldap-* flags -- see internal/ldap.
+	LDAPHost         string `json:"ldap_host,omitempty"`
+	LDAPPort         string `json:"ldap_port,omitempty"` // stored as a string so an empty override doesn't look like port 0
+	LDAPUseTLS       bool   `json:"ldap_use_tls,omitempty"`
+	LDAPBindDN       string `json:"ldap_bind_dn,omitempty"`
+	LDAPBindPassword string `json:"ldap_bind_password,omitempty"`
+	LDAPUserBaseDN   string `json:"ldap_user_base_dn,omitempty"`
+	LDAPUserAttr     string `json:"ldap_user_attr,omitempty"`
+	LDAPMailAttr     string `json:"ldap_mail_attr,omitempty"`
+	LDAPGroupAttr    string `json:"ldap_group_attr,omitempty"`
+	LDAPRoleMap      string `json:"ldap_role_map,omitempty"`
+
+	// Persist-for-next-restart: SAML 2.0 dashboard login. All-or-
+	// nothing, same as the -saml-* flags -- see internal/saml.
+	SAMLEntityID  string `json:"saml_entity_id,omitempty"`
+	SAMLACSURL    string `json:"saml_acs_url,omitempty"`
+	SAMLIdPSSOURL string `json:"saml_idp_sso_url,omitempty"`
+	SAMLIdPCert   string `json:"saml_idp_cert,omitempty"`
+	SAMLRoleMap   string `json:"saml_role_map,omitempty"`
+
 	// Persist-for-next-restart: General/ports.
 	IngestAddr        string `json:"ingest_addr,omitempty"`
 	APIAddr           string `json:"api_addr,omitempty"`
