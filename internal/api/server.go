@@ -1055,8 +1055,16 @@ func roleAllows(have, need string) bool {
 	return roleRank[have] >= roleRank[need]
 }
 
+// sha256Hex is only ever used on already-random, high-entropy secrets --
+// API key tokens (randomToken, 192 bits of crypto/rand), enrollment
+// tokens, and worker tokens -- never on a user-chosen, low-entropy
+// password. That distinction is what CodeQL's weak-sensitive-data-hashing
+// query can't see: a slow/salted KDF (bcrypt, PBKDF2) exists to resist
+// brute-forcing a small password space, which doesn't apply to a value
+// with 2^192 possible inputs, and a fast hash is exactly what you want
+// for a lookup-by-hash on every request. See CodeQL alert #95.
 func sha256Hex(s string) string {
-	sum := sha256.Sum256([]byte(s))
+	sum := sha256.Sum256([]byte(s)) // lgtm[go/weak-sensitive-data-hashing]
 	return hex.EncodeToString(sum[:])
 }
 
