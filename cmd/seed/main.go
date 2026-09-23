@@ -50,6 +50,8 @@ import (
 	"time"
 
 	"topotrace/internal/model"
+	"topotrace/internal/operations"
+	"topotrace/internal/siteops"
 	"topotrace/internal/store"
 	"topotrace/internal/store/memstore"
 	"topotrace/internal/store/pgstore"
@@ -96,7 +98,8 @@ func main() {
 }
 
 type counts struct {
-	hosts, softwareRules, policyRules, discoveredAssets, historyPoints, baselines int
+	hosts, softwareRules, policyRules, discoveredAssets, historyPoints, baselines                 int
+	actions, dynamicGroups, plans, collections, siteWorkers, siteJobs, siteSightings, enrollments int
 }
 
 func seed(ctx context.Context, st store.Store) (counts, error) {
@@ -153,7 +156,11 @@ func seed(ctx context.Context, st store.Store) (counts, error) {
 		return n, err
 	}
 
-	if _, err := st.RecordAudit(ctx, "seed-tool", "seed-demo-data", "", fmt.Sprintf("%d hosts, %d software rules, %d policy rules, %d discovered assets", n.hosts, n.softwareRules, n.policyRules, n.discoveredAssets)); err != nil {
+	if err := seedOperations(ctx, st, hosts, now, &n); err != nil {
+		return n, err
+	}
+
+	if _, err := st.RecordAudit(ctx, "seed-tool", "seed-demo-data", "", fmt.Sprintf("%d hosts, %d software rules, %d policy rules, %d discovered assets, %d actions, %d dynamic groups, %d change plans, %d board collections, %d site workers, %d site jobs, %d site sightings, %d enrollments", n.hosts, n.softwareRules, n.policyRules, n.discoveredAssets, n.actions, n.dynamicGroups, n.plans, n.collections, n.siteWorkers, n.siteJobs, n.siteSightings, n.enrollments)); err != nil {
 		return n, fmt.Errorf("recording seed audit entry: %w", err)
 	}
 
@@ -638,4 +645,154 @@ func demoDiscoveredAssets() []model.DiscoveredAsset {
 			ScannedBy: "seed-demo", ScannedCIDR: "10.0.4.0/24",
 		},
 	}
+}
+
+// seedOperations populates the workflow-record kinds that demoHosts alone
+// doesn't touch: remediation actions (Work queue / Inbox failed-change
+// items), dynamic groups, change plans, board collections, and the
+// site-ops (discovery worker/job/sighting) and enrollment records behind
+// Site operations / Discovery & Deployment / Getting started. Without
+// this, those sections render empty even with a full seeded fleet,
+// because they're backed by their own document kinds, not host facts.
+func seedOperations(ctx context.Context, st store.Store, hosts []model.Host, now time.Time, n *counts) error {
+	have := map[string]bool{}
+	for _, h := range hosts {
+		have[h.Name] = true
+	}
+	queue := func(host, verb, arg string) (model.Action, bool) {
+		if !have[host] {
+			return model.Action{}, false
+		}
+		a, err := st.QueueAction(ctx, host, verb, arg)
+		if err != nil {
+			return model.Action{}, false
+		}
+		return a, true
+	}
+
+	// A resolved success.
+	if a, ok := queue("api01.prod", "restart-service", "nginx"); ok {
+		st.MarkActionDelivered(ctx, a.ID)
+		st.RecordActionResult(ctx, a.ID, "ok", "service restarted cleanly")
+		n.actions++
+	}
+	// A resolved failure -- shows up in Inbox as a failed change.
+	if a, ok := queue("db01.prod", "restart-service", "postgresql"); ok {
+		st.MarkActionDelivered(ctx, a.ID)
+		st.RecordActionResult(ctx, a.ID, "fail", "dependency check failed, refused to restart a live primary")
+		n.actions++
+	}
+	if a, ok := queue("legacy01", "restart-service", "sshd"); ok {
+		st.MarkActionDelivered(ctx, a.ID)
+		st.RecordActionResult(ctx, a.ID, "fail", "unit not found -- host is past its decommission date")
+		n.actions++
+	}
+	// A delivered action still awaiting a result.
+	if a, ok := queue("WIN-FIN02", "restart-service", "Spooler"); ok {
+		st.MarkActionDelivered(ctx, a.ID)
+		n.actions++
+		_ = a
+	}
+	// A queued-but-not-yet-delivered action.
+	if _, ok := queue("web02.prod", "apply-updates", ""); ok {
+		n.actions++
+	}
+
+	// -- dynamic groups --
+	groups := []operations.DynamicGroup{
+		{ID: operations.ID(), Name: "Internet-facing prod", Selector: operations.Selector{Tag: "public", Exposure: "internet"}},
+		{ID: operations.ID(), Name: "Windows desktops", Selector: operations.Selector{Platform: "windows"}},
+		{ID: operations.ID(), Name: "High risk (60+)", Selector: operations.Selector{MinRisk: 60}},
+	}
+	for _, g := range groups {
+		if err := operations.Save(ctx, st, operations.GroupKind, g.ID, g); err != nil {
+			return fmt.Errorf("seeding dynamic group %s: %w", g.Name, err)
+		}
+		n.dynamicGroups++
+	}
+
+	// -- change plans: one scheduled/pending, one already completed --
+	plans := []operations.Plan{
+		{
+			ID: operations.ID(), Name: "Restart nginx across prod web tier",
+			Hosts: []string{"web01.prod", "web02.prod"}, Verb: "restart-service", Arg: "nginx",
+			PilotCount: 1, WindowStart: now.Add(2 * time.Hour), WindowEnd: now.Add(4 * time.Hour),
+			CreatedBy: "demo-admin", Status: "scheduled", RequirePreflight: true,
+			RollbackInstructions: "systemctl status nginx; if degraded, systemctl restart nginx a second time, then page on-call if it doesn't recover.",
+		},
+		{
+			ID: operations.ID(), Name: "Apply pending updates to finance desktops",
+			Hosts: []string{"WIN-FIN02", "WIN-FIN03"}, Verb: "apply-updates", Arg: "",
+			PilotCount: 1, WindowStart: now.Add(-48 * time.Hour), WindowEnd: now.Add(-44 * time.Hour),
+			CreatedBy: "demo-admin", Status: "completed", Promoted: true, BackupConfirmed: true,
+			RollbackInstructions: "Updates are OS-managed; use System Restore if a device regresses.",
+		},
+	}
+	for _, p := range plans {
+		if err := operations.Save(ctx, st, operations.PlanKind, p.ID, p); err != nil {
+			return fmt.Errorf("seeding change plan %s: %w", p.Name, err)
+		}
+		n.plans++
+	}
+
+	// -- board collections --
+	type collection struct {
+		ID    string   `json:"id"`
+		Name  string   `json:"name"`
+		Group string   `json:"group"`
+		Hosts []string `json:"hosts"`
+	}
+	collections := []collection{
+		{ID: operations.ID(), Name: "Critical infra", Hosts: []string{"db01.prod", "api01.prod"}},
+		{ID: operations.ID(), Name: "Needs review", Hosts: []string{"legacy01"}},
+	}
+	for _, c := range collections {
+		if err := operations.Save(ctx, st, "device_collection", c.ID, c); err != nil {
+			return fmt.Errorf("seeding board collection %s: %w", c.Name, err)
+		}
+		n.collections++
+	}
+
+	// -- site operations: a worker, one completed sweep job, two sightings --
+	worker := siteops.Worker{ID: operations.ID(), Name: "site-worker-hq", LastSeen: now.Add(-3 * time.Minute)}
+	if err := operations.Save(ctx, st, siteops.WorkerKind, worker.ID, worker); err != nil {
+		return fmt.Errorf("seeding site worker: %w", err)
+	}
+	n.siteWorkers++
+
+	job := siteops.Job{
+		ID: operations.ID(), Name: "HQ subnet sweep", WorkerID: worker.ID, Kind: "discovery",
+		CIDR: "10.0.2.0/24", Ports: []int{22, 80, 443, 3389}, IntervalHours: 24,
+		NextRun: now.Add(20 * time.Hour), Platform: "linux", Profile: "standard",
+		Phase: "completed", Detail: "42 hosts scanned, 2 unmanaged devices found", CreatedAt: now.Add(-2 * time.Hour),
+	}
+	if err := operations.Save(ctx, st, siteops.JobKind, job.ID, job); err != nil {
+		return fmt.Errorf("seeding site job: %w", err)
+	}
+	n.siteJobs++
+
+	sightings := []siteops.Sighting{
+		{ID: operations.ID(), WorkerID: worker.ID, Address: "10.0.2.44", Ports: []int{22, 80}, FirstSeen: now.Add(-90 * time.Minute), LastSeen: now.Add(-5 * time.Minute), Review: "new", Confidence: "high"},
+		{ID: operations.ID(), WorkerID: worker.ID, Address: "10.0.2.91", Ports: []int{9100}, FirstSeen: now.Add(-6 * 24 * time.Hour), LastSeen: now.Add(-40 * time.Minute), Review: "confirmed", Confidence: "medium"},
+	}
+	for _, sg := range sightings {
+		if err := operations.Save(ctx, st, siteops.SightingKind, sg.ID, sg); err != nil {
+			return fmt.Errorf("seeding site sighting %s: %w", sg.Address, err)
+		}
+		n.siteSightings++
+	}
+
+	// -- pending agent enrollments, for the Getting started / enroll flow --
+	enrollments := []struct{ host, platform string }{
+		{"ops-laptop03", "windows"},
+		{"design-mbp04", "darwin"},
+	}
+	for _, e := range enrollments {
+		if _, err := st.CreateEnrollment(ctx, e.host, e.platform, "seed-demo-"+e.host); err != nil {
+			return fmt.Errorf("seeding enrollment for %s: %w", e.host, err)
+		}
+		n.enrollments++
+	}
+
+	return nil
 }

@@ -543,6 +543,8 @@ main#app {
 .ask-question { color: var(--mu-text-muted); }
 .ask-answer { white-space: pre-wrap; line-height: 1.5; }
 .ask-error { color: #a33a2a; }
+.ask-examples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.ask-examples button { font-size: 12.5px; padding: 6px 12px; border-radius: 999px; }
 .ask-form { display: flex; gap: 10px; align-items: flex-end; }
 .ask-input {
   flex: 1;
@@ -557,6 +559,14 @@ main#app {
 .ask-form button { flex: none; }
 
 /* Fleet summary */
+.stat-group-label {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, #64748b);
+  margin: 0 0 8px;
+}
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

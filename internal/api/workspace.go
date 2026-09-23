@@ -168,7 +168,7 @@ func (s *Server) handleDeleteView(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(204)
 }
 func (s *Server) unscopedAdmin(w http.ResponseWriter, r *http.Request) (string, bool) {
-	actor, ok := s.requireRoleStrict(w, r, "admin")
+	actor, ok := s.requireRoleStrictAlways(w, r, "admin")
 	if !ok {
 		return "", false
 	}

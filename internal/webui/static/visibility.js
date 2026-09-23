@@ -68,8 +68,8 @@ window.TopoTraceVisibility = function ({ api, el, app, timeAgo, workspaceUI }) {
         "Open Agent health: compare healthy reporting, failed collection, a late laptop, and a missing branch device.",
         "Open Discovery review: match a managed address, review an unknown device, and explain the unauthorized appliance. Try a review; Reset demo restores the samples."
       ].map(text => el("li", { text })))));
-    const tabs = el("div", { class: "visibility-toolbar", role: "group", "aria-label": "Visibility sections" });
-    const content = el("div", {}); root.append(tabs, content);
+    const tabs = el("div", { class: "visibility-toolbar", role: "tablist", "aria-label": "Visibility sections" });
+    const content = el("div", { role: "tabpanel", id: "tt-visibility-panel", tabindex: "0" }); root.append(tabs, content);
     const hostNode = host => demo ? el("strong", { text: host }) : el("a", { href: `#/host/${encodeURIComponent(host)}`, text: host });
     function history() {
       const query = el("input", { type: "search", placeholder: "Search device, category, field, or value", "aria-label": "Search device history" });
@@ -134,8 +134,11 @@ window.TopoTraceVisibility = function ({ api, el, app, timeAgo, workspaceUI }) {
       if(!demo)content.prepend(workspaceUI.savedControls("discovery",()=>({query:"",filter:filter.value}),v=>{filter.value=v.filter;if(filter.selectedIndex<0)filter.value="all";draw();}));
     }
     for (const [title,render] of [["Device history",history],["Agent health",health],["Discovery review",discovery]]) {
-      const button=el("button",{type:"button",text:title,"aria-pressed":"false"});
-      button.addEventListener("click",()=>{for(const b of tabs.children)b.setAttribute("aria-pressed",String(b===button));render();});tabs.appendChild(button);
+      const tabID="tt-vis-tab-"+title.toLowerCase().replace(/[^a-z0-9]+/g,"-");
+      const button=el("button",{type:"button",text:title,role:"tab",id:tabID,"aria-selected":"false","aria-controls":"tt-visibility-panel",tabindex:"-1"});
+      button.addEventListener("click",()=>{for(const b of tabs.children){const sel=b===button;b.setAttribute("aria-selected",String(sel));b.setAttribute("tabindex",sel?"0":"-1");}content.setAttribute("aria-labelledby",tabID);render();});
+      button.addEventListener("keydown",e=>{const kids=[...tabs.children];const i=kids.indexOf(button);let next=null;if(e.key==="ArrowRight")next=kids[(i+1)%kids.length];else if(e.key==="ArrowLeft")next=kids[(i-1+kids.length)%kids.length];if(next){e.preventDefault();next.click();next.focus();}});
+      tabs.appendChild(button);
     }
     (scenario==="unauthorized"?tabs.lastChild:tabs.firstChild).click();
     root.appendChild(el("p",{class:"meta",text:`Snapshot: ${stamp(data.generated_at)}. Use Refresh to fetch current evidence.`}));

@@ -1047,7 +1047,7 @@
   }
 
   function policyRuleForm(onCreated) {
-    const nameInput = el("input", { type: "text", placeholder: "rule name" });
+    const nameInput = el("input", { type: "text", placeholder: "rule name", "aria-label": "Software rule name" });
     const kindSelect = el(
       "select", {},
       el("option", { value: "stale", text: "Stale (hasn't reported in 24h)" }),
@@ -1057,7 +1057,7 @@
     );
     const thresholdInput = el("input", { type: "number", placeholder: "threshold % (score_below only)", min: "0", max: "100" });
     const categoryInput = el("input", { type: "text", placeholder: "category (category_missing only)" });
-    const groupInput = el("select", { title: "Policy target" }, el("option", { value: "", text: "All devices" }));
+    const groupInput = el("select", { title: "Policy target", "aria-label": "Policy target" }, el("option", { value: "", text: "All devices" }));
     Promise.all([api("/api/groups"), api("/api/dynamic-groups")]).then(([manual, dynamic]) => {
       for (const group of manual) groupInput.appendChild(el("option", { value: typeof group === "string" ? group : group.name, text: typeof group === "string" ? group : group.name }));
       for (const group of dynamic) groupInput.appendChild(el("option", { value: `dynamic:${group.id}`, text: `Dynamic: ${group.name}` }));
@@ -1599,8 +1599,8 @@
   // and POSTed to /api/scanner-import, which matches each finding to a
   // TopoTrace host by name or IP and stores it as a scanner_findings fact.
   function scannerImportCard() {
-    const file = el("input", { type: "file", accept: ".csv,text/csv" });
-    const format = el("select", {},
+    const file = el("input", { type: "file", accept: ".csv,text/csv", "aria-label": "Scanner export file" });
+    const format = el("select", { "aria-label": "Scanner export format" },
       el("option", { value: "nessus", text: "Nessus (.csv export)" }),
       el("option", { value: "qualys", text: "Qualys (.csv export)" }),
       el("option", { value: "generic", text: "Generic (host,cve,severity,title)" }));
@@ -1795,23 +1795,35 @@
       el("span", { class: "meta", text: `${summary.total_hosts} host${summary.total_hosts === 1 ? "" : "s"}` })
     );
 
+    const fleetIntro = el("p", { class: "page-intro", text: "Fleet-wide posture at a glance, split into what's healthy and what needs attention." });
+
     const stats = el(
       "div",
-      { class: "stat-grid" },
-      statCard("Total hosts", summary.total_hosts),
-      statCard("Stale hosts", summary.stale_hosts, summary.stale_hosts > 0 ? "stat-warn" : ""),
+      {},
+      el("h2", { class: "stat-group-label", text: "Fleet health" }),
       el(
         "div",
-        { class: "stat-card" },
-        postureBadge(summary.average_posture_score),
-        el("div", { class: "stat-label", text: "Average posture" })
+        { class: "stat-grid" },
+        statCard("Total hosts", summary.total_hosts),
+        statCard("Stale hosts", summary.stale_hosts, summary.stale_hosts > 0 ? "stat-warn" : ""),
+        el(
+          "div",
+          { class: "stat-card" },
+          postureBadge(summary.average_posture_score),
+          el("div", { class: "stat-label", text: "Average posture" })
+        )
       ),
-      statCard("Hosts w/ vulnerabilities", summary.hosts_with_vulnerabilities, summary.hosts_with_vulnerabilities > 0 ? "stat-warn" : ""),
-      statCard("Total findings", summary.total_vulnerability_findings, summary.total_vulnerability_findings > 0 ? "stat-warn" : ""),
-      statCard("Shadow AI detections", summary.total_shadow_ai_findings, summary.total_shadow_ai_findings > 0 ? "stat-warn" : ""),
-      statCard("Risky browser extensions", summary.total_risky_extensions || 0, summary.total_risky_extensions > 0 ? "stat-warn" : ""),
-      statCard("OS past end of life", summary.hosts_os_eol || 0, summary.hosts_os_eol > 0 ? "stat-warn" : ""),
-      statCard("Certificate issues", summary.hosts_with_cert_issues || 0, summary.hosts_with_cert_issues > 0 ? "stat-warn" : "")
+      el("h2", { class: "stat-group-label", text: "Needs attention" }),
+      el(
+        "div",
+        { class: "stat-grid" },
+        statCard("Hosts w/ vulnerabilities", summary.hosts_with_vulnerabilities, summary.hosts_with_vulnerabilities > 0 ? "stat-warn" : ""),
+        statCard("Total findings", summary.total_vulnerability_findings, summary.total_vulnerability_findings > 0 ? "stat-warn" : ""),
+        statCard("Shadow AI detections", summary.total_shadow_ai_findings, summary.total_shadow_ai_findings > 0 ? "stat-warn" : ""),
+        statCard("Risky browser extensions", summary.total_risky_extensions || 0, summary.total_risky_extensions > 0 ? "stat-warn" : ""),
+        statCard("OS past end of life", summary.hosts_os_eol || 0, summary.hosts_os_eol > 0 ? "stat-warn" : ""),
+        statCard("Certificate issues", summary.hosts_with_cert_issues || 0, summary.hosts_with_cert_issues > 0 ? "stat-warn" : "")
+      )
     );
 
     const platformList = el("ul", { class: "platform-breakdown" });
@@ -1894,7 +1906,7 @@
     const bookmarksSlot = el("div", {});
     bookmarksCard().then((card) => bookmarksSlot.replaceChildren(card));
 
-    const nodes = [heading, stats, approvalsSlot, alertsSlot, signalsSlot, trendSlot, riskSlot, benchSlot, graphSlot, driftSlot, bookmarksSlot, reportsCard(), platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
+    const nodes = [heading, fleetIntro, stats, approvalsSlot, alertsSlot, signalsSlot, trendSlot, riskSlot, benchSlot, graphSlot, driftSlot, bookmarksSlot, reportsCard(), platformCard, policiesFormSlot, policiesListSlot, discoveredSlot];
 
     if (audit) {
       const auditList = audit.length
@@ -2059,8 +2071,8 @@
   }
 
   function enrollmentForm(onCreated) {
-    const hostInput = el("input", { type: "text", placeholder: "host name, e.g. webbox04", autocomplete: "off" });
-    const platformSelect = el("select", {}, ...PLATFORM_ORDER.map((p) => el("option", { value: p, text: PLATFORM_LABELS[p] })));
+    const hostInput = el("input", { type: "text", placeholder: "host name, e.g. webbox04", autocomplete: "off", "aria-label": "New enrollment host name" });
+    const platformSelect = el("select", { "aria-label": "Enrollment platform" }, ...PLATFORM_ORDER.map((p) => el("option", { value: p, text: PLATFORM_LABELS[p] })));
     const msg = el("span", { class: "save-msg" });
     const form = el(
       "form",
@@ -2118,7 +2130,7 @@
   // just a text box -- that's the whole point of a format small/plain
   // enough to move by sneakernet.
   function airgapImportCard() {
-    const textarea = el("textarea", { rows: "6", placeholder: '{"platform":"linux","host":"...","payload_b64":"..."}', class: "airgap-textarea" });
+    const textarea = el("textarea", { rows: "6", placeholder: '{"platform":"linux","host":"...","payload_b64":"..."}', class: "airgap-textarea", "aria-label": "Air-gapped report payload (JSON)" });
     const msg = el("span", { class: "save-msg" });
     const form = el(
       "form",
@@ -2317,11 +2329,11 @@
   // flags themselves enforce.
   function siemForwardingEditor(s) {
     const backends = (s.siem && s.siem.backends) || ["splunk-hec"];
-    const backendSelect = el("select", {}, ...backends.map((b) => el("option", { value: b, text: b, selected: b === (s.siem.backend || "splunk-hec") ? "selected" : null })));
+    const backendSelect = el("select", { "aria-label": "SIEM forwarding backend" }, ...backends.map((b) => el("option", { value: b, text: b, selected: b === (s.siem.backend || "splunk-hec") ? "selected" : null })));
     for (const o of backendSelect.options) if (o.getAttribute("selected") === "null") o.removeAttribute("selected");
-    const urlInput = el("input", { type: "text", placeholder: "https://splunk.example.com:8088 (or Sumo source / LogRhythm webhook URL)" });
-    const tokenInput = el("input", { type: "password", placeholder: "token (required for Splunk HEC)" });
-    const disableBox = el("input", { type: "checkbox" });
+    const urlInput = el("input", { type: "text", placeholder: "https://splunk.example.com:8088 (or Sumo source / LogRhythm webhook URL)", "aria-label": "SIEM forwarding URL" });
+    const tokenInput = el("input", { type: "password", placeholder: "token (required for Splunk HEC)", "aria-label": "SIEM forwarding token" });
+    const disableBox = el("input", { type: "checkbox", "aria-label": "Disable SIEM forwarding" });
     const msg = el("span", { class: "save-msg" });
     const form = el(
       "form",
@@ -2371,12 +2383,12 @@
   function askTopoTraceEditor(s) {
     const backends = s.ask_topotrace.backends || ["anthropic", "openai-compatible"];
     const current = s.ask_topotrace.backend || "anthropic";
-    const backendSelect = el("select", {}, ...backends.map((b) => el("option", { value: b, text: b })));
+    const backendSelect = el("select", { "aria-label": "Ask TopoTrace model backend" }, ...backends.map((b) => el("option", { value: b, text: b })));
     backendSelect.value = current;
-    const modelInput = el("input", { type: "text", value: s.ask_topotrace.model || "" });
-    const baseInput = el("input", { type: "text", class: "wide", placeholder: "https://router.huggingface.co/v1", value: "" });
-    const keyInput = el("input", { type: "password" });
-    const disableBox = el("input", { type: "checkbox" });
+    const modelInput = el("input", { type: "text", value: s.ask_topotrace.model || "", "aria-label": "Ask TopoTrace model name" });
+    const baseInput = el("input", { type: "text", class: "wide", placeholder: "https://router.huggingface.co/v1", value: "", "aria-label": "Ask TopoTrace base URL" });
+    const keyInput = el("input", { type: "password", "aria-label": "Ask TopoTrace API key" });
+    const disableBox = el("input", { type: "checkbox", "aria-label": "Disable Ask TopoTrace" });
     const msg = el("span", { class: "save-msg" });
     const baseLabel = el("label", { text: "Base URL" });
     const hint = el("p", { class: "meta" });
@@ -2809,9 +2821,9 @@
 
   function softwareRuleForm(onCreated) {
     const nameInput = el("input", { type: "text", placeholder: "rule name" });
-    const kindSelect = el("select", {}, el("option", { value: "deny", text: "Deny" }), el("option", { value: "allow", text: "Allow" }));
-    const matchInput = el("input", { type: "text", placeholder: "package name, or prefix*" });
-    const groupInput = el("input", { type: "text", placeholder: "group (optional)" });
+    const kindSelect = el("select", { "aria-label": "Software rule kind" }, el("option", { value: "deny", text: "Deny" }), el("option", { value: "allow", text: "Allow" }));
+    const matchInput = el("input", { type: "text", placeholder: "package name, or prefix*", "aria-label": "Software rule match" });
+    const groupInput = el("input", { type: "text", placeholder: "group (optional)", "aria-label": "Software rule group" });
     const msg = el("span", { class: "save-msg" });
     const form = el(
       "form",
@@ -2962,7 +2974,7 @@
         filters.appendChild(reset);
       }
       if (state.focus) {
-        const depth = el("select", { title: "How many hops from the focused entity" },
+        const depth = el("select", { title: "How many hops from the focused entity", "aria-label": "How many hops from the focused entity" },
           ...[1, 2, 3, 4].map((d) => el("option", { value: String(d), text: `${d} hop${d > 1 ? "s" : ""}` })));
         depth.value = String(state.depth);
         depth.addEventListener("change", () => { state.depth = Number(depth.value); render(); });
@@ -3163,7 +3175,7 @@
     // signals, so switching just re-asks the summary with ?framework=.
     let frameworks = [];
     try { frameworks = await api("/api/compliance/frameworks"); } catch (err) { /* selector simply won't render */ }
-    const select = el("select", {}, ...frameworks.map((f) => el("option", { value: f.id, text: `${f.name} (${f.checks} checks)` })));
+    const select = el("select", { "aria-label": "Compliance framework" }, ...frameworks.map((f) => el("option", { value: f.id, text: `${f.name} (${f.checks} checks)` })));
     const selectorRow = frameworks.length ? el("div", { class: "editor-row" }, el("label", { text: "Framework" }), select) : null;
 
     async function renderSummary(frameworkID) {
@@ -3244,12 +3256,16 @@
     const log = el("div", { class: "ask-log" });
     for (const turn of askHistory) log.appendChild(askTurn(turn.question, workUI.answerNode(turn)));
 
-    const questionInput = el("textarea", { class: "ask-input", rows: "2", placeholder: "e.g. Which prod hosts have known vulnerabilities? Any shadow AI detections I should know about?" });
+    const questionInput = el("textarea", { class: "ask-input", rows: "2", placeholder: "e.g. Which prod hosts have known vulnerabilities? Any shadow AI detections I should know about?", "aria-label": "Ask TopoTrace a question about the fleet" });
     const sendBtn = el("button", { type: "submit", text: "Ask" });
     const statusMsg = el("span", { class: "save-msg" });
     const form = el("form", { class: "ask-form" }, questionInput, sendBtn, statusMsg);
 
-    app.replaceChildren(heading, el("div", { class: "fact-card ask-card" }, log, form));
+    const EXAMPLE_PROMPTS = ["Which devices need attention first?", "Summarize overdue reporting.", "Which critical vulnerabilities affect production systems?"];
+    const examples = el("div", { class: "ask-examples", role: "group", "aria-label": "Example questions" },
+      ...EXAMPLE_PROMPTS.map(p => { const b = el("button", { type: "button", class: "ghost", text: p }); b.addEventListener("click", () => { questionInput.value = p; questionInput.focus(); }); return b; }));
+
+    app.replaceChildren(heading, el("div", { class: "fact-card ask-card" }, log, examples, form));
     log.scrollTop = log.scrollHeight;
 
     form.addEventListener("submit", async (e) => {
