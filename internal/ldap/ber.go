@@ -54,14 +54,14 @@ const (
 
 func berLength(n int) []byte {
 	if n < 0x80 {
-		return []byte{byte(n)}
+		return []byte{byte(n)} // #nosec G115 -- n < 0x80 here, always fits in a byte
 	}
 	var b []byte
 	for n > 0 {
 		b = append([]byte{byte(n & 0xff)}, b...)
 		n >>= 8
 	}
-	return append([]byte{0x80 | byte(len(b))}, b...)
+	return append([]byte{0x80 | byte(len(b))}, b...) // #nosec G115 -- len(b) is at most 8 (byte-width of an int), always fits in a byte
 }
 
 func berTLV(tag byte, value []byte) []byte {

@@ -3428,7 +3428,7 @@ func (s *Server) handleSAMLMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/samlmetadata+xml")
-	w.Write(s.SAML.Metadata())
+	_, _ = w.Write(s.SAML.Metadata())
 }
 
 // handleSAMLACS is POST /api/auth/saml/acs -- the SAML Assertion

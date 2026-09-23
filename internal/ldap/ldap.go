@@ -73,7 +73,9 @@ func dial(ctx context.Context, host string, port int, useTLS bool, timeout time.
 		return nil, fmt.Errorf("ldap: connecting to %s: %w", addr, err)
 	}
 	if deadline, ok := ctx.Deadline(); ok {
-		nc.SetDeadline(deadline)
+		if err := nc.SetDeadline(deadline); err != nil {
+			return nil, fmt.Errorf("ldap: setting connection deadline: %w", err)
+		}
 	}
 	return &conn{nc: nc}, nil
 }
