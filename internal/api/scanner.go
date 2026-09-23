@@ -45,7 +45,7 @@ type scannerImportResult struct {
 // A 2 MB body limit keeps a stray full-fleet export from being a
 // memory problem; split larger exports.
 func (s *Server) handleScannerImport(w http.ResponseWriter, r *http.Request) {
-	actor, ok := s.requireRoleStrict(w, r, "admin")
+	actor, ok := s.requireRoleStrictAlways(w, r, "admin")
 	if !ok {
 		return
 	}

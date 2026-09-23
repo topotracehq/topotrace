@@ -83,6 +83,19 @@ type Server struct {
 	// (cmd/topotrace wires both from one -auth-token flag).
 	AuthToken string
 
+	// OpenWrites, when true, makes requireRoleStrict behave like the
+	// softer requireRole once AuthToken is empty: every request passes
+	// as actor "sandbox-visitor" instead of being refused with "this
+	// endpoint requires -auth-token". It exists for one purpose -- a
+	// public read-only demo (like sandbox.topotrace.org) that wants
+	// admin-gated actions (approvals, plan promotion, dynamic groups,
+	// exceptions, ...) to actually work as simulated writes against
+	// seeded data an hourly reset wipes clean, rather than dead-ending
+	// on a config error. Never set this and leave AuthToken empty on a
+	// deployment with real data -- together they mean *every* write
+	// endpoint in the product is open to any caller, no token at all.
+	OpenWrites bool
+
 	// Webhooks, when non-nil, is where notable events (a policy
 	// violation, a remediation action queued) get posted. A nil
 	// Dispatcher is safe to call Send on -- see internal/webhook -- so
@@ -626,7 +639,7 @@ func strPtrVal(p *string) string {
 // other audit entry) -- the detail string never includes a secret
 // value, only what changed.
 func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
-	actor, ok := s.requireRoleStrict(w, r, "admin")
+	actor, ok := s.requireRoleStrictAlways(w, r, "admin")
 	if !ok {
 		return
 	}
@@ -946,7 +959,7 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 // message -- internal/pluginhost deliberately has no hot-reload (see
 // its doc comment), so this never touches the running Plugins manager.
 func (s *Server) handleUploadPlugin(w http.ResponseWriter, r *http.Request) {
-	actor, ok := s.requireRoleStrict(w, r, "admin")
+	actor, ok := s.requireRoleStrictAlways(w, r, "admin")
 	if !ok {
 		return
 	}
@@ -1042,8 +1055,16 @@ func roleAllows(have, need string) bool {
 	return roleRank[have] >= roleRank[need]
 }
 
+// sha256Hex is only ever used on already-random, high-entropy secrets --
+// API key tokens (randomToken, 192 bits of crypto/rand), enrollment
+// tokens, and worker tokens -- never on a user-chosen, low-entropy
+// password. That distinction is what CodeQL's weak-sensitive-data-hashing
+// query can't see: a slow/salted KDF (bcrypt, PBKDF2) exists to resist
+// brute-forcing a small password space, which doesn't apply to a value
+// with 2^192 possible inputs, and a fast hash is exactly what you want
+// for a lookup-by-hash on every request. See CodeQL alert #95.
 func sha256Hex(s string) string {
-	sum := sha256.Sum256([]byte(s))
+	sum := sha256.Sum256([]byte(s)) // lgtm[go/weak-sensitive-data-hashing]
 	return hex.EncodeToString(sum[:])
 }
 
@@ -1089,9 +1110,56 @@ func (s *Server) requireRole(w http.ResponseWriter, r *http.Request, need string
 // two sit alongside each other instead of one replacing the other.
 func (s *Server) requireRoleStrict(w http.ResponseWriter, r *http.Request, need string) (actor string, ok bool) {
 	if s.AuthToken == "" {
+		if s.OpenWrites {
+			return "sandbox-visitor", true
+		}
 		s.writeError(w, http.StatusServiceUnavailable, "this endpoint requires the server to be started with -auth-token")
 		return "", false
 	}
+	if got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "); got != "" {
+		if subtle.ConstantTimeCompare([]byte(got), []byte(s.AuthToken)) == 1 {
+			return "master", true
+		}
+		key, found, err := s.Store.FindAPIKeyByHash(r.Context(), sha256Hex(got))
+		if err != nil {
+			s.writeError(w, http.StatusInternalServerError, "checking credential")
+			return "", false
+		}
+		if found && roleAllows(key.Role, need) {
+			if key.Group != "" {
+				if host := r.PathValue("host"); host != "" && !s.hostInGroup(r, host, key.Group) {
+					s.writeError(w, http.StatusForbidden, "this API key is scoped to group "+key.Group+" and that host is not in it")
+					return "", false
+				}
+			}
+			return key.Name, true
+		}
+		s.writeError(w, http.StatusUnauthorized, "missing or invalid bearer token, or insufficient role")
+		return "", false
+	}
+	if email, role, ok := s.sessionFromCookie(r); ok {
+		if roleAllows(role, need) {
+			return email, true
+		}
+		s.writeError(w, http.StatusForbidden, "logged-in user's role is insufficient for this action")
+		return "", false
+	}
+	s.writeError(w, http.StatusUnauthorized, "missing or invalid bearer token")
+	return "", false
+}
+
+// requireRoleStrictAlways is requireRoleStrict without the -sandbox-open-writes
+// escape hatch -- for the handful of endpoints that must never run without a
+// real -auth-token no matter what: minting/revoking an API key (a credential
+// that outlives the sandbox's hourly reset -- see reset-sandbox.sh, api_keys
+// is deliberately never truncated), a network scan job, and anything that
+// writes to this host's own disk (settings overrides, plugin uploads).
+func (s *Server) requireRoleStrictAlways(w http.ResponseWriter, r *http.Request, need string) (actor string, ok bool) {
+	if s.AuthToken == "" {
+		s.writeError(w, http.StatusServiceUnavailable, "this endpoint requires the server to be started with -auth-token")
+		return "", false
+	}
+
 	if got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "); got != "" {
 		if subtle.ConstantTimeCompare([]byte(got), []byte(s.AuthToken)) == 1 {
 			return "master", true
@@ -2392,7 +2460,7 @@ type keyRequest struct {
 // data. TokenHash is never marshaled (model.APIKey's `json:"-"` tag),
 // but the endpoint itself is locked down regardless.
 func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.requireRoleStrict(w, r, "admin"); !ok {
+	if _, ok := s.requireRoleStrictAlways(w, r, "admin"); !ok {
 		return
 	}
 	keys, err := s.Store.ListAPIKeys(r.Context())
@@ -2411,7 +2479,7 @@ func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
 // mints the first named key, and can mint more admin keys after that if
 // they want to stop using the master token day to day.
 func (s *Server) handleCreateKey(w http.ResponseWriter, r *http.Request) {
-	actor, ok := s.requireRoleStrict(w, r, "admin")
+	actor, ok := s.requireRoleStrictAlways(w, r, "admin")
 	if !ok {
 		return
 	}
@@ -2446,7 +2514,7 @@ func (s *Server) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 // handleDeleteKey is DELETE /api/keys/{id} -- revokes a key immediately;
 // any request already using it fails its next auth check.
 func (s *Server) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
-	actor, ok := s.requireRoleStrict(w, r, "admin")
+	actor, ok := s.requireRoleStrictAlways(w, r, "admin")
 	if !ok {
 		return
 	}

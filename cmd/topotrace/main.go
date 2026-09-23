@@ -99,6 +99,7 @@ func main() {
 		pluginDir = flag.String("plugin-dir", os.Getenv("TOPOTRACE_PLUGIN_DIR"), "directory of out-of-process plugin executables to load at startup (internal/pluginhost, docs/plugins.md). Empty (default) disables plugins entirely. Also read from TOPOTRACE_PLUGIN_DIR.")
 
 		publicStatus = flag.Bool("public-status", true, "serve an unauthenticated aggregate-only status page at /status (and /status.json): host count, percent compliant, average scores, open findings, which integrations are on. Never host names or findings. Set false to disable.")
+		openWrites   = flag.Bool("sandbox-open-writes", false, "DEMO/SANDBOX ONLY. When -auth-token is empty, let admin-gated write endpoints (approvals, plan promotion, dynamic groups, exceptions, ...) succeed as a simulated write instead of refusing with a config error. Never combine with real data -- with -auth-token empty this leaves every write endpoint open to any caller.")
 		hibpAPIKey   = flag.String("hibp-api-key", os.Getenv("TOPOTRACE_HIBP_API_KEY"), "Have I Been Pwned API key for account-level breach exposure lookups (GET /api/breaches?domain=). Without it, only the public breaches-of-a-domain lookup works. Also read from TOPOTRACE_HIBP_API_KEY.")
 
 		siemBackend  = flag.String("siem-backend", os.Getenv("TOPOTRACE_SIEM_BACKEND"), "which SIEM the -siem-hec-* URL/token point at: splunk-hec (default), sumo-http (a Sumo Logic HTTP Logs Source URL, token optional) or logrhythm-webhook (a LogRhythm Open Collector webhook URL, token optional). Also read from TOPOTRACE_SIEM_BACKEND.")
@@ -370,7 +371,7 @@ func main() {
 		logger.Info("Ask TopoTrace (AI query) enabled", args...)
 	}
 	apiSrv := &api.Server{
-		Store: st, Logger: logger.With("component", "api"), AuthToken: *authToken,
+		Store: st, Logger: logger.With("component", "api"), AuthToken: *authToken, OpenWrites: *openWrites,
 		Webhooks: hooks, VulnFeed: vulnFeed, Pipeline: pipeline, OAuth: oauthCfg, Sessions: sessions,
 		AIQuery:              aiCfgStore,
 		StorageBackend:       storageBackend,
@@ -391,6 +392,17 @@ func main() {
 
 	api.StartedAt = time.Now().UTC()
 	apiSrv.Register(mux)
+	if *openWrites {
+		// The sandbox overlay fires tracking beacons at these two paths
+		// purely so Caddy's access log captures them -- there was never a
+		// real endpoint behind them, which meant every click/feedback event
+		// showed up as a 404 in the browser console and any uptime/error
+		// monitoring watching this box. Register them explicitly so they
+		// resolve as the no-op they actually are.
+		beaconNoop := func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) }
+		mux.HandleFunc("/__sandbox_click", beaconNoop)
+		mux.HandleFunc("/__sandbox_feedback", beaconNoop)
+	}
 	mux.Handle("/", webHandler)
 
 	eval := &evaluator.Evaluator{Store: st, Webhooks: hooks, VulnFeed: vulnFeed, Log: logger.With("component", "evaluator"), Interval: *evalInterval}

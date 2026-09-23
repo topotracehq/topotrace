@@ -73,34 +73,85 @@ window.TopoTraceWork = function ({ api, el, app, timeAgo, workspaceUI }) {
     const refreshButton=el("button",{type:"button",class:"ghost",text:"Refresh"}); refreshButton.addEventListener("click",show);container.appendChild(refreshButton);
     let data; try{data=await api("/api/work");}catch(err){container.appendChild(el("p",{text:err.message}));return;}
     const findingsPanel=el("section",{class:"work-panel"});container.appendChild(findingsPanel);
+    const PAGE_SIZE=15;let visibleCount=PAGE_SIZE;
+    const severityOf=risk=>risk<=0?"informational":risk<40?"low":risk<70?"medium":"high";
+    const severityLabel={informational:"Informational",low:"Low",medium:"Medium",high:"High"};
     const filter=input("Filter by host, owner, team, or finding"), onlyMine=el("input",{type:"checkbox"});
-    findingsPanel.appendChild(el("div",{class:"editor-row"},field("Search work",filter),field("Overdue only",onlyMine)));
+    const statusValues=[...new Set(data.items.map(i=>i.status))];
+    const severitySelect=el("select",{"aria-label":"Filter by severity"},el("option",{value:"all",text:"All severities"}),...["high","medium","low","informational"].map(v=>el("option",{value:v,text:severityLabel[v]})));
+    const statusSelect=el("select",{"aria-label":"Filter by status"},el("option",{value:"all",text:"All statuses"}),...statusValues.map(v=>el("option",{value:v,text:v.replaceAll("_"," ")})));
+    const assignSelect=el("select",{"aria-label":"Filter by assignment"},el("option",{value:"all",text:"Assigned or not"}),el("option",{value:"assigned",text:"Assigned"}),el("option",{value:"unassigned",text:"Unassigned"}));
+    const evidenceSelect=el("select",{"aria-label":"Filter by evidence freshness"},el("option",{value:"all",text:"Any evidence freshness"}),el("option",{value:"stale",text:"Has stale evidence"}),el("option",{value:"fresh",text:"Fully fresh evidence"}));
+    const groupSelect=el("select",{"aria-label":"Group findings by"},el("option",{value:"none",text:"No grouping"}),el("option",{value:"host",text:"Group by device"}),el("option",{value:"recommendation",text:"Group by recommendation"}));
+    findingsPanel.appendChild(el("div",{class:"editor-row"},field("Search work",filter),field("Overdue only",onlyMine),field("Severity",severitySelect),field("Status",statusSelect),field("Assignment",assignSelect),field("Evidence",evidenceSelect),field("Group by",groupSelect)));
+    findingsPanel.appendChild(el("p",{class:"meta",text:"Risk 0–100: 0 is informational (no action required), 1–39 low, 40–69 medium, 70–100 high. An item stays open until it's resolved or given a temporary exception, regardless of severity."}));
     const list=el("div",{class:"work-list"});findingsPanel.appendChild(list);
     findingsPanel.insertBefore(workspaceUI.savedControls("work",()=>({query:filter.value,filter:onlyMine.checked?"overdue":"all"}),v=>{filter.value=v.query;onlyMine.checked=v.filter==="overdue";render();}),list);
-    function render(){list.replaceChildren();const rows=data.items.filter(i=>(!onlyMine.checked||i.overdue)&&`${i.host} ${i.title} ${i.assignment.owner} ${i.assignment.team}`.toLowerCase().includes(filter.value.toLowerCase()));
-      list.appendChild(el("p",{class:"meta",text:`${rows.length} findings · updated ${dateText(data.generated_at)}`}));
-      for(const item of rows){const a=item.assignment;const card=el("article",{class:"fact-card work-item"},
-        el("div",{class:"work-item-head"},el("h2",{text:item.title}),badge(`Risk ${item.risk}/100`),badge(item.status.replaceAll("_"," "),item.exception?"unknown":"outdated")),
+    function matchesFilters(i){
+      if(onlyMine.checked&&!i.overdue)return false;
+      if(!`${i.host} ${i.title} ${i.assignment.owner} ${i.assignment.team}`.toLowerCase().includes(filter.value.toLowerCase()))return false;
+      if(severitySelect.value!=="all"&&severityOf(i.risk)!==severitySelect.value)return false;
+      if(statusSelect.value!=="all"&&i.status!==statusSelect.value)return false;
+      if(assignSelect.value==="assigned"&&!i.assignment.owner)return false;
+      if(assignSelect.value==="unassigned"&&i.assignment.owner)return false;
+      const pct=i.coverage&&typeof i.coverage.percent==="number"?i.coverage.percent:100;
+      if(evidenceSelect.value==="stale"&&pct>=100)return false;
+      if(evidenceSelect.value==="fresh"&&pct<100)return false;
+      return true;
+    }
+    function renderCard(item){const a=item.assignment;const sev=severityOf(item.risk);const riskText=sev==="informational"?`Informational (Risk 0/100)`:`Risk ${item.risk}/100 · ${severityLabel[sev]}`;
+      const card=el("article",{class:"fact-card work-item"},
+        el("div",{class:"work-item-head"},el("h2",{text:item.title}),badge(riskText,sev==="informational"?"unknown":sev==="high"?"outdated":"unknown"),badge(item.status.replaceAll("_"," "),item.exception?"unknown":"outdated")),
         el("a",{href:`#/host/${encodeURIComponent(item.host)}`,text:item.host}),el("p",{text:item.evidence}),el("p",{},el("strong",{text:"Recommended next step: "}),item.recommendation),
         el("p",{class:"meta",text:`Owner: ${a.owner||"Unassigned"} · Team: ${a.team||"Unassigned"} · Due: ${a.due_at?dateText(a.due_at):"Not set"}${item.overdue?" · OVERDUE":""}`}));
-        if(item.exception)card.appendChild(el("p",{text:`Accepted until ${dateText(item.exception.expires_at)}: ${item.exception.reason}`}));
-        card.appendChild(evidence(item.coverage));
-        card.appendChild(el("details",{},el("summary",{text:"Assign this finding"}),assignmentForm(item.host,item.id,a,show)));
-        card.appendChild(el("details",{},el("summary",{text:"Temporary exception (admin)"}),exceptionForm(item,show)));
-        if(item.approval_id){const link=el("a",{href:"#/fleet",text:"Review pending approval in Fleet"});card.appendChild(link);}
-        list.appendChild(card);
-      }
-      if(!rows.length)list.appendChild(el("p",{text:"No matching open work."}));
+      if(item.exception)card.appendChild(el("p",{text:`Accepted until ${dateText(item.exception.expires_at)}: ${item.exception.reason}`}));
+      card.appendChild(evidence(item.coverage));
+      card.appendChild(el("details",{},el("summary",{text:"Assign this finding"}),assignmentForm(item.host,item.id,a,show)));
+      card.appendChild(el("details",{},el("summary",{text:"Temporary exception (admin)"}),exceptionForm(item,show)));
+      if(item.approval_id){const link=el("a",{href:"#/fleet",text:"Review pending approval in Fleet"});card.appendChild(link);}
+      return card;
     }
-    filter.addEventListener("input",render);onlyMine.addEventListener("change",render);render();
+    function render(){list.replaceChildren();
+      const all=data.items.filter(matchesFilters).sort((x,y)=>y.risk-x.risk);
+      const shown=all.slice(0,visibleCount);
+      list.appendChild(el("p",{class:"meta",text:`Showing ${shown.length} of ${all.length} matching findings (highest risk first) · updated ${dateText(data.generated_at)}`}));
+      if(groupSelect.value==="none"){
+        for(const item of shown)list.appendChild(renderCard(item));
+      } else {
+        const key=groupSelect.value==="host"?i=>i.host:i=>i.recommendation;
+        const groups=new Map();
+        for(const item of shown){const k=key(item);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(item);}
+        for(const [k,items] of groups){
+          const cluster=el("details",{class:"work-group-cluster",open:""});
+          cluster.appendChild(el("summary",{text:`${k} (${items.length})`}));
+          for(const item of items)cluster.appendChild(renderCard(item));
+          list.appendChild(cluster);
+        }
+      }
+      if(all.length>shown.length){
+        const remaining=all.length-shown.length;
+        const more=el("button",{type:"button",class:"ghost",text:`Show ${Math.min(PAGE_SIZE,remaining)} more (${remaining} remaining)`});
+        more.addEventListener("click",()=>{visibleCount+=PAGE_SIZE;render();});
+        list.appendChild(more);
+      }
+      if(!all.length)list.appendChild(el("p",{text:"No matching open work."}));
+    }
+    for(const ctrl of [filter,onlyMine,severitySelect,statusSelect,assignSelect,evidenceSelect,groupSelect]){
+      ctrl.addEventListener(ctrl===filter?"input":"change",()=>{visibleCount=PAGE_SIZE;render();});
+    }
+    render();
     const ownerSection=el("section",{class:"fact-card"},el("h2",{text:"Default device ownership"}));
     const hostSelect=el("select",{},...data.hosts.map(h=>el("option",{value:h,text:h}))), slot=el("div",{});
     const loadOwner=()=>{const host=hostSelect.value;slot.replaceChildren(...(host?[assignmentForm(host,"host:"+host,data.assignments.find(a=>a.id==="host:"+host)||{},show)]:[]));};hostSelect.addEventListener("change",loadOwner);ownerSection.append(field("Device",hostSelect),slot);loadOwner();container.appendChild(ownerSection);
     const groupSlot=el("section",{class:"fact-card"}), planSlot=el("section",{class:"fact-card"});container.append(groupSlot,planSlot);
     const panels={Findings:findingsPanel,Ownership:ownerSection,"Dynamic groups":groupSlot,"Change plans":planSlot};
-    const tabs=el("div",{class:"visibility-toolbar work-sections",role:"group","aria-label":"Work queue sections"});
-    const select=()=>{for(const [name,panel] of Object.entries(panels))panel.hidden=name!==activeSection;for(const b of tabs.querySelectorAll("button"))b.setAttribute("aria-pressed",String(b.textContent===activeSection));};
-    for(const name of Object.keys(panels)){const b=el("button",{type:"button",text:name});b.addEventListener("click",()=>{activeSection=name;select();});tabs.appendChild(b);}container.insertBefore(tabs,refreshButton);select();
+    const tabIDs={};for(const name of Object.keys(panels))tabIDs[name]="tt-tab-"+name.toLowerCase().replace(/[^a-z0-9]+/g,"-");
+    const tabs=el("div",{class:"visibility-toolbar work-sections",role:"tablist","aria-label":"Work queue sections"});
+    const select=()=>{for(const [name,panel] of Object.entries(panels)){panel.hidden=name!==activeSection;panel.setAttribute("role","tabpanel");panel.setAttribute("aria-labelledby",tabIDs[name]);panel.id=panel.id||tabIDs[name]+"-panel";}
+      for(const b of tabs.querySelectorAll("[role=tab]")){const selected=b.textContent===activeSection;b.setAttribute("aria-selected",String(selected));b.setAttribute("tabindex",selected?"0":"-1");}};
+    for(const name of Object.keys(panels)){const b=el("button",{type:"button",text:name,role:"tab",id:tabIDs[name],"aria-controls":tabIDs[name]+"-panel"});b.addEventListener("click",()=>{activeSection=name;select();});
+      b.addEventListener("keydown",e=>{const names=Object.keys(panels);const i=names.indexOf(activeSection);let next=null;if(e.key==="ArrowRight")next=names[(i+1)%names.length];else if(e.key==="ArrowLeft")next=names[(i-1+names.length)%names.length];if(next){e.preventDefault();activeSection=next;select();tabs.querySelector("#"+tabIDs[next]).focus();}});
+      tabs.appendChild(b);}container.insertBefore(tabs,refreshButton);select();
     await Promise.all([groups(groupSlot),plans(planSlot,data.hosts)]);
   }
   async function groups(container){
