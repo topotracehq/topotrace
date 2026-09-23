@@ -672,26 +672,39 @@ func seedOperations(ctx context.Context, st store.Store, hosts []model.Host, now
 
 	// A resolved success.
 	if a, ok := queue("api01.prod", "restart-service", "nginx"); ok {
-		st.MarkActionDelivered(ctx, a.ID)
-		st.RecordActionResult(ctx, a.ID, "ok", "service restarted cleanly")
+		if err := st.MarkActionDelivered(ctx, a.ID); err != nil {
+			return fmt.Errorf("marking action %s delivered: %w", a.ID, err)
+		}
+		if err := st.RecordActionResult(ctx, a.ID, "ok", "service restarted cleanly"); err != nil {
+			return fmt.Errorf("recording result for action %s: %w", a.ID, err)
+		}
 		n.actions++
 	}
 	// A resolved failure -- shows up in Inbox as a failed change.
 	if a, ok := queue("db01.prod", "restart-service", "postgresql"); ok {
-		st.MarkActionDelivered(ctx, a.ID)
-		st.RecordActionResult(ctx, a.ID, "fail", "dependency check failed, refused to restart a live primary")
+		if err := st.MarkActionDelivered(ctx, a.ID); err != nil {
+			return fmt.Errorf("marking action %s delivered: %w", a.ID, err)
+		}
+		if err := st.RecordActionResult(ctx, a.ID, "fail", "dependency check failed, refused to restart a live primary"); err != nil {
+			return fmt.Errorf("recording result for action %s: %w", a.ID, err)
+		}
 		n.actions++
 	}
 	if a, ok := queue("legacy01", "restart-service", "sshd"); ok {
-		st.MarkActionDelivered(ctx, a.ID)
-		st.RecordActionResult(ctx, a.ID, "fail", "unit not found -- host is past its decommission date")
+		if err := st.MarkActionDelivered(ctx, a.ID); err != nil {
+			return fmt.Errorf("marking action %s delivered: %w", a.ID, err)
+		}
+		if err := st.RecordActionResult(ctx, a.ID, "fail", "unit not found -- host is past its decommission date"); err != nil {
+			return fmt.Errorf("recording result for action %s: %w", a.ID, err)
+		}
 		n.actions++
 	}
 	// A delivered action still awaiting a result.
 	if a, ok := queue("WIN-FIN02", "restart-service", "Spooler"); ok {
-		st.MarkActionDelivered(ctx, a.ID)
+		if err := st.MarkActionDelivered(ctx, a.ID); err != nil {
+			return fmt.Errorf("marking action %s delivered: %w", a.ID, err)
+		}
 		n.actions++
-		_ = a
 	}
 	// A queued-but-not-yet-delivered action.
 	if _, ok := queue("web02.prod", "apply-updates", ""); ok {
