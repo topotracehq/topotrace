@@ -54,12 +54,14 @@ import (
 	"topotrace/internal/cook"
 	"topotrace/internal/eol"
 	"topotrace/internal/ingest"
+	"topotrace/internal/ldap"
 	"topotrace/internal/model"
 	"topotrace/internal/oauth"
 	"topotrace/internal/operations"
 	"topotrace/internal/pluginhost"
 	"topotrace/internal/policy"
 	"topotrace/internal/remediate"
+	"topotrace/internal/saml"
 	"topotrace/internal/scanner"
 	"topotrace/internal/settingsstore"
 	"topotrace/internal/siemforward"
@@ -125,10 +127,33 @@ type Server struct {
 	// tokens, exactly as every earlier round of this project did.
 	OAuth *oauth.Config
 
-	// Sessions backs OAuth: the in-memory store of session cookies
-	// issued after a successful login. Only ever non-nil alongside
-	// OAuth -- cmd/topotrace constructs one iff -oauth-* flags parsed.
+	// Sessions backs OAuth, LDAP, and SAML dashboard logins alike: the
+	// in-memory store of session cookies issued after a successful
+	// login by any of the three. cmd/topotrace constructs one iff at
+	// least one of OAuth/LDAP/SAML parsed.
 	Sessions *oauth.SessionStore
+
+	// LDAP, when non-nil, turns on AD/LDAP dashboard login
+	// (POST /api/auth/ldap-login) -- see internal/ldap and
+	// docs/security-model.md. Left nil (no -ldap-* flags given), that
+	// endpoint reports itself disabled.
+	LDAP *ldap.Config
+
+	// SAML, when non-nil, turns on SAML 2.0 SSO dashboard login
+	// (GET /api/auth/saml/login, /api/auth/saml/metadata,
+	// POST /api/auth/saml/acs) -- see internal/saml and
+	// docs/security-model.md. Left nil (no -saml-* flags given), those
+	// endpoints report themselves disabled.
+	SAML *saml.Config
+
+	// LogLevel, when non-nil, is the live handle on the process's slog
+	// level -- what PATCH /api/settings's log_level field adjusts
+	// immediately, no restart, the same way SIEM forwarding and Ask
+	// TopoTrace are live-reconfigurable. cmd/topotrace always
+	// constructs one (it's how -log-level itself is wired), so this is
+	// effectively never nil outside of a test that builds a bare
+	// Server{}.
+	LogLevel *slog.LevelVar
 
 	// AIQuery is "Ask TopoTrace"'s Anthropic credential/model (see
 	// -ai-api-key/-ai-model), held in a mutable ConfigStore so
@@ -306,6 +331,10 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/auth/callback", s.handleAuthCallback)
 	mux.HandleFunc("POST /api/auth/logout", s.handleAuthLogout)
 	mux.HandleFunc("GET /api/auth/me", s.handleAuthMe)
+	mux.HandleFunc("POST /api/auth/ldap-login", s.handleLDAPLogin)
+	mux.HandleFunc("GET /api/auth/saml/login", s.handleSAMLLogin)
+	mux.HandleFunc("GET /api/auth/saml/metadata", s.handleSAMLMetadata)
+	mux.HandleFunc("POST /api/auth/saml/acs", s.handleSAMLACS)
 	mux.HandleFunc("POST /api/ask", s.handleAsk)
 	mux.HandleFunc("POST /api/ask/draft-policy", s.handleDraftPolicy)
 	mux.HandleFunc("POST /api/ask/summary", s.handleExecutiveSummary)
@@ -369,6 +398,74 @@ type settingsAuth struct {
 	OAuthUserInfoURL            string `json:"oauth_userinfo_url,omitempty"`
 	OAuthRedirectURL            string `json:"oauth_redirect_url,omitempty"`
 	OAuthScopes                 string `json:"oauth_scopes,omitempty"`
+
+	// LDAP fields -- BindPassword is withheld as a plain configured
+	// bool, same pattern as OAuthClientSecretConfigured.
+	LDAPConfigured             bool     `json:"ldap_configured"`
+	LDAPRoleMap                []string `json:"ldap_role_map,omitempty"`
+	LDAPHost                   string   `json:"ldap_host,omitempty"`
+	LDAPPort                   int      `json:"ldap_port,omitempty"`
+	LDAPUseTLS                 bool     `json:"ldap_use_tls,omitempty"`
+	LDAPBindDN                 string   `json:"ldap_bind_dn,omitempty"`
+	LDAPBindPasswordConfigured bool     `json:"ldap_bind_password_configured"`
+	LDAPUserBaseDN             string   `json:"ldap_user_base_dn,omitempty"`
+	LDAPUserAttr               string   `json:"ldap_user_attr,omitempty"`
+
+	// SAML fields -- the IdP certificate is withheld as a plain
+	// configured bool; entity ID and URLs are not secrets (they're in
+	// the public SP metadata document anyway).
+	SAMLConfigured bool     `json:"saml_configured"`
+	SAMLRoleMap    []string `json:"saml_role_map,omitempty"`
+	SAMLEntityID   string   `json:"saml_entity_id,omitempty"`
+	SAMLACSURL     string   `json:"saml_acs_url,omitempty"`
+	SAMLIdPSSOURL  string   `json:"saml_idp_sso_url,omitempty"`
+}
+
+// settingsLogging is GET /api/settings's logging slice -- see
+// Server.LogLevel.
+type settingsLogging struct {
+	Level string `json:"level"`
+}
+
+// logLevelString and parseLogLevel convert between slog.Level and the
+// lowercase strings PATCH /api/settings's log_level field and
+// -log-level accept -- "debug", "info", "warn", "error". slog's own
+// Level.String() prints uppercase ("INFO") and doesn't round-trip
+// exactly for non-named levels, so this is a small, deliberately exact
+// mapping instead.
+func logLevelString(l slog.Level) string {
+	switch l {
+	case slog.LevelDebug:
+		return "debug"
+	case slog.LevelWarn:
+		return "warn"
+	case slog.LevelError:
+		return "error"
+	default:
+		return "info"
+	}
+}
+
+func parseLogLevel(s string) (slog.Level, error) {
+	return ParseLogLevel(s)
+}
+
+// ParseLogLevel is parseLogLevel's exported form, so cmd/topotrace can
+// apply the same parsing to -log-level/TOPOTRACE_LOG_LEVEL at startup
+// (see Server.LogLevel) without duplicating the switch.
+func ParseLogLevel(s string) (slog.Level, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn", "warning":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, fmt.Errorf("log_level must be one of: debug, info, warn, error")
+	}
 }
 
 // settingsVulnFeed is GET /api/settings's vuln-feed slice.
@@ -433,6 +530,7 @@ type settingsResponse struct {
 	APIAddr           string               `json:"api_addr"`
 	EvaluatorInterval string               `json:"evaluator_interval"`
 	Auth              settingsAuth         `json:"auth"`
+	Logging           settingsLogging      `json:"logging"`
 	VulnFeed          settingsVulnFeed     `json:"vuln_feed"`
 	AskTopoTrace      settingsAskTopoTrace `json:"ask_topotrace"`
 	Webhooks          settingsWebhooks     `json:"webhooks"`
@@ -486,6 +584,9 @@ func (s *Server) settingsSnapshot() settingsResponse {
 		},
 		Webhooks: notifySettings(s.Webhooks),
 	}
+	if s.LogLevel != nil {
+		resp.Logging.Level = logLevelString(s.LogLevel.Level())
+	}
 	if s.OAuth != nil {
 		resp.Auth.OAuthClientID = s.OAuth.ClientID
 		resp.Auth.OAuthClientSecretConfigured = s.OAuth.ClientSecret != ""
@@ -494,6 +595,24 @@ func (s *Server) settingsSnapshot() settingsResponse {
 		resp.Auth.OAuthUserInfoURL = s.OAuth.UserInfoURL
 		resp.Auth.OAuthRedirectURL = s.OAuth.RedirectURL
 		resp.Auth.OAuthScopes = s.OAuth.Scopes
+	}
+	if s.LDAP != nil {
+		resp.Auth.LDAPConfigured = true
+		resp.Auth.LDAPRoleMap = s.LDAP.RoleMapStrings()
+		resp.Auth.LDAPHost = s.LDAP.Host
+		resp.Auth.LDAPPort = s.LDAP.Port
+		resp.Auth.LDAPUseTLS = s.LDAP.UseTLS
+		resp.Auth.LDAPBindDN = s.LDAP.BindDN
+		resp.Auth.LDAPBindPasswordConfigured = s.LDAP.BindPassword != ""
+		resp.Auth.LDAPUserBaseDN = s.LDAP.UserBaseDN
+		resp.Auth.LDAPUserAttr = s.LDAP.UserAttr
+	}
+	if s.SAML != nil {
+		resp.Auth.SAMLConfigured = true
+		resp.Auth.SAMLRoleMap = s.SAML.RoleMapStrings()
+		resp.Auth.SAMLEntityID = s.SAML.EntityID
+		resp.Auth.SAMLACSURL = s.SAML.ACSURL
+		resp.Auth.SAMLIdPSSOURL = s.SAML.IdPSSOURL
 	}
 	if s.VulnFeed != nil {
 		resp.VulnFeed.Interval = s.VulnFeedInterval.String()
@@ -552,6 +671,35 @@ type settingsPatchRequest struct {
 	AIBackend *string `json:"ai_backend,omitempty"`  // "anthropic" or "openai-compatible"
 	AIBaseURL *string `json:"ai_base_url,omitempty"` // required by openai-compatible
 	AIDisable bool    `json:"ai_disable,omitempty"`
+
+	// Process log level -- live-reconfigurable, no restart, same as
+	// SIEM/Ask TopoTrace above. One of debug/info/warn/error.
+	LogLevel *string `json:"log_level,omitempty"`
+
+	// AD/LDAP dashboard login -- persist-for-next-restart, all-or-
+	// nothing (validated with ldap.NewConfig before saving).
+	// ldap_disable clears every saved ldap_* override.
+	LDAPHost         *string `json:"ldap_host,omitempty"`
+	LDAPPort         *int    `json:"ldap_port,omitempty"`
+	LDAPUseTLS       *bool   `json:"ldap_use_tls,omitempty"`
+	LDAPBindDN       *string `json:"ldap_bind_dn,omitempty"`
+	LDAPBindPassword *string `json:"ldap_bind_password,omitempty"`
+	LDAPUserBaseDN   *string `json:"ldap_user_base_dn,omitempty"`
+	LDAPUserAttr     *string `json:"ldap_user_attr,omitempty"`
+	LDAPMailAttr     *string `json:"ldap_mail_attr,omitempty"`
+	LDAPGroupAttr    *string `json:"ldap_group_attr,omitempty"`
+	LDAPRoleMap      *string `json:"ldap_role_map,omitempty"`
+	LDAPDisable      bool    `json:"ldap_disable,omitempty"`
+
+	// SAML 2.0 dashboard SSO -- persist-for-next-restart, all-or-
+	// nothing (validated with saml.NewConfig before saving).
+	// saml_disable clears every saved saml_* override.
+	SAMLEntityID  *string `json:"saml_entity_id,omitempty"`
+	SAMLACSURL    *string `json:"saml_acs_url,omitempty"`
+	SAMLIdPSSOURL *string `json:"saml_idp_sso_url,omitempty"`
+	SAMLIdPCert   *string `json:"saml_idp_cert,omitempty"`
+	SAMLRoleMap   *string `json:"saml_role_map,omitempty"`
+	SAMLDisable   bool    `json:"saml_disable,omitempty"`
 
 	// General/ports -- persist-for-next-restart (see
 	// internal/settingsstore's doc comment). Validated to look like
@@ -763,6 +911,23 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 		actions = append(actions, "ask topotrace configured ("+backend+")")
 	}
 
+	// Process log level -- live-reconfigurable, no restart, same
+	// pattern as SIEM/Ask TopoTrace above.
+	if req.LogLevel != nil {
+		if s.LogLevel == nil {
+			s.writeError(w, http.StatusServiceUnavailable, "log level is not adjustable on this server")
+			return
+		}
+		level, err := parseLogLevel(*req.LogLevel)
+		if err != nil {
+			s.writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		s.LogLevel.Set(level)
+		overrides.LogLevel = logLevelString(level)
+		actions = append(actions, "log level set to "+logLevelString(level))
+	}
+
 	var restartRequired []string
 
 	// General/ports -- persist-for-next-restart only (see
@@ -838,6 +1003,89 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 		overrides.OAuthRoleMap = roleMap
 		actions = append(actions, "oauth saved for next restart")
 		restartRequired = append(restartRequired, "oauth")
+	}
+
+	// AD/LDAP dashboard login -- persist-for-next-restart, all-or-
+	// nothing. Validated with ldap.NewConfig (the same validation
+	// cmd/topotrace applies to the -ldap-* flags) before saving.
+	switch {
+	case req.LDAPDisable:
+		overrides.LDAPHost = ""
+		overrides.LDAPPort = ""
+		overrides.LDAPUseTLS = false
+		overrides.LDAPBindDN = ""
+		overrides.LDAPBindPassword = ""
+		overrides.LDAPUserBaseDN = ""
+		overrides.LDAPUserAttr = ""
+		overrides.LDAPMailAttr = ""
+		overrides.LDAPGroupAttr = ""
+		overrides.LDAPRoleMap = ""
+		actions = append(actions, "ldap override cleared for next restart")
+		restartRequired = append(restartRequired, "ldap")
+	case req.LDAPHost != nil || req.LDAPPort != nil || req.LDAPUseTLS != nil || req.LDAPBindDN != nil ||
+		req.LDAPBindPassword != nil || req.LDAPUserBaseDN != nil || req.LDAPUserAttr != nil ||
+		req.LDAPMailAttr != nil || req.LDAPGroupAttr != nil || req.LDAPRoleMap != nil:
+		host := strings.TrimSpace(strPtrVal(req.LDAPHost))
+		port := 0
+		if req.LDAPPort != nil {
+			port = *req.LDAPPort
+		}
+		useTLS := req.LDAPUseTLS != nil && *req.LDAPUseTLS
+		bindDN := strings.TrimSpace(strPtrVal(req.LDAPBindDN))
+		bindPassword := strPtrVal(req.LDAPBindPassword)
+		userBaseDN := strings.TrimSpace(strPtrVal(req.LDAPUserBaseDN))
+		userAttr := strings.TrimSpace(strPtrVal(req.LDAPUserAttr))
+		mailAttr := strings.TrimSpace(strPtrVal(req.LDAPMailAttr))
+		groupAttr := strings.TrimSpace(strPtrVal(req.LDAPGroupAttr))
+		roleMap := strings.TrimSpace(strPtrVal(req.LDAPRoleMap))
+		if _, err := ldap.NewConfig(host, port, useTLS, bindDN, bindPassword, userBaseDN, userAttr, mailAttr, groupAttr, roleMap); err != nil {
+			s.writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		overrides.LDAPHost = host
+		overrides.LDAPPort = strconv.Itoa(port)
+		overrides.LDAPUseTLS = useTLS
+		overrides.LDAPBindDN = bindDN
+		overrides.LDAPBindPassword = bindPassword
+		overrides.LDAPUserBaseDN = userBaseDN
+		overrides.LDAPUserAttr = userAttr
+		overrides.LDAPMailAttr = mailAttr
+		overrides.LDAPGroupAttr = groupAttr
+		overrides.LDAPRoleMap = roleMap
+		actions = append(actions, "ldap saved for next restart")
+		restartRequired = append(restartRequired, "ldap")
+	}
+
+	// SAML 2.0 dashboard SSO -- persist-for-next-restart, all-or-
+	// nothing. Validated with saml.NewConfig (the same validation
+	// cmd/topotrace applies to the -saml-* flags) before saving.
+	switch {
+	case req.SAMLDisable:
+		overrides.SAMLEntityID = ""
+		overrides.SAMLACSURL = ""
+		overrides.SAMLIdPSSOURL = ""
+		overrides.SAMLIdPCert = ""
+		overrides.SAMLRoleMap = ""
+		actions = append(actions, "saml override cleared for next restart")
+		restartRequired = append(restartRequired, "saml")
+	case req.SAMLEntityID != nil || req.SAMLACSURL != nil || req.SAMLIdPSSOURL != nil ||
+		req.SAMLIdPCert != nil || req.SAMLRoleMap != nil:
+		entityID := strings.TrimSpace(strPtrVal(req.SAMLEntityID))
+		acsURL := strings.TrimSpace(strPtrVal(req.SAMLACSURL))
+		idpSSOURL := strings.TrimSpace(strPtrVal(req.SAMLIdPSSOURL))
+		idpCert := strPtrVal(req.SAMLIdPCert)
+		roleMap := strings.TrimSpace(strPtrVal(req.SAMLRoleMap))
+		if _, err := saml.NewConfig(entityID, acsURL, idpSSOURL, idpCert, roleMap); err != nil {
+			s.writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		overrides.SAMLEntityID = entityID
+		overrides.SAMLACSURL = acsURL
+		overrides.SAMLIdPSSOURL = idpSSOURL
+		overrides.SAMLIdPCert = idpCert
+		overrides.SAMLRoleMap = roleMap
+		actions = append(actions, "saml saved for next restart")
+		restartRequired = append(restartRequired, "saml")
 	}
 
 	// Vulnerability feed (OSV.dev) -- persist-for-next-restart.
@@ -3088,26 +3336,171 @@ func (s *Server) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]string{"status": "logged out"})
 }
 
+// handleLDAPLogin is POST /api/auth/ldap-login -- a JSON
+// {"username":..., "password":...} body, unlike OAuth/SAML's
+// browser-redirect flows, since there's no external IdP UI to redirect
+// to: the dashboard's own login form collects the credential and posts
+// it straight here. On success this behaves exactly like
+// handleAuthCallback's tail end -- a session cookie is issued and the
+// login is audited. On failure it deliberately returns the same 401
+// with the same generic message regardless of whether the directory was
+// unreachable, the user didn't exist, the password was wrong, or the
+// user's groups didn't map to a role -- see ldap.Config.Authenticate's
+// doc comment for why.
+//
+// This endpoint has no built-in rate limiting or lockout -- a known gap
+// (see docs/security-model.md) worth addressing (e.g. with a reverse
+// proxy's rate limiting, or an account-lockout policy enforced by the
+// directory itself, which most AD/LDAP deployments already have) before
+// exposing it on the public internet.
+func (s *Server) handleLDAPLogin(w http.ResponseWriter, r *http.Request) {
+	if s.LDAP == nil || s.Sessions == nil {
+		s.writeError(w, http.StatusServiceUnavailable, "AD/LDAP login is not configured on this server (see the -ldap-* flags)")
+		return
+	}
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	email, role, err := s.LDAP.Authenticate(r.Context(), req.Username, req.Password)
+	if err != nil {
+		s.log().Warn("LDAP login failed", "username", req.Username, "err", err)
+		s.writeError(w, http.StatusUnauthorized, "invalid username or password")
+		return
+	}
+	sessionID := s.Sessions.Create(email, role)
+	transientCookie(w, oauth.SessionCookieName, sessionID, int(oauth.SessionTTL.Seconds()))
+	if _, err := s.Store.RecordAudit(r.Context(), email, "ldap-login", email, fmt.Sprintf("role=%s", role)); err != nil {
+		s.log().Error("recording audit entry", "err", err)
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"authenticated": true, "email": email, "role": role})
+}
+
+const samlRelayStateCookie = "topotrace_saml_relaystate"
+
+// handleSAMLLogin is GET /api/auth/saml/login -- the SP-initiated start
+// of SAML SSO, mirroring handleAuthLogin: it redirects the browser to
+// the IdP's SSO endpoint with a freshly-built AuthnRequest, stashing a
+// random RelayState value as a short-lived cookie so handleSAMLACS can
+// confirm the response it gets back corresponds to a request this
+// server actually issued (the same CSRF-prevention role oauthStateCookie
+// plays for OAuth).
+func (s *Server) handleSAMLLogin(w http.ResponseWriter, r *http.Request) {
+	if s.SAML == nil {
+		s.writeError(w, http.StatusServiceUnavailable, "SAML login is not configured on this server (see the -saml-* flags)")
+		return
+	}
+	relayState, err := randomRelayState()
+	if err != nil {
+		s.log().Error("generating SAML RelayState", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "starting SAML login")
+		return
+	}
+	redirectURL, err := s.SAML.AuthnRequestURL(relayState)
+	if err != nil {
+		s.log().Error("building SAML AuthnRequest", "err", err)
+		s.writeError(w, http.StatusInternalServerError, "starting SAML login")
+		return
+	}
+	transientCookie(w, samlRelayStateCookie, relayState, 600)
+	http.Redirect(w, r, redirectURL, http.StatusFound)
+}
+
+func randomRelayState() (string, error) {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// handleSAMLMetadata is GET /api/auth/saml/metadata -- unauthenticated,
+// like any SP metadata endpoint (it carries no secret, only this
+// server's entity ID and ACS URL), for pasting into the IdP admin
+// console's "SP metadata URL" field.
+func (s *Server) handleSAMLMetadata(w http.ResponseWriter, r *http.Request) {
+	if s.SAML == nil {
+		s.writeError(w, http.StatusServiceUnavailable, "SAML login is not configured on this server (see the -saml-* flags)")
+		return
+	}
+	w.Header().Set("Content-Type", "application/samlmetadata+xml")
+	_, _ = w.Write(s.SAML.Metadata())
+}
+
+// handleSAMLACS is POST /api/auth/saml/acs -- the SAML Assertion
+// Consumer Service the IdP's browser redirect posts back to
+// (application/x-www-form-urlencoded, fields SAMLResponse and
+// RelayState). Verifies RelayState against handleSAMLLogin's cookie,
+// verifies and parses the assertion (see saml.Config.ParseResponse and
+// its documented signature-verification caveat), then behaves like
+// handleAuthCallback's tail end.
+func (s *Server) handleSAMLACS(w http.ResponseWriter, r *http.Request) {
+	if s.SAML == nil || s.Sessions == nil {
+		s.writeError(w, http.StatusServiceUnavailable, "SAML login is not configured on this server")
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid form body")
+		return
+	}
+	relayState := r.PostForm.Get("RelayState")
+	stateCookie, err := r.Cookie(samlRelayStateCookie)
+	if relayState == "" || err != nil || stateCookie.Value == "" || relayState != stateCookie.Value {
+		s.writeError(w, http.StatusBadRequest, "invalid or expired SAML RelayState -- start over at /api/auth/saml/login")
+		return
+	}
+	transientCookie(w, samlRelayStateCookie, "", -1)
+
+	samlResponse := r.PostForm.Get("SAMLResponse")
+	if samlResponse == "" {
+		s.writeError(w, http.StatusBadRequest, "missing SAMLResponse")
+		return
+	}
+	result, err := s.SAML.ParseResponse(samlResponse)
+	if err != nil {
+		s.log().Error("SAML response verification", "err", err)
+		s.writeError(w, http.StatusUnauthorized, "completing SAML login failed")
+		return
+	}
+	sessionID := s.Sessions.Create(result.Email, result.Role)
+	transientCookie(w, oauth.SessionCookieName, sessionID, int(oauth.SessionTTL.Seconds()))
+	if _, err := s.Store.RecordAudit(r.Context(), result.Email, "saml-login", result.Email, fmt.Sprintf("role=%s", result.Role)); err != nil {
+		s.log().Error("recording audit entry", "err", err)
+	}
+	http.Redirect(w, r, "/", http.StatusFound)
+}
+
 // handleAuthMe is GET /api/auth/me -- unauthenticated itself (a
 // dashboard has to be able to ask "am I logged in?" before it has
-// anything to authenticate with), it tells the web UI whether OAuth
-// login is even configured (so it knows whether to show a "Sign in"
-// control at all) and, if the request carries a valid session cookie,
-// who as and with what role.
+// anything to authenticate with), it tells the web UI which login
+// methods are even configured (so it knows which "Sign in" controls to
+// show) and, if the request carries a valid session cookie, who as and
+// with what role -- regardless of which of the three methods issued it,
+// since all three share one Sessions store.
 func (s *Server) handleAuthMe(w http.ResponseWriter, r *http.Request) {
 	oauthEnabled := s.OAuth != nil && s.OAuth.Enabled
+	ldapEnabled := s.LDAP != nil
+	samlEnabled := s.SAML != nil
 	if email, role, ok := s.sessionFromCookie(r); ok {
 		s.writeJSON(w, http.StatusOK, map[string]any{
 			"authenticated": true,
 			"email":         email,
 			"role":          role,
 			"oauth_enabled": oauthEnabled,
+			"ldap_enabled":  ldapEnabled,
+			"saml_enabled":  samlEnabled,
 		})
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{
 		"authenticated": false,
 		"oauth_enabled": oauthEnabled,
+		"ldap_enabled":  ldapEnabled,
+		"saml_enabled":  samlEnabled,
 	})
 }
 

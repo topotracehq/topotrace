@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -41,8 +42,10 @@ import (
 	"topotrace/internal/cook"
 	"topotrace/internal/evaluator"
 	"topotrace/internal/ingest"
+	"topotrace/internal/ldap"
 	"topotrace/internal/oauth"
 	"topotrace/internal/pluginhost"
+	"topotrace/internal/saml"
 	"topotrace/internal/settingsstore"
 	"topotrace/internal/siemforward"
 	"topotrace/internal/store"
@@ -80,6 +83,25 @@ func main() {
 		oauthScopes       = flag.String("oauth-scopes", os.Getenv("TOPOTRACE_OAUTH_SCOPES"), "space-separated OAuth2 scopes to request. Defaults to \"openid email profile\" when empty. Also read from TOPOTRACE_OAUTH_SCOPES.")
 		oauthRoleMap      = flag.String("oauth-role-map", os.Getenv("TOPOTRACE_OAUTH_ROLE_MAP"), "comma-separated email/domain-to-role mappings, checked in order, e.g. \"admin@example.com=admin,*@example.com=readonly\". Required (and the whole -oauth-* group required) once any -oauth-* flag is set. Also read from TOPOTRACE_OAUTH_ROLE_MAP.")
 
+		ldapHost         = flag.String("ldap-host", os.Getenv("TOPOTRACE_LDAP_HOST"), "AD/LDAP server hostname for dashboard login (POST /api/auth/ldap-login). Leave every -ldap-* flag empty to disable it entirely. Also read from TOPOTRACE_LDAP_HOST.")
+		ldapPort         = flag.Int("ldap-port", 0, "AD/LDAP server port. Defaults to 636 with -ldap-use-tls, else 389.")
+		ldapUseTLS       = flag.Bool("ldap-use-tls", true, "connect to the LDAP server over TLS (LDAPS). Set false only for a directory reachable exclusively over a trusted private network.")
+		ldapBindDN       = flag.String("ldap-bind-dn", os.Getenv("TOPOTRACE_LDAP_BIND_DN"), "service-account DN used to search the directory for the user logging in (e.g. \"CN=svc-topotrace,OU=Service Accounts,DC=example,DC=com\"). Empty attempts an anonymous bind for the search, which most directories disallow. Also read from TOPOTRACE_LDAP_BIND_DN.")
+		ldapBindPassword = flag.String("ldap-bind-password", os.Getenv("TOPOTRACE_LDAP_BIND_PASSWORD"), "password for -ldap-bind-dn. Also read from TOPOTRACE_LDAP_BIND_PASSWORD.")
+		ldapUserBaseDN   = flag.String("ldap-user-base-dn", os.Getenv("TOPOTRACE_LDAP_USER_BASE_DN"), "subtree to search for the logging-in user's entry (e.g. \"OU=People,DC=example,DC=com\"). Required once any -ldap-* flag is set. Also read from TOPOTRACE_LDAP_USER_BASE_DN.")
+		ldapUserAttr     = flag.String("ldap-user-attr", os.Getenv("TOPOTRACE_LDAP_USER_ATTR"), "attribute holding the login username. Defaults to sAMAccountName (Active Directory); use uid for most generic LDAP/OpenLDAP directories. Also read from TOPOTRACE_LDAP_USER_ATTR.")
+		ldapMailAttr     = flag.String("ldap-mail-attr", os.Getenv("TOPOTRACE_LDAP_MAIL_ATTR"), "attribute holding the user's email address. Defaults to mail. Also read from TOPOTRACE_LDAP_MAIL_ATTR.")
+		ldapGroupAttr    = flag.String("ldap-group-attr", os.Getenv("TOPOTRACE_LDAP_GROUP_ATTR"), "attribute holding the group DNs a user belongs to, used for -ldap-role-map. Defaults to memberOf (Active Directory-style). Also read from TOPOTRACE_LDAP_GROUP_ATTR.")
+		ldapRoleMap      = flag.String("ldap-role-map", os.Getenv("TOPOTRACE_LDAP_ROLE_MAP"), "semicolon-separated group-to-role mappings (semicolon, not comma -- a group DN already contains commas of its own), checked in order, matched against -ldap-group-attr's values by full DN or bare CN, e.g. \"CN=TopoTrace Admins,OU=Groups,DC=example,DC=com=admin;*=readonly\". Required (and the whole -ldap-* group required) once any -ldap-* flag is set. Also read from TOPOTRACE_LDAP_ROLE_MAP.")
+
+		samlEntityID  = flag.String("saml-entity-id", os.Getenv("TOPOTRACE_SAML_ENTITY_ID"), "this server's own SAML SP entity ID (e.g. https://topotrace.example.com/saml/metadata) for SSO dashboard login. Leave every -saml-* flag empty to disable it entirely. Also read from TOPOTRACE_SAML_ENTITY_ID.")
+		samlACSURL    = flag.String("saml-acs-url", os.Getenv("TOPOTRACE_SAML_ACS_URL"), "this server's own Assertion Consumer Service URL as registered with the identity provider (e.g. https://topotrace.example.com/api/auth/saml/acs). Also read from TOPOTRACE_SAML_ACS_URL.")
+		samlIdPSSOURL = flag.String("saml-idp-sso-url", os.Getenv("TOPOTRACE_SAML_IDP_SSO_URL"), "identity provider's SSO endpoint (HTTP-Redirect binding). Also read from TOPOTRACE_SAML_IDP_SSO_URL.")
+		samlIdPCert   = flag.String("saml-idp-cert", os.Getenv("TOPOTRACE_SAML_IDP_CERT"), "identity provider's PEM-encoded signing certificate, used to verify assertion signatures -- see internal/saml's doc comment for this package's signature-verification approach and its documented limitations. Also read from TOPOTRACE_SAML_IDP_CERT.")
+		samlRoleMap   = flag.String("saml-role-map", os.Getenv("TOPOTRACE_SAML_ROLE_MAP"), "comma-separated email/domain-to-role mappings, same syntax as -oauth-role-map. Required (and the whole -saml-* group required) once any -saml-* flag is set. Also read from TOPOTRACE_SAML_ROLE_MAP.")
+
+		logLevel = flag.String("log-level", os.Getenv("TOPOTRACE_LOG_LEVEL"), "process log level: debug, info (default), warn, or error. Live-adjustable afterward from the dashboard's Settings page (PATCH /api/settings, log_level) with no restart. Also read from TOPOTRACE_LOG_LEVEL.")
+
 		aiAPIKey  = flag.String("ai-api-key", os.Getenv("TOPOTRACE_AI_API_KEY"), "Anthropic API key for \"Ask TopoTrace\" (POST /api/ask), a natural-language query surface over the fleet data with every question+answer recorded to the audit log. Empty disables the endpoint (it answers with a clear 'not configured' error). Also read from TOPOTRACE_AI_API_KEY.")
 		aiModel   = flag.String("ai-model", os.Getenv("TOPOTRACE_AI_MODEL"), "Model id Ask TopoTrace calls. For the anthropic backend, empty uses internal/aiquery's built-in default. For the openai-compatible backend this is required and has no default, since what is served depends on the server (e.g. a Hugging Face model id, or the name your local Ollama reports). Also read from TOPOTRACE_AI_MODEL.")
 		aiBackend = flag.String("ai-backend", os.Getenv("TOPOTRACE_AI_BACKEND"), "Which model API Ask TopoTrace speaks: \"anthropic\" (default) or \"openai-compatible\". The latter reaches Hugging Face's Inference Providers router and any self-hosted server that speaks OpenAI chat-completions (LM Studio, Ollama, vLLM, TGI) -- see -ai-base-url. Also read from TOPOTRACE_AI_BACKEND.")
@@ -113,7 +135,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	// logLevelVar backs -log-level and PATCH /api/settings's log_level
+	// field alike (see api.Server.LogLevel): a *slog.LevelVar embedded
+	// in the handler's options, so changing it later re-levels every
+	// logger derived from this one immediately, no restart. Applied a
+	// second time below, after -log-level has had a chance to pick up
+	// a saved dashboard override -- see that block's comment.
+	var logLevelVar slog.LevelVar
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: &logLevelVar}))
 	slog.SetDefault(logger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -185,6 +214,45 @@ func main() {
 		*oauthScopes = overrides.OAuthScopes
 		*oauthRoleMap = overrides.OAuthRoleMap
 		logger.Info("OAuth: using settings saved from the dashboard (no -oauth-* flags set)")
+	}
+	// AD/LDAP -- same all-or-nothing fallback shape as OAuth above.
+	if *ldapHost == "" && *ldapBindDN == "" && *ldapBindPassword == "" && *ldapUserBaseDN == "" &&
+		*ldapUserAttr == "" && *ldapMailAttr == "" && *ldapGroupAttr == "" && *ldapRoleMap == "" &&
+		overrides.LDAPHost != "" {
+		*ldapHost = overrides.LDAPHost
+		if p, err := strconv.Atoi(overrides.LDAPPort); err == nil {
+			*ldapPort = p
+		}
+		*ldapUseTLS = overrides.LDAPUseTLS
+		*ldapBindDN = overrides.LDAPBindDN
+		*ldapBindPassword = overrides.LDAPBindPassword
+		*ldapUserBaseDN = overrides.LDAPUserBaseDN
+		*ldapUserAttr = overrides.LDAPUserAttr
+		*ldapMailAttr = overrides.LDAPMailAttr
+		*ldapGroupAttr = overrides.LDAPGroupAttr
+		*ldapRoleMap = overrides.LDAPRoleMap
+		logger.Info("AD/LDAP: using settings saved from the dashboard (no -ldap-* flags set)")
+	}
+	// SAML -- same all-or-nothing fallback shape as OAuth above.
+	if *samlEntityID == "" && *samlACSURL == "" && *samlIdPSSOURL == "" && *samlIdPCert == "" && *samlRoleMap == "" &&
+		overrides.SAMLEntityID != "" {
+		*samlEntityID = overrides.SAMLEntityID
+		*samlACSURL = overrides.SAMLACSURL
+		*samlIdPSSOURL = overrides.SAMLIdPSSOURL
+		*samlIdPCert = overrides.SAMLIdPCert
+		*samlRoleMap = overrides.SAMLRoleMap
+		logger.Info("SAML: using settings saved from the dashboard (no -saml-* flags set)")
+	}
+	if *logLevel == "" && overrides.LogLevel != "" {
+		*logLevel = overrides.LogLevel
+	}
+	if *logLevel != "" {
+		level, err := api.ParseLogLevel(*logLevel)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "invalid -log-level %q: %v\n", *logLevel, err)
+			os.Exit(1)
+		}
+		logLevelVar.Set(level)
 	}
 	if *webhookURLs == "" && overrides.WebhookURLs != "" {
 		*webhookURLs = overrides.WebhookURLs
@@ -332,9 +400,34 @@ func main() {
 		logger.Error("invalid -oauth-* flags", "err", err)
 		os.Exit(1)
 	}
+
+	// AD/LDAP dashboard login (internal/ldap) -- same opt-in shape as
+	// OAuth above.
+	ldapCfg, err := ldap.NewConfig(*ldapHost, *ldapPort, *ldapUseTLS, *ldapBindDN, *ldapBindPassword, *ldapUserBaseDN, *ldapUserAttr, *ldapMailAttr, *ldapGroupAttr, *ldapRoleMap)
+	if err != nil {
+		logger.Error("invalid -ldap-* flags", "err", err)
+		os.Exit(1)
+	}
+	if ldapCfg != nil {
+		logger.Info("AD/LDAP dashboard login enabled", "host", *ldapHost, "user_base_dn", *ldapUserBaseDN)
+	}
+
+	// SAML 2.0 SSO dashboard login (internal/saml) -- same opt-in shape
+	// as OAuth above.
+	samlCfg, err := saml.NewConfig(*samlEntityID, *samlACSURL, *samlIdPSSOURL, *samlIdPCert, *samlRoleMap)
+	if err != nil {
+		logger.Error("invalid -saml-* flags", "err", err)
+		os.Exit(1)
+	}
+	if samlCfg != nil {
+		logger.Info("SAML SSO dashboard login enabled", "idp_sso_url", *samlIdPSSOURL, "entity_id", *samlEntityID)
+	}
+
 	var sessions *oauth.SessionStore
-	if oauthCfg != nil {
+	if oauthCfg != nil || ldapCfg != nil || samlCfg != nil {
 		sessions = oauth.NewSessionStore()
+	}
+	if oauthCfg != nil {
 		logger.Info("OAuth dashboard login enabled", "auth_url", *oauthAuthURL)
 	}
 
@@ -373,6 +466,7 @@ func main() {
 	apiSrv := &api.Server{
 		Store: st, Logger: logger.With("component", "api"), AuthToken: *authToken, OpenWrites: *openWrites,
 		Webhooks: hooks, VulnFeed: vulnFeed, Pipeline: pipeline, OAuth: oauthCfg, Sessions: sessions,
+		LDAP: ldapCfg, SAML: samlCfg, LogLevel: &logLevelVar,
 		AIQuery:              aiCfgStore,
 		StorageBackend:       storageBackend,
 		IngestAddr:           *ingestAddr,
