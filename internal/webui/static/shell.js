@@ -14,6 +14,21 @@
 "use strict";
 window.TopoTraceShell = (() => {
   const menu = document.querySelector(".mobile-menu"), sidebar = document.querySelector(".sidebar"), scrim = document.querySelector(".nav-scrim");
+  const workspaceSection = [...document.querySelectorAll(".nav-section")].find(section => section.querySelector(".nav-label")?.textContent.trim() === "Workspace");
+  if (workspaceSection) {
+    const advancedLinks = [...workspaceSection.querySelectorAll("a")].filter(link => ["tools", "docs", "license", "settings"].includes(link.dataset.view));
+    if (advancedLinks.length) {
+      const details = document.createElement("details");
+      details.className = "nav-more";
+      const summary = document.createElement("summary");
+      summary.innerHTML = '<span>Administration &amp; help</span><span class="nav-more-chevron" aria-hidden="true">⌄</span>';
+      const links = document.createElement("div");
+      links.className = "nav-more-links";
+      advancedLinks.forEach(link => links.appendChild(link));
+      details.append(summary, links);
+      workspaceSection.appendChild(details);
+    }
+  }
   function close(returnFocus = false) {
     document.body.classList.remove("nav-open"); menu.setAttribute("aria-expanded", "false"); scrim.hidden = true;
     if (returnFocus) menu.focus();
@@ -44,6 +59,7 @@ window.TopoTraceShell = (() => {
     document.querySelectorAll(".view-tabs a").forEach(a=>{const active=a.dataset.view===key;a.classList.toggle("active",active);if(active){a.setAttribute("aria-current","page");selected=a;}else a.removeAttribute("aria-current");});
     const extra={collections:"Collections",compare:"Compare",integrations:"Integration health",onboarding:"Getting started"};
     const title=key==="about"?"About TopoTrace":extra[key]||selected?.textContent.trim()||"Hosts";
+    const advanced = selected?.closest(".nav-more"); if(advanced) advanced.open=true;
     document.getElementById("nav-current").textContent=title;
     document.getElementById("nav-section").textContent=selected?.closest(".nav-section").querySelector(".nav-label").textContent||"Workspace";
     document.title=`${title} · TopoTrace`;close();

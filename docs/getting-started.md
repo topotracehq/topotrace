@@ -81,5 +81,7 @@ with Ctrl+F5 if the new navigation has not appeared.
 ## Navigate the dashboard
 
 Use the labeled sidebar to switch between Overview, Operations, and Workspace
-pages. On smaller screens, select Menu. See [Dashboard & Navigation](interface.md)
-for the documentation reader, work sections, printing, and presentation layout.
+pages. Less frequently used configuration and reference pages are under
+**Administration & help**, which opens automatically when one is active. On
+smaller screens, select Menu. See [Dashboard & Navigation](interface.md) for the
+documentation reader, work sections, printing, and presentation layout.

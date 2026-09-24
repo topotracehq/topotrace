@@ -1,9 +1,9 @@
 # Dashboard navigation and document reader
 
 TopoTrace's dashboard uses a shared visual system for navigation, forms, evidence
-tables, reports, and documentation. This interface refresh is included in release
-2026.09.18.5. It changes presentation and navigation, not permissions or the scope
-of collected data.
+tables, reports, and documentation. The September 2026 interface refresh improves
+presentation and navigation without changing permissions or the scope of collected
+data.
 
 ## Find your workspace
 
@@ -11,11 +11,14 @@ The sidebar keeps page names visible and groups them by task:
 
 | Section | Pages | Use it to |
 |---|---|---|
-| Overview | Fleet, Hosts, Visibility, Entity map | Understand inventory, reporting, and relationships |
-| Operations | Work queue, Board, Compliance, Agents | Prioritize findings, organize devices, and manage enrollment |
-| Workspace | Ask TopoTrace, Tools, Docs, Settings | Ask evidence questions and manage your workspace |
+| Overview | Today, Search, Fleet, Hosts, Device visibility, Entity map | Understand inventory, reporting, and relationships |
+| Operations | Site operations, Work queue, Board, Compliance, Agents | Prioritize findings, organize devices, and manage enrollment |
+| Workspace | Reports, Inbox, Ask TopoTrace | Communicate findings and review recorded activity |
+| Administration & help | Tools, Docs, License, Settings | Configure, document, and support the deployment |
 
-The header shows your current section. Inventory search appears on Hosts. Account
+The header shows your current section. Administration & help stays collapsed until
+you need it, and opens automatically when one of its pages is active. Inventory
+search appears on Hosts. Account
 opens the existing token controls; this is the same authentication mechanism as
 before. On smaller screens, select Menu to open navigation. Escape or Close menu
 closes it. Keyboard users can use Skip to content to reach the current page.
@@ -57,17 +60,11 @@ Install the new server binary and restart TopoTrace, then refresh the browser wi
 Ctrl+F5. The dashboard and its documentation are embedded in that binary; copying
 the source files alone does not update the running application. Existing URLs,
 saved views, credentials, and workflow records continue to work.
-## Fleet workspace additions
+## Fleet workspace
 
-Open **Today** for the current attention summary. Search, collections,
-comparison, the inbox, integration health, onboarding, and report selection
-are connected through its feature tabs. Site operations provides reviewed
-discovery and deployment jobs. See [Fleet workspace](fleet-workspace.md) and
-[Discovery & remote deployment](site-operations.md) for permissions and setup.
-## Fleet workspace additions
-
-Open **Today** for the current attention summary. Search, collections,
-comparison, the inbox, integration health, onboarding, and report selection
-are connected through its feature tabs. Site operations provides reviewed
-discovery and deployment jobs. See [Fleet workspace](fleet-workspace.md) and
-[Discovery & remote deployment](site-operations.md) for permissions and setup.
+Open **Today** for four decision-focused metrics, the five most recent attention
+items, and direct paths into common workflows. Search, Collections, Compare,
+Integration health, and Getting started share a compact related-pages bar only
+within that secondary workspace. Site operations provides reviewed discovery and
+deployment jobs. See [Fleet workspace](fleet-workspace.md) and [Discovery & remote
+deployment](site-operations.md) for permissions and setup.

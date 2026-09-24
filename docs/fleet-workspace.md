@@ -1,10 +1,23 @@
 # Fleet workspace
 
-The new workspace connects evidence, investigation, and reporting. Use **Today** for the current attention list, or the feature tabs to move between tools. Existing Hosts, Work queue, Visibility, and demonstration scenarios remain available.
+The workspace connects evidence, investigation, and reporting. Use **Today** for
+the current operational picture, then follow a metric or workflow into the
+underlying evidence. Existing Hosts, Work queue, Visibility, and demonstration
+scenarios remain available.
 
 ## Today and inbox
 
-Today summarizes managed devices, reporting gaps, findings and overdue work, with links to the relevant investigation pages. The inbox combines current findings, stale agent reports, newly discovered devices, and failed or uncertain deployment jobs. Read/unread state is stored per authenticated account and group. API keys shared by multiple people also share that state. Resolved conditions leave this current-state inbox; it is not a permanent event archive.
+Today summarizes managed devices, reporting gaps, open findings, and new
+discoveries. It shows the five most recent attention items and four common paths:
+search evidence, compare devices, review discoveries, and build a report. This is
+an entry point rather than a second navigation system; the permanent sidebar
+remains the source of truth for product areas.
+
+The inbox combines current findings, stale agent reports, newly discovered
+devices, and failed or uncertain deployment jobs. Read/unread state is stored per
+authenticated account and group. API keys shared by multiple people also share
+that state. Resolved conditions leave this current-state inbox; it is not a
+permanent event archive.
 
 ## Search, collections and comparison
 
@@ -27,6 +40,12 @@ Select a collection, optional board group, UTC date range, executive or technica
 Inventory is a snapshot at report generation time. Date selection filters retained history and activity, not the current inventory into a historical assessment. Trend aggregation remains limited to the most recent 30 days; activity comes from the latest 200 audit records, with up to 15 shown. Print the generated HTML to PDF using the browser.
 
 New collections, inbox state, delivery health and site operations use the existing document store. They require full-server backups and are not included in the limited workspace configuration export.
+
+## Fleet and work queue
+
+Fleet keeps health, risk, and pending approvals in one scan-friendly view. Work
+queue separates Findings, Ownership, Dynamic groups, and Change plans, then keeps
+filters close to the finding list.
 
 ## API
 
