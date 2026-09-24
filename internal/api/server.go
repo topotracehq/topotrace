@@ -183,6 +183,13 @@ type Server struct {
 	MFAGraceDays     int
 	MFAIssuer        string
 
+	// LicensedSeats is the operator-configured seat ceiling for the
+	// license/seat usage dashboard (-licensed-seats) -- #32. 0 or
+	// negative means "not configured": usage is still reported, but
+	// never flagged as near or over limit. TopoTrace does not enforce
+	// this as a login cap -- see internal/license's doc comment.
+	LicensedSeats int
+
 	// The remaining fields exist purely for GET /api/settings to report
 	// on -- cmd/topotrace wires each straight from the flag it already
 	// parses. None of them affect this Server's own behavior; they're
@@ -366,6 +373,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /scim/v2/Users/{id}", s.handleSCIMGetUser)
 	mux.HandleFunc("PATCH /scim/v2/Users/{id}", s.handleSCIMPatchUser)
 	mux.HandleFunc("DELETE /scim/v2/Users/{id}", s.handleSCIMDeleteUser)
+
+	mux.HandleFunc("GET /api/license/usage", s.handleLicenseUsage)
 	mux.HandleFunc("POST /api/ask", s.handleAsk)
 	mux.HandleFunc("POST /api/ask/draft-policy", s.handleDraftPolicy)
 	mux.HandleFunc("POST /api/ask/summary", s.handleExecutiveSummary)

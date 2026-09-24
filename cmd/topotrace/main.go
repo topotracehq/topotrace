@@ -136,6 +136,8 @@ func main() {
 		sessionIdleTimeout   = flag.Duration("session-idle-timeout", envDurationDefault("TOPOTRACE_SESSION_IDLE_TIMEOUT", 30*time.Minute), "how long a dashboard session may sit idle before it expires, independent of its absolute 12-hour lifetime. 0 disables idle expiry. Also read from TOPOTRACE_SESSION_IDLE_TIMEOUT (a Go duration string, e.g. \"30m\").")
 		sessionMaxConcurrent = flag.Int("session-max-concurrent", envIntDefault("TOPOTRACE_SESSION_MAX_CONCURRENT", 5), "maximum concurrent dashboard sessions one account may hold at once -- creating one more evicts that account's oldest. 0 disables the cap. Also read from TOPOTRACE_SESSION_MAX_CONCURRENT.")
 
+		licensedSeats = flag.Int("licensed-seats", envIntDefault("TOPOTRACE_LICENSED_SEATS", 0), "contracted seat count for the license/seat usage dashboard (GET /api/license/usage) -- 0 or unset means usage is still tracked and reported but never flagged as near or over limit. This is reporting only, not an enforced login cap. Also read from TOPOTRACE_LICENSED_SEATS.")
+
 		aiAPIKey  = flag.String("ai-api-key", os.Getenv("TOPOTRACE_AI_API_KEY"), "Anthropic API key for \"Ask TopoTrace\" (POST /api/ask), a natural-language query surface over the fleet data with every question+answer recorded to the audit log. Empty disables the endpoint (it answers with a clear 'not configured' error). Also read from TOPOTRACE_AI_API_KEY.")
 		aiModel   = flag.String("ai-model", os.Getenv("TOPOTRACE_AI_MODEL"), "Model id Ask TopoTrace calls. For the anthropic backend, empty uses internal/aiquery's built-in default. For the openai-compatible backend this is required and has no default, since what is served depends on the server (e.g. a Hugging Face model id, or the name your local Ollama reports). Also read from TOPOTRACE_AI_MODEL.")
 		aiBackend = flag.String("ai-backend", os.Getenv("TOPOTRACE_AI_BACKEND"), "Which model API Ask TopoTrace speaks: \"anthropic\" (default) or \"openai-compatible\". The latter reaches Hugging Face's Inference Providers router and any self-hosted server that speaks OpenAI chat-completions (LM Studio, Ollama, vLLM, TGI) -- see -ai-base-url. Also read from TOPOTRACE_AI_BACKEND.")
@@ -505,6 +507,7 @@ func main() {
 		LDAP: ldapCfg, SAML: samlCfg, LogLevel: &logLevelVar,
 		SCIMToken:   *scimToken,
 		MFAEnforced: *mfaRequired, MFAGraceDays: *mfaGraceDays, MFAIssuer: *mfaIssuer,
+		LicensedSeats:        *licensedSeats,
 		AIQuery:              aiCfgStore,
 		StorageBackend:       storageBackend,
 		IngestAddr:           *ingestAddr,
