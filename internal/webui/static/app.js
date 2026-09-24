@@ -2721,6 +2721,105 @@
     return form;
   }
 
+  // aiGovernanceCard surfaces the ai-governance plugin, when loaded:
+  // the approved-tools/MCP-command allowlist and a per-host violation
+  // check against internal/aiagentinv's AI agent visibility findings.
+  // Commercial-candidate plugin (see plugins/ai-governance) -- lives
+  // entirely behind /api/plugins/ai-governance/, so this card degrades
+  // to a calm empty state when the plugin isn't loaded, never an error.
+  function aiGovernanceCard(pluginLoaded, pluginInfo) {
+    const body = el("div", { class: "settings-card-body" });
+    const card = el("details", { class: "fact-card settings-card cornerstone-card", open: true },
+      el("summary", { class: "settings-summary" },
+        el("span", { class: "settings-summary-copy" },
+          el("strong", {}, "AI Governance", el("span", { class: "cornerstone-badge", text: "Cornerstone" })),
+          el("small", { text: "Approved-tools allowlist and policy violations over AI agent visibility findings." })),
+        el("span", { class: "settings-summary-action", text: "Review settings" })),
+      body);
+
+    if (!pluginLoaded) {
+      body.append(
+        el("p", { class: "meta", text: "The AI Governance plugin isn't loaded on this deployment. Install ai-governance (see Advanced platform extensions below) to enable approved-tool policy and violation checks over AI agent findings." })
+      );
+      return card;
+    }
+
+    body.append(el("p", { class: "meta", text: `${pluginInfo.description || "Layers an approved-tools / approved-MCP-command allowlist on top of AI agent visibility findings -- anything found that isn't on this list is a policy violation."} (v${pluginInfo.version || "?"})` }));
+
+    const policyList = el("ul", { class: "posture-findings" });
+    const policyMsg = el("span", { class: "save-msg" });
+    async function refreshPolicy() {
+      policyList.replaceChildren(el("li", { class: "meta", text: "Loading…" }));
+      try {
+        const r = await api("/api/plugins/ai-governance/policy");
+        const entries = r.policy || [];
+        if (!entries.length) {
+          policyList.replaceChildren(el("li", { class: "meta", text: "No approved entries yet -- every AI tool and MCP command currently reports as a violation." }));
+          return;
+        }
+        policyList.replaceChildren(...entries.map((e) => {
+          const removeBtn = el("button", { type: "button", text: "Remove" });
+          removeBtn.addEventListener("click", async () => {
+            policyMsg.textContent = "Removing…";
+            try {
+              await api("/api/plugins/ai-governance/policy", { method: "POST", body: { op: "remove", kind: e.kind, value: e.value } });
+              policyMsg.textContent = "";
+              await refreshPolicy();
+            } catch (err) { policyMsg.textContent = `Error: ${err.message}`; }
+          });
+          return el("li", {}, el("span", { text: `${e.kind === "tool" ? "Tool" : "MCP command"}: ${e.value}` }), removeBtn);
+        }));
+      } catch (err) {
+        policyList.replaceChildren(el("li", { class: "meta", text: `Couldn't load policy: ${err.message}` }));
+      }
+    }
+    refreshPolicy();
+
+    const kindSelect = el("select", {}, el("option", { value: "tool", text: "AI CLI / agent tool" }), el("option", { value: "mcp_command", text: "MCP server command" }));
+    const valueInput = el("input", { type: "text", placeholder: "e.g. claude or npx" });
+    const addBtn = el("button", { type: "button", text: "Approve" });
+    addBtn.addEventListener("click", async () => {
+      if (!valueInput.value.trim()) return;
+      policyMsg.textContent = "Saving…";
+      try {
+        await api("/api/plugins/ai-governance/policy", { method: "POST", body: { op: "add", kind: kindSelect.value, value: valueInput.value.trim() } });
+        valueInput.value = "";
+        policyMsg.textContent = "";
+        await refreshPolicy();
+      } catch (err) { policyMsg.textContent = `Error: ${err.message}`; }
+    });
+    const addRow = el("div", { class: "editor-row" }, el("label", { text: "Approve" }), kindSelect, valueInput, addBtn, policyMsg);
+
+    const hostInput = el("input", { type: "text", placeholder: "host name" });
+    const checkBtn = el("button", { type: "button", text: "Check violations" });
+    const violationsOut = el("ul", { class: "posture-findings" });
+    const violationsMsg = el("span", { class: "save-msg" });
+    checkBtn.addEventListener("click", async () => {
+      const host = hostInput.value.trim();
+      if (!host) { violationsMsg.textContent = "Enter a host name."; return; }
+      violationsMsg.textContent = "Checking…";
+      violationsOut.replaceChildren();
+      try {
+        const r = await api(`/api/plugins/ai-governance/violations?host=${encodeURIComponent(host)}`);
+        violationsMsg.textContent = "";
+        if (!r.violations || !r.violations.length) {
+          violationsOut.replaceChildren(el("li", { class: "meta", text: `No policy violations on ${host} (${r.total} finding(s) checked).` }));
+          return;
+        }
+        violationsOut.replaceChildren(...r.violations.map((v) =>
+          el("li", {}, v.finding && v.finding.level ? el("strong", { text: `[${v.finding.level}] ` }) : "", el("span", { text: v.reason }))
+        ));
+      } catch (err) { violationsMsg.textContent = `Error: ${err.message}`; }
+    });
+    const checkRow = el("div", { class: "editor-row" }, el("label", { text: "Host" }), hostInput, checkBtn, violationsMsg);
+
+    body.append(
+      el("h3", { text: "Approved allowlist" }), policyList, addRow,
+      el("h3", { text: "Check a host" }), violationsOut, checkRow
+    );
+    return card;
+  }
+
   // vulnFeedEditor edits the OSV.dev feed toggle/interval -- persist-
   // for-next-restart.
   function vulnFeedEditor(s) {
@@ -3038,14 +3137,20 @@
       ["Backend", s.siem.backend || null],
     ], siemForwardingEditor(s), "Forward audit events to your security platform.");
 
+    const plugins = await api("/api/plugins").catch(() => []);
+    const govInfo = (Array.isArray(plugins) ? plugins : []).find((p) => (p.name || p.Name) === "ai-governance");
+    const governance = aiGovernanceCard(!!govInfo, govInfo ? { description: govInfo.description || govInfo.Description, version: govInfo.version || govInfo.Version } : {});
+
     const overview = el("div", { class: "manage-overview", "aria-label": "Settings categories" },
+      el("div", { class: "manage-tile" }, el("span", { text: "Govern" }), el("strong", { text: "AI Governance" }), el("small", { text: "Approved-tools allowlist and policy violations" })),
       el("div", { class: "manage-tile" }, el("span", { text: "Access" }), el("strong", { text: "Sign-in & security" }), el("small", { text: "OAuth, AD/LDAP, SAML, MFA, and roles" })),
       el("div", { class: "manage-tile" }, el("span", { text: "Connect" }), el("strong", { text: "Integrations" }), el("small", { text: "Notifications, SIEM, and AI" })),
       el("a", { href: "#/tools", class: "manage-tile" }, el("span", { text: "Protect" }), el("strong", { text: "Data & recovery" }), el("small", { text: "Back up workspace configuration" }))
     );
-    auth.id = "access"; webhooks.id = "integrations";
+    auth.id = "access"; webhooks.id = "integrations"; governance.id = "governance";
     const schedule = await workspaceUI.notificationPreferencesCard();
     app.replaceChildren(heading, overview,
+      el("section", { class: "settings-group" }, el("div", { class: "settings-group-heading" }, el("p", { class: "eyebrow", text: "Cornerstone" }), el("h2", { text: "AI Governance" })), governance),
       el("section", { class: "settings-group" }, el("div", { class: "settings-group-heading" }, el("p", { class: "eyebrow", text: "Core" }), el("h2", { text: "Workspace & access" })), general, auth, ldap, saml, mfa),
       el("section", { class: "settings-group" }, el("div", { class: "settings-group-heading" }, el("p", { class: "eyebrow", text: "Services" }), el("h2", { text: "Integrations & delivery" })), askTopoTrace, webhooks, schedule, siem, vulnFeed),
       el("details", { class: "advanced-settings" }, el("summary", { text: "Advanced platform extensions" }), pluginsCard())
