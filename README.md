@@ -22,6 +22,13 @@ inbox, integration health, guided onboarding, and branded report selection.
 [Site workers](docs/site-operations.md) support bounded scheduled discovery
 and explicitly staged Linux SSH / Windows WinRM agent deployment.
 
+![TopoTrace Today operational overview](docs/screenshots/today-overview.png)
+
+The **Today** view keeps the first conversation focused: fleet coverage, reporting
+gaps, open findings, new discoveries, and the five items that most recently need
+attention. The permanent sidebar groups deeper capabilities by task and keeps
+administration and help available in a compact disclosure.
+
 ## Why this exists
 
 TopoTrace started as a from-scratch systems project: a concurrent TCP

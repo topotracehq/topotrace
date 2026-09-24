@@ -236,5 +236,8 @@
   100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
 }
 #tt-telemetry-badge b { color: #fbbf24; font-variant-numeric: tabular-nums; }
+@media (max-width: 620px) {
+  #tt-telemetry-badge { display: none; }
+}
 
 /* Design-partner CTA link now lives inline in the #tt-sandbox-watermark bar. */
