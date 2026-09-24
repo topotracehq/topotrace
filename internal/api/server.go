@@ -514,6 +514,16 @@ type settingsVulnFeed struct {
 	Interval string `json:"interval,omitempty"`
 }
 
+// settingsMFA is GET /api/settings's TOTP/MFA enforcement-policy slice
+// -- see Server.MFAEnforced/MFARequiredRoles/MFAGraceDays/MFAIssuer and
+// the -mfa-* flags. Persist-for-next-restart, like LDAP/OAuth/SAML.
+type settingsMFA struct {
+	Enforced  bool     `json:"enforced"`
+	Roles     []string `json:"roles,omitempty"`
+	GraceDays int      `json:"grace_days"`
+	Issuer    string   `json:"issuer,omitempty"`
+}
+
 // settingsAskTopoTrace is GET /api/settings's Ask TopoTrace (AI query) slice
 // -- never AIQuery.APIKey itself.
 type settingsAskTopoTrace struct {
@@ -575,6 +585,7 @@ type settingsResponse struct {
 	AskTopoTrace      settingsAskTopoTrace `json:"ask_topotrace"`
 	Webhooks          settingsWebhooks     `json:"webhooks"`
 	SIEM              settingsSIEM         `json:"siem"`
+	MFA               settingsMFA          `json:"mfa"`
 
 	// RestartRequired is set only on PATCH /api/settings's response
 	// (never GET's): the section names whose edits were accepted this
@@ -623,6 +634,12 @@ func (s *Server) settingsSnapshot() settingsResponse {
 			Enabled: s.VulnFeed != nil,
 		},
 		Webhooks: notifySettings(s.Webhooks),
+		MFA: settingsMFA{
+			Enforced:  s.MFAEnforced,
+			Roles:     s.MFARequiredRoles,
+			GraceDays: s.MFAGraceDays,
+			Issuer:    s.MFAIssuer,
+		},
 	}
 	if s.LogLevel != nil {
 		resp.Logging.Level = logLevelString(s.LogLevel.Level())
@@ -740,6 +757,16 @@ type settingsPatchRequest struct {
 	SAMLIdPCert   *string `json:"saml_idp_cert,omitempty"`
 	SAMLRoleMap   *string `json:"saml_role_map,omitempty"`
 	SAMLDisable   bool    `json:"saml_disable,omitempty"`
+
+	// TOTP/MFA enforcement policy -- persist-for-next-restart, same
+	// shape as -mfa-* flags (internal/mfa). Independent fields, not
+	// all-or-nothing like OAuth/LDAP/SAML: grace_days/issuer can be
+	// tuned without re-toggling enforcement itself.
+	MFARequired  *bool   `json:"mfa_required,omitempty"`
+	MFARoles     *string `json:"mfa_roles,omitempty"`
+	MFAGraceDays *int    `json:"mfa_grace_days,omitempty"`
+	MFAIssuer    *string `json:"mfa_issuer,omitempty"`
+	MFADisable   bool    `json:"mfa_disable,omitempty"`
 
 	// General/ports -- persist-for-next-restart (see
 	// internal/settingsstore's doc comment). Validated to look like
@@ -1126,6 +1153,38 @@ func (s *Server) handlePatchSettings(w http.ResponseWriter, r *http.Request) {
 		overrides.SAMLRoleMap = roleMap
 		actions = append(actions, "saml saved for next restart")
 		restartRequired = append(restartRequired, "saml")
+	}
+
+	// TOTP/MFA enforcement policy -- persist-for-next-restart,
+	// independent fields (not all-or-nothing: grace_days/issuer can be
+	// tuned without re-toggling enforcement itself).
+	switch {
+	case req.MFADisable:
+		overrides.MFARequired = false
+		overrides.MFARoles = ""
+		overrides.MFAGraceDays = ""
+		overrides.MFAIssuer = ""
+		actions = append(actions, "mfa policy cleared for next restart")
+		restartRequired = append(restartRequired, "mfa")
+	case req.MFARequired != nil || req.MFARoles != nil || req.MFAGraceDays != nil || req.MFAIssuer != nil:
+		if req.MFAGraceDays != nil && *req.MFAGraceDays < 0 {
+			s.writeError(w, http.StatusBadRequest, "mfa_grace_days must be zero or positive")
+			return
+		}
+		if req.MFARequired != nil {
+			overrides.MFARequired = *req.MFARequired
+		}
+		if req.MFARoles != nil {
+			overrides.MFARoles = strings.TrimSpace(*req.MFARoles)
+		}
+		if req.MFAGraceDays != nil {
+			overrides.MFAGraceDays = strconv.Itoa(*req.MFAGraceDays)
+		}
+		if req.MFAIssuer != nil {
+			overrides.MFAIssuer = strings.TrimSpace(*req.MFAIssuer)
+		}
+		actions = append(actions, "mfa policy saved for next restart")
+		restartRequired = append(restartRequired, "mfa")
 	}
 
 	// Vulnerability feed (OSV.dev) -- persist-for-next-restart.

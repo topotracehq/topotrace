@@ -91,6 +91,15 @@ type Overrides struct {
 	SAMLIdPCert   string `json:"saml_idp_cert,omitempty"`
 	SAMLRoleMap   string `json:"saml_role_map,omitempty"`
 
+	// Persist-for-next-restart: TOTP/MFA enforcement policy -- see
+	// internal/mfa and the -mfa-* flags. Independent fields, not
+	// all-or-nothing like LDAP/OAuth/SAML: grace_days/issuer can be
+	// tuned without re-toggling enforcement itself.
+	MFARequired  bool   `json:"mfa_required,omitempty"`
+	MFARoles     string `json:"mfa_roles,omitempty"`
+	MFAGraceDays string `json:"mfa_grace_days,omitempty"` // stored as a string so an empty override doesn't look like 0 days
+	MFAIssuer    string `json:"mfa_issuer,omitempty"`
+
 	// Persist-for-next-restart: General/ports.
 	IngestAddr        string `json:"ingest_addr,omitempty"`
 	APIAddr           string `json:"api_addr,omitempty"`
