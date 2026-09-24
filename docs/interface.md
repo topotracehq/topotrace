@@ -14,11 +14,12 @@ The sidebar keeps page names visible and groups them by task:
 | Overview | Today, Search, Fleet, Hosts, Device visibility, Entity map | Understand inventory, reporting, and relationships |
 | Operations | Site operations, Work queue, Board, Compliance, Agents | Prioritize findings, organize devices, and manage enrollment |
 | Workspace | Reports, Inbox, Ask TopoTrace | Communicate findings and review recorded activity |
-| Administration & help | Tools, Docs, License, Settings | Configure, document, and support the deployment |
+| Manage | Settings, Data & recovery, Subscription | Configure services, protect workspace data, and review seat usage |
+| Help | Help center, About | Find task guides, technical reference, support, and version details |
 
-The header shows your current section. Administration & help stays collapsed until
-you need it, and opens automatically when one of its pages is active. Inventory
-search appears on Hosts. Account
+The header shows your current section. Management and help are separate so
+technical configuration never obscures support content. Inventory search appears
+on Hosts. Account
 opens the existing token controls; this is the same authentication mechanism as
 before. On smaller screens, select Menu to open navigation. Escape or Close menu
 closes it. Keyboard users can use Skip to content to reach the current page.
