@@ -145,7 +145,7 @@ func TestManagerRoundTrip(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mgr.Mount(mux)
+	mgr.Mount(mux, nil)
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -164,6 +164,39 @@ func TestManagerRoundTrip(t *testing.T) {
 	}
 	if got := resp.Header.Get("X-Echo-Path"); got != "echo" {
 		t.Fatalf("X-Echo-Path = %q, want %q", got, "echo")
+	}
+
+	// authorizeWrite must gate non-GET requests, and never let a
+	// refused request reach the plugin at all -- a plugin has no way
+	// to see the core's own auth/role state, so this gate is the only
+	// thing standing between a plugin's writes (its own disk state,
+	// like ai-governance's allowlist) and an unauthenticated caller.
+	gatedMux := http.NewServeMux()
+	mgr.Mount(gatedMux, func(w http.ResponseWriter, r *http.Request) bool {
+		w.WriteHeader(http.StatusForbidden)
+		return false
+	})
+	gatedSrv := httptest.NewServer(gatedMux)
+	defer gatedSrv.Close()
+
+	resp2, err := http.Post(gatedSrv.URL+"/api/plugins/fakeplugin/echo", "text/plain", strings.NewReader("ping"))
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusForbidden {
+		t.Fatalf("gated POST status = %d, want %d (authorizeWrite should have refused before the plugin ran)", resp2.StatusCode, http.StatusForbidden)
+	}
+
+	// GET is never gated by authorizeWrite -- a plugin's own reads
+	// follow whatever role that plugin itself requires, not this gate.
+	resp3, err := http.Get(gatedSrv.URL + "/api/plugins/fakeplugin/echo")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp3.Body.Close()
+	if resp3.StatusCode != http.StatusTeapot {
+		t.Fatalf("gated GET status = %d, want %d (GET must reach the plugin without going through authorizeWrite)", resp3.StatusCode, http.StatusTeapot)
 	}
 
 	mgr.Shutdown()

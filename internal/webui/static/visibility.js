@@ -65,7 +65,8 @@ window.TopoTraceVisibility = function ({ api, el, app, timeAgo, workspaceUI }) {
       el("ol", {}, ...[
         "Open Device history: show the web server upgrade, failed database service, and disabled laptop firewall.",
         "Open Agent health: compare healthy reporting, failed collection, a late laptop, and a missing branch device.",
-        "Open Discovery review: match a managed address, review an unknown device, and explain the unauthorized appliance. Try a review; Reset demo restores the samples."
+        "Open Discovery review: match a managed address, review an unknown device, and explain the unauthorized appliance. Try a review; Reset demo restores the samples.",
+        "Open Settings -- AI Governance (the Cornerstone section at the top) and check build01.eng: a real host in this fleet, not demo data. It reports a recognized AI CLI tool and a known-expected MCP command alongside one of each that nobody approved -- the approved-tools allowlist flags exactly those two."
       ].map(text => el("li", { text })))));
     const tabs = el("div", { class: "visibility-toolbar", role: "tablist", "aria-label": "Visibility sections" });
     const content = el("div", { role: "tabpanel", id: "tt-visibility-panel", tabindex: "0" }); root.append(tabs, content);

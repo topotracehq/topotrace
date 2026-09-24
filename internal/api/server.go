@@ -307,7 +307,17 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/plugins", s.handleListPlugins)
 	mux.HandleFunc("POST /api/plugins/upload", s.handleUploadPlugin)
 	if s.Plugins != nil {
-		s.Plugins.Mount(mux)
+		// Every plugin's writes go through requireRoleStrictAlways --
+		// never the -sandbox-open-writes escape hatch -- because a
+		// plugin's own state (like the ai-governance allowlist) is a
+		// write to this host's own disk, same bucket as settings
+		// overrides and plugin uploads (see requireRoleStrictAlways's
+		// doc comment). Reads stay whatever role each plugin itself
+		// requires internally.
+		s.Plugins.Mount(mux, func(w http.ResponseWriter, r *http.Request) bool {
+			_, ok := s.requireRoleStrictAlways(w, r, "admin")
+			return ok
+		})
 	}
 	mux.HandleFunc("DELETE /api/bookmarks/{id}", s.handleDeleteBookmark)
 	mux.HandleFunc("GET /api/demo/scenarios", s.handleDemoScenarios)
