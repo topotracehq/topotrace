@@ -817,6 +817,34 @@ trade-off as before this release -- restarting the server invalidates
 all sessions, and there's no multi-instance session-sharing story
 yet). See `internal/oauth` and `docs/security-model.md`.
 
+### License and seat usage dashboard
+
+`-licensed-seats` turns on usage reporting against your contracted seat
+count, for the "how is usage tracked against contract" question
+procurement always asks at renewal time:
+
+```
+go run ./cmd/topotrace -auth-token some-shared-secret   -licensed-seats 250
+```
+
+`GET /api/license/usage` (admin-only) returns today's active-seat count
+(every non-deactivated entry in the user directory -- see the SCIM
+section above, #22 -- so there's no separate seat concept to keep in
+sync), the configured licensed count, usage as a percentage, up to 90
+days of daily history, and a plain-language `alert` field once usage
+reaches 90% of the licensed count. A snapshot is recorded on every call
+to this endpoint (same-day calls overwrite, so the history stays one
+entry per day regardless of how often the dashboard is loaded), and the
+first time a day crosses the 90% threshold it's also written to the
+audit trail -- which, via the existing SIEM export wiring (#25), can
+reach whatever backend is configured. With `-licensed-seats` left at
+its default of `0`, usage is still tracked and returned, just never
+flagged as near or over limit.
+
+Implementation notes: this is reporting only -- TopoTrace does not
+block a login or a SCIM-provisioned user once the licensed count is
+reached. See `internal/license` and `docs/security-model.md`.
+
 ### Remediation actions
 
 The self-healing/remediation item from every earlier "what's next" list

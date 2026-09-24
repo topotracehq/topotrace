@@ -205,6 +205,18 @@ Sessions remain in-memory only, same as before this round -- see
 "OAuth2/OIDC login for the dashboard" above for why, and its
 consequences for restarts/multi-replica deployments.
 
+## License and seat usage dashboard
+
+`-licensed-seats` and `GET /api/license/usage` (admin-only) report
+active seats against the contracted count, with a daily usage
+snapshot (`internal/license`, backed by the same store.Document
+mechanism as the user directory) providing up to 90 days of trend and
+an audit-logged warning once usage reaches 90% of the licensed count.
+"Active seat" is defined identically to the SCIM/JIT user directory
+(#22) -- there is no separate seat record to fall out of sync. This is
+reporting, not enforcement: reaching or exceeding the licensed count
+does not block a login or a new SCIM-provisioned user.
+
 ## What's still a single shared secret, on purpose
 
 Remediation's allow-listed verb set (`internal/remediate`) is the same

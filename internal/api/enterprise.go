@@ -1,12 +1,13 @@
 /*******************************************************************************
  * @file         enterprise.go
  * @brief        HTTP handlers for the enterprise settings gaps filed as
- *               #22-#27: SCIM provisioning, ABAC host visibility and
- *               field masking, MFA enrollment/enforcement, and session
- *               management controls. Kept in its own file rather than
- *               growing server.go further -- these six features share a
- *               lot of plumbing with each other but very little with the
- *               rest of server.go beyond Server itself.
+ *               #22-#27 and #32: SCIM provisioning, ABAC host visibility
+ *               and field masking, MFA enrollment/enforcement, session
+ *               management controls, and the license/seat usage
+ *               dashboard. Kept in its own file rather than growing
+ *               server.go further -- these features share a lot of
+ *               plumbing with each other but very little with the rest
+ *               of server.go beyond Server itself.
  * @project      TopoTrace
  *
  * @author       Michael McGinnis
@@ -20,6 +21,7 @@
 package api
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
@@ -30,6 +32,7 @@ import (
 
 	"topotrace/internal/acl"
 	"topotrace/internal/directory"
+	"topotrace/internal/license"
 	"topotrace/internal/mfa"
 	"topotrace/internal/model"
 	"topotrace/internal/oauth"
@@ -759,4 +762,84 @@ func (s *Server) handleSCIMDeleteUser(w http.ResponseWriter, r *http.Request) {
 		s.log().Error("recording audit entry", "err", err)
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ---------------------------------------------------------------------
+// License and seat usage dashboard (#32) -- an admin view of active
+// seats vs licensed seats, a historical usage trend, and an
+// approaching-limit warning, all built on the existing user directory
+// (#22) rather than a separate seat concept. See internal/license's
+// doc comment for why "seat" == "active directory user" here.
+// ---------------------------------------------------------------------
+
+// licenseUsageResponse is the GET /api/license/usage payload: today's
+// numbers up front, the trend underneath, and a non-empty Alert when
+// usage is at or above license.NearLimitThresholdPct of LicensedSeats.
+type licenseUsageResponse struct {
+	ActiveUsers   int                `json:"active_users"`
+	LicensedSeats int                `json:"licensed_seats"`
+	UsagePct      float64            `json:"usage_pct"`
+	Alert         string             `json:"alert,omitempty"`
+	History       []license.Snapshot `json:"history"`
+}
+
+// handleLicenseUsage is GET /api/license/usage, admin-only. It records
+// today's snapshot on every call (RecordSnapshot overwrites same-day
+// entries, so repeated dashboard loads don't pile up duplicate history
+// -- see its doc comment) rather than relying on a background job, so
+// the trend is always current as of the last time an admin looked at
+// it. When usage first crosses the near-limit threshold, it's recorded
+// to the audit trail (and, via the existing SIEM export wiring, to
+// whatever backend is configured) exactly once per day, not once per
+// request that happens to load the dashboard while over the line.
+func (s *Server) handleLicenseUsage(w http.ResponseWriter, r *http.Request) {
+	actor, ok := s.requireRoleStrict(w, r, "admin")
+	if !ok {
+		return
+	}
+	snap, err := license.RecordSnapshot(r.Context(), s.Store, s.LicensedSeats)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "recording usage snapshot")
+		return
+	}
+	if msg := license.AlertMessage(snap.ActiveUsers, snap.LicensedSeats, license.NearLimitThresholdPct); msg != "" {
+		if !s.licenseAlertedToday(r.Context(), snap.Date) {
+			if _, err := s.Store.RecordAudit(r.Context(), actor, "seat-limit-warning", "license", msg); err != nil {
+				s.log().Error("recording audit entry", "err", err)
+			}
+		}
+	}
+	hist, err := license.History(r.Context(), s.Store, 90)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "loading usage history")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, licenseUsageResponse{
+		ActiveUsers:   snap.ActiveUsers,
+		LicensedSeats: snap.LicensedSeats,
+		UsagePct:      snap.UsagePct(),
+		Alert:         license.AlertMessage(snap.ActiveUsers, snap.LicensedSeats, license.NearLimitThresholdPct),
+		History:       hist,
+	})
+}
+
+// licenseAlertedToday checks the audit trail for a "seat-limit-warning"
+// entry already recorded today, so handleLicenseUsage doesn't write a
+// fresh audit (and SIEM-forwarded) entry on every single dashboard
+// refresh while usage stays over the threshold -- once a day is enough
+// to have already made the point. Best-effort: a lookup failure just
+// means this call records its own entry rather than blocking the
+// response, since the audit trail itself is append-only and a
+// once-in-a-while duplicate is far cheaper than silently going quiet.
+func (s *Server) licenseAlertedToday(ctx context.Context, today string) bool {
+	entries, err := s.Store.ListAudit(ctx, "license", 20)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.Action == "seat-limit-warning" && e.CreatedAt.Format("2006-01-02") == today {
+			return true
+		}
+	}
+	return false
 }
