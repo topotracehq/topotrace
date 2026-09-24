@@ -656,6 +656,167 @@ all rejected), not a real Okta/Azure AD/ADFS response. Test it against
 your actual IdP before relying on it. See `docs/security-model.md` and
 `internal/saml`'s doc comment.
 
+### SCIM 2.0 user provisioning and JIT deprovisioning checks
+
+`-scim-token` enables a SCIM 2.0 endpoint at `/scim/v2/Users` for
+automated user lifecycle management from an IdP that supports SCIM
+(Okta, Azure AD, etc.), as an alternative to (or alongside) the
+just-in-time provisioning that already happens automatically on first
+OAuth/LDAP/SAML login:
+
+```
+go run ./cmd/topotrace -auth-token some-shared-secret   -scim-token some-other-shared-secret
+```
+
+`GET /scim/v2/Users` (list, with a single exact-match `filter=userName
+eq "..."` form supported and anything else ignored), `POST
+/scim/v2/Users` (create), `GET /scim/v2/Users/{id}`, `PATCH
+/scim/v2/Users/{id}` (only `replace` on `active`/`role` is understood),
+and `DELETE /scim/v2/Users/{id}` are all bearer-authenticated against
+`-scim-token`, independent of `-auth-token`. A custom, non-standard
+top-level `role` field carries TopoTrace's three fixed roles (SCIM's
+core User schema has no notion of them). Deactivating a user via SCIM
+(PATCH `active=false` or DELETE) revokes all of that user's active
+sessions immediately and records a `user-deprovisioned` audit event --
+DELETE deactivates rather than erasing the underlying record, since an
+erased record has nothing left to enforce deprovisioning with on a
+later login attempt.
+
+Every login path (OAuth, LDAP, SAML) now checks this same directory
+before creating a session: a user explicitly deactivated here (by SCIM
+or an admin) is refused login even if their IdP would otherwise
+authenticate them. A user with no directory record at all is still
+allowed, for backward compatibility with deployments that don't use
+SCIM.
+
+Implementation notes: this is a deliberately narrow subset of RFC 7644
+-- User resource only, no Groups, no bulk operations, one filter form.
+Treat it as a solid first draft, untested against a live IdP's SCIM
+client. See `docs/security-model.md` and `internal/directory`'s doc
+comment.
+
+### Granular, attribute-based host ACLs with field masking
+
+`POST /api/acl/policies` (admin-only) defines attribute-based access
+policies scoped by the existing host `Group`/`Tags` fields rather than
+a new resource taxonomy:
+
+```json
+{
+  "name": "hide-db-tier-from-readonly",
+  "subjects": ["readonly"],
+  "deny_tags": ["db-tier"],
+  "mask_fields": ["ip", "hostname"]
+}
+```
+
+`subjects` matches a role, an exact email, or `*`. `deny_tags` hides a
+host outright if it carries any of the listed tags (deny always wins
+over allow); `allow_tags`, if non-empty, restricts visibility to only
+hosts carrying at least one of the listed tags; with neither set, a
+matching policy only masks fields. `mask_fields` is computed fresh on
+every read -- nothing is pre-redacted at rest -- and currently masks
+the host's name (an "ip" entry is accepted but is a documented no-op
+today, since `model.Host` has no direct IP field). `POST
+/api/acl/preview` (admin-only) runs the same evaluation against every
+current host for a hypothetical `role` or `email`, so a policy's effect
+can be checked before relying on it. With no policies defined, all
+hosts are fully visible to everyone, same as before this feature
+existed.
+
+Implementation notes: masking is applied uniformly in both
+`GET /api/hosts` and `GET /api/hosts/{id}`. Logging when an
+elevated-access viewer (e.g. an admin, who bypasses ACLs entirely)
+views data that a policy would otherwise mask for a lower-privileged
+role is not yet implemented -- see `internal/acl` and
+`maskHostForViewer` in `internal/api/enterprise.go` for the current
+state. See `docs/security-model.md`.
+
+### Immutable, SIEM-exportable audit logging
+
+TopoTrace has always recorded an append-only audit trail
+(`Store.RecordAudit`/`ListAudit` -- there is deliberately no update or
+delete method) separate from the configurable application/debug log,
+covering logins, permission and config changes, and data exports. This
+release adds a `syslog` backend to the existing SIEM export mechanism
+(`-siem-backend`, alongside the existing `splunk-hec`, `sumo-http`, and
+`logrhythm-webhook` options), so the trail can be streamed to a
+customer's own SIEM over an RFC-5424-shaped TCP connection:
+
+```
+go run ./cmd/topotrace -auth-token some-shared-secret   -siem-backend syslog -siem-url syslog.example.com:601
+```
+
+The new event types introduced by this release -- MFA enrollment/
+verification, session revocation, SCIM provisioning/deprovisioning, and
+ACL policy changes -- all flow through this same mechanism, so no
+separate configuration is needed to include them.
+
+Implementation notes: the syslog backend opens one TCP connection per
+event (simple and correct, not tuned for high volume) and does no
+authentication of its own -- treat the transport as a network-layer
+concern (TLS-terminating proxy, private network, etc.). S3/webhook
+bulk export is not implemented in this release; see
+`internal/siemforward` and `docs/security-model.md`.
+
+### Org-wide MFA enforcement policy
+
+`-mfa-required`, `-mfa-roles`, `-mfa-grace-days`, and `-mfa-issuer`
+make TOTP-based MFA an enforceable org policy rather than a per-user
+opt-in:
+
+```
+go run ./cmd/topotrace -auth-token some-shared-secret   -mfa-required -mfa-roles admin,readwrite -mfa-grace-days 3   -mfa-issuer "TopoTrace (Example Corp)"
+```
+
+With `-mfa-required` set, every login (OAuth, LDAP, or SAML) for a user
+in one of `-mfa-roles` (or every user, if `-mfa-roles` is empty) is
+gated on a standard 6-digit TOTP code (RFC 6238), compatible with any
+standard authenticator app. A user who hasn't enrolled yet gets a
+grace period of `-mfa-grace-days` days from when their directory record
+was first created, during which they can still log in but the session
+is flagged as needing setup; `POST /api/auth/mfa/enroll` (returns a
+provisioning secret and an `otpauth://` URI for a QR code) and `POST
+/api/auth/mfa/confirm` complete enrollment. After the grace period
+expires, login is refused outright for an unenrolled user in an
+enforced role. `POST /api/auth/mfa/verify` is used on subsequent logins
+once enrolled.
+
+Implementation notes: TOTP is implemented dependency-free
+(`crypto/hmac` + `crypto/sha1`, per RFC 6238/4226 -- SHA-1 is what every
+mainstream authenticator app expects, not a cryptographic weakness in
+context) and its HOTP core is validated against the official RFC 4226
+Appendix D test vectors, which proves arithmetic correctness but is not
+a substitute for testing against a real authenticator app, which this
+has not been. WebAuthn/passkeys are not implemented in this release.
+See `internal/mfa` and `docs/security-model.md`.
+
+### Session management controls
+
+`-session-idle-timeout` (default 30m) and `-session-max-concurrent`
+(default 5, `0` for unlimited) apply org-wide to every login method:
+
+```
+go run ./cmd/topotrace -auth-token some-shared-secret   -session-idle-timeout 15m -session-max-concurrent 3
+```
+
+A session idle past the timeout is rejected on its next use and the
+user must log in again. Once a user has `-session-max-concurrent`
+active sessions, creating another evicts the oldest. `GET
+/api/auth/sessions/mine` lets a user see their own active sessions
+(creation time, last-seen time, expiry); `GET /api/auth/sessions`
+(admin-only) lists any user's; `POST /api/auth/sessions/revoke`
+(admin-only, `{"email": "..."}`) force-logs-out every session for a
+user, which SCIM deactivation also triggers automatically. Neither
+listing endpoint exposes raw session IDs, by design -- a session ID is
+bearer-equivalent, so returning it in a listing response would turn
+the listing itself into a hijacking vector.
+
+Implementation notes: sessions remain in-memory only (same documented
+trade-off as before this release -- restarting the server invalidates
+all sessions, and there's no multi-instance session-sharing story
+yet). See `internal/oauth` and `docs/security-model.md`.
+
 ### Remediation actions
 
 The self-healing/remediation item from every earlier "what's next" list

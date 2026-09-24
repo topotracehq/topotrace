@@ -167,6 +167,22 @@ type Server struct {
 	// with no key.
 	AIQuery *aiquery.ConfigStore
 
+	// SCIMToken, when non-empty, turns on SCIM 2.0 provisioning
+	// (/scim/v2/Users, see -scim-token and internal/api/enterprise.go)
+	// -- #22. A separate credential from the three API-key roles on
+	// purpose: it authorizes exactly one thing (writing directory
+	// records), nothing else, and should be rotatable independently.
+	SCIMToken string
+
+	// MFAEnforced/MFARequiredRoles/MFAGraceDays/MFAIssuer implement
+	// org-wide MFA enforcement policy (-mfa-required, -mfa-roles,
+	// -mfa-grace-days, -mfa-issuer) -- #26. See completeLogin in
+	// internal/api/enterprise.go for how they're applied.
+	MFAEnforced      bool
+	MFARequiredRoles []string
+	MFAGraceDays     int
+	MFAIssuer        string
+
 	// The remaining fields exist purely for GET /api/settings to report
 	// on -- cmd/topotrace wires each straight from the flag it already
 	// parses. None of them affect this Server's own behavior; they're
@@ -335,6 +351,21 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/auth/saml/login", s.handleSAMLLogin)
 	mux.HandleFunc("GET /api/auth/saml/metadata", s.handleSAMLMetadata)
 	mux.HandleFunc("POST /api/auth/saml/acs", s.handleSAMLACS)
+	mux.HandleFunc("POST /api/auth/mfa/enroll", s.handleMFAEnroll)
+	mux.HandleFunc("POST /api/auth/mfa/confirm", s.handleMFAConfirm)
+	mux.HandleFunc("POST /api/auth/mfa/verify", s.handleMFAVerify)
+	mux.HandleFunc("GET /api/auth/sessions", s.handleListSessions)
+	mux.HandleFunc("GET /api/auth/sessions/mine", s.handleListMySessions)
+	mux.HandleFunc("POST /api/auth/sessions/revoke", s.handleRevokeSessions)
+	mux.HandleFunc("GET /api/acl/policies", s.handleListACLPolicies)
+	mux.HandleFunc("POST /api/acl/policies", s.handleCreateACLPolicy)
+	mux.HandleFunc("DELETE /api/acl/policies/{id}", s.handleDeleteACLPolicy)
+	mux.HandleFunc("POST /api/acl/preview", s.handleACLPreview)
+	mux.HandleFunc("GET /scim/v2/Users", s.handleSCIMListUsers)
+	mux.HandleFunc("POST /scim/v2/Users", s.handleSCIMCreateUser)
+	mux.HandleFunc("GET /scim/v2/Users/{id}", s.handleSCIMGetUser)
+	mux.HandleFunc("PATCH /scim/v2/Users/{id}", s.handleSCIMPatchUser)
+	mux.HandleFunc("DELETE /scim/v2/Users/{id}", s.handleSCIMDeleteUser)
 	mux.HandleFunc("POST /api/ask", s.handleAsk)
 	mux.HandleFunc("POST /api/ask/draft-policy", s.handleDraftPolicy)
 	mux.HandleFunc("POST /api/ask/summary", s.handleExecutiveSummary)
@@ -1457,6 +1488,15 @@ func (s *Server) sessionFromCookie(r *http.Request) (email, role string, ok bool
 	if !found {
 		return "", "", false
 	}
+	// A session created pending MFA (#26) authenticates nothing through
+	// this path until it is verified -- callers that must still reach
+	// it while pending (enroll/verify themselves) use sessionForMFA in
+	// internal/api/enterprise.go instead, which resolves the session
+	// directly rather than through this gate.
+	if sess.MFARequired && !sess.MFAVerified {
+		return "", "", false
+	}
+	s.Sessions.Touch(c.Value)
 	return sess.Email, sess.Role, true
 }
 
@@ -1610,7 +1650,16 @@ func (s *Server) handleListHosts(w http.ResponseWriter, r *http.Request) {
 		}
 		hosts = filtered
 	}
-	s.writeJSON(w, http.StatusOK, hosts)
+	// ACL (#23/#24): filter out hosts this viewer's policies hide, and
+	// mask fields on the rest. See maskHostForViewer's doc comment.
+	visible := hosts[:0]
+	for _, h := range hosts {
+		masked, ok := s.maskHostForViewer(r, h)
+		if ok {
+			visible = append(visible, masked)
+		}
+	}
+	s.writeJSON(w, http.StatusOK, visible)
 }
 
 func (s *Server) handleGetHost(w http.ResponseWriter, r *http.Request) {
@@ -1623,6 +1672,11 @@ func (s *Server) handleGetHost(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "fetching host")
 		return
 	}
+	if !ok {
+		s.writeError(w, http.StatusNotFound, "host not found")
+		return
+	}
+	host, ok = s.maskHostForViewer(r, host)
 	if !ok {
 		s.writeError(w, http.StatusNotFound, "host not found")
 		return
@@ -3318,12 +3372,17 @@ func (s *Server) handleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusForbidden, fmt.Sprintf("%s is not authorized -- no matching -oauth-role-map entry", email))
 		return
 	}
-	sessionID := s.Sessions.Create(email, role)
-	transientCookie(w, oauth.SessionCookieName, sessionID, int(oauth.SessionTTL.Seconds()))
-	if _, err := s.Store.RecordAudit(r.Context(), email, "oauth-login", email, fmt.Sprintf("role=%s", role)); err != nil {
-		s.log().Error("recording audit entry", "err", err)
+	outcome, err := s.completeLogin(r, email, role, "oauth-login")
+	if err != nil {
+		s.writeError(w, http.StatusForbidden, err.Error())
+		return
 	}
-	http.Redirect(w, r, "/", http.StatusFound)
+	transientCookie(w, oauth.SessionCookieName, outcome.SessionID, int(oauth.SessionTTL.Seconds()))
+	redirect := "/"
+	if outcome.MFASetupRequired {
+		redirect = "/?mfa_setup_required=1"
+	}
+	http.Redirect(w, r, redirect, http.StatusFound)
 }
 
 func (s *Server) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
@@ -3372,12 +3431,16 @@ func (s *Server) handleLDAPLogin(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
-	sessionID := s.Sessions.Create(email, role)
-	transientCookie(w, oauth.SessionCookieName, sessionID, int(oauth.SessionTTL.Seconds()))
-	if _, err := s.Store.RecordAudit(r.Context(), email, "ldap-login", email, fmt.Sprintf("role=%s", role)); err != nil {
-		s.log().Error("recording audit entry", "err", err)
+	outcome, err := s.completeLogin(r, email, role, "ldap-login")
+	if err != nil {
+		s.writeError(w, http.StatusForbidden, err.Error())
+		return
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"authenticated": true, "email": email, "role": role})
+	transientCookie(w, oauth.SessionCookieName, outcome.SessionID, int(oauth.SessionTTL.Seconds()))
+	s.writeJSON(w, http.StatusOK, map[string]any{
+		"authenticated": true, "email": email, "role": role,
+		"mfa_setup_required": outcome.MFASetupRequired,
+	})
 }
 
 const samlRelayStateCookie = "topotrace_saml_relaystate"
@@ -3466,12 +3529,17 @@ func (s *Server) handleSAMLACS(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusUnauthorized, "completing SAML login failed")
 		return
 	}
-	sessionID := s.Sessions.Create(result.Email, result.Role)
-	transientCookie(w, oauth.SessionCookieName, sessionID, int(oauth.SessionTTL.Seconds()))
-	if _, err := s.Store.RecordAudit(r.Context(), result.Email, "saml-login", result.Email, fmt.Sprintf("role=%s", result.Role)); err != nil {
-		s.log().Error("recording audit entry", "err", err)
+	outcome, err := s.completeLogin(r, result.Email, result.Role, "saml-login")
+	if err != nil {
+		s.writeError(w, http.StatusForbidden, err.Error())
+		return
 	}
-	http.Redirect(w, r, "/", http.StatusFound)
+	transientCookie(w, oauth.SessionCookieName, outcome.SessionID, int(oauth.SessionTTL.Seconds()))
+	redirect := "/"
+	if outcome.MFASetupRequired {
+		redirect = "/?mfa_setup_required=1"
+	}
+	http.Redirect(w, r, redirect, http.StatusFound)
 }
 
 // handleAuthMe is GET /api/auth/me -- unauthenticated itself (a

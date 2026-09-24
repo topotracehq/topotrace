@@ -62,6 +62,30 @@ import (
 // clear message instead of quietly locking every agent out at runtime.
 var validAuthToken = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,128}$`)
 
+func envIntDefault(key string, def int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return def
+	}
+	return n
+}
+
+func envDurationDefault(key string, def time.Duration) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return def
+	}
+	return d
+}
+
 func main() {
 	var (
 		ingestAddr       = flag.String("ingest-addr", ":9090", "address for the TCP ingest daemon")
@@ -101,6 +125,16 @@ func main() {
 		samlRoleMap   = flag.String("saml-role-map", os.Getenv("TOPOTRACE_SAML_ROLE_MAP"), "comma-separated email/domain-to-role mappings, same syntax as -oauth-role-map. Required (and the whole -saml-* group required) once any -saml-* flag is set. Also read from TOPOTRACE_SAML_ROLE_MAP.")
 
 		logLevel = flag.String("log-level", os.Getenv("TOPOTRACE_LOG_LEVEL"), "process log level: debug, info (default), warn, or error. Live-adjustable afterward from the dashboard's Settings page (PATCH /api/settings, log_level) with no restart. Also read from TOPOTRACE_LOG_LEVEL.")
+
+		scimToken = flag.String("scim-token", os.Getenv("TOPOTRACE_SCIM_TOKEN"), "bearer token authorizing SCIM 2.0 provisioning requests (/scim/v2/Users) -- issue this to your identity provider's SCIM app. Empty disables SCIM entirely. Also read from TOPOTRACE_SCIM_TOKEN.")
+
+		mfaRequired  = flag.Bool("mfa-required", os.Getenv("TOPOTRACE_MFA_REQUIRED") == "true", "require TOTP multi-factor authentication for dashboard logins (OAuth/LDAP/SAML) -- see -mfa-roles to scope this to specific roles instead of everyone. Also read from TOPOTRACE_MFA_REQUIRED (\"true\"/\"false\").")
+		mfaRoles     = flag.String("mfa-roles", os.Getenv("TOPOTRACE_MFA_ROLES"), "comma-separated roles MFA is required for (e.g. \"admin\"). Empty (with -mfa-required set) means every role. Also read from TOPOTRACE_MFA_ROLES.")
+		mfaGraceDays = flag.Int("mfa-grace-days", envIntDefault("TOPOTRACE_MFA_GRACE_DAYS", 3), "days a newly-provisioned account may keep logging in without MFA enrolled yet, measured from when its directory record was first created -- an enrollment window, not a permanent exemption. Also read from TOPOTRACE_MFA_GRACE_DAYS.")
+		mfaIssuer    = flag.String("mfa-issuer", os.Getenv("TOPOTRACE_MFA_ISSUER"), "issuer name shown in enrolled authenticator apps (defaults to \"TopoTrace\"). Also read from TOPOTRACE_MFA_ISSUER.")
+
+		sessionIdleTimeout   = flag.Duration("session-idle-timeout", envDurationDefault("TOPOTRACE_SESSION_IDLE_TIMEOUT", 30*time.Minute), "how long a dashboard session may sit idle before it expires, independent of its absolute 12-hour lifetime. 0 disables idle expiry. Also read from TOPOTRACE_SESSION_IDLE_TIMEOUT (a Go duration string, e.g. \"30m\").")
+		sessionMaxConcurrent = flag.Int("session-max-concurrent", envIntDefault("TOPOTRACE_SESSION_MAX_CONCURRENT", 5), "maximum concurrent dashboard sessions one account may hold at once -- creating one more evicts that account's oldest. 0 disables the cap. Also read from TOPOTRACE_SESSION_MAX_CONCURRENT.")
 
 		aiAPIKey  = flag.String("ai-api-key", os.Getenv("TOPOTRACE_AI_API_KEY"), "Anthropic API key for \"Ask TopoTrace\" (POST /api/ask), a natural-language query surface over the fleet data with every question+answer recorded to the audit log. Empty disables the endpoint (it answers with a clear 'not configured' error). Also read from TOPOTRACE_AI_API_KEY.")
 		aiModel   = flag.String("ai-model", os.Getenv("TOPOTRACE_AI_MODEL"), "Model id Ask TopoTrace calls. For the anthropic backend, empty uses internal/aiquery's built-in default. For the openai-compatible backend this is required and has no default, since what is served depends on the server (e.g. a Hugging Face model id, or the name your local Ollama reports). Also read from TOPOTRACE_AI_MODEL.")
@@ -426,6 +460,8 @@ func main() {
 	var sessions *oauth.SessionStore
 	if oauthCfg != nil || ldapCfg != nil || samlCfg != nil {
 		sessions = oauth.NewSessionStore()
+		sessions.IdleTimeout = *sessionIdleTimeout
+		sessions.MaxConcurrent = *sessionMaxConcurrent
 	}
 	if oauthCfg != nil {
 		logger.Info("OAuth dashboard login enabled", "auth_url", *oauthAuthURL)
@@ -467,6 +503,8 @@ func main() {
 		Store: st, Logger: logger.With("component", "api"), AuthToken: *authToken, OpenWrites: *openWrites,
 		Webhooks: hooks, VulnFeed: vulnFeed, Pipeline: pipeline, OAuth: oauthCfg, Sessions: sessions,
 		LDAP: ldapCfg, SAML: samlCfg, LogLevel: &logLevelVar,
+		SCIMToken:   *scimToken,
+		MFAEnforced: *mfaRequired, MFAGraceDays: *mfaGraceDays, MFAIssuer: *mfaIssuer,
 		AIQuery:              aiCfgStore,
 		StorageBackend:       storageBackend,
 		IngestAddr:           *ingestAddr,
@@ -478,6 +516,13 @@ func main() {
 		Breach:               breach.New(*hibpAPIKey),
 		PublicStatus:         *publicStatus,
 		PluginDir:            *pluginDir,
+	}
+	if *mfaRoles != "" {
+		for _, r := range strings.Split(*mfaRoles, ",") {
+			if r = strings.TrimSpace(r); r != "" {
+				apiSrv.MFARequiredRoles = append(apiSrv.MFARequiredRoles, r)
+			}
+		}
 	}
 	pluginMgr := pluginhost.NewManager(*pluginDir, logger.With("component", "pluginhost"))
 	pluginMgr.Load(ctx)
