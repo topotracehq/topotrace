@@ -38,6 +38,14 @@
 #   scripts/push-sandbox.sh --tags           # also push tags
 #   scripts/push-sandbox.sh -b some-branch    # push a different local branch
 #   scripts/push-sandbox.sh --dry-run        # verify + show what would push, don't push
+#   scripts/push-sandbox.sh --force          # force-push over a diverged sandbox main
+#                                             # (the sandbox repo can carry its own
+#                                             # sandbox-only history, e.g. demo
+#                                             # instrumentation -- a plain push is
+#                                             # refused if that's ahead of what
+#                                             # you're deploying; --force is a
+#                                             # deliberate "yes, overwrite it" and
+#                                             # is never implied by any other flag)
 #
 # Requires: the topotrace_sandbox_deploy SSH key (deploy key on
 # topotracehq/topotrace-sandbox) readable at ~/.ssh/topotrace_sandbox_deploy,
@@ -52,6 +60,7 @@ cd "$REPO_ROOT"
 BRANCH="main"
 PUSH_TAGS=false
 DRY_RUN=false
+FORCE=false
 SANDBOX_KEY="${TOPOTRACE_SANDBOX_DEPLOY_KEY:-$HOME/.ssh/topotrace_sandbox_deploy}"
 REMOTE="sandboxrepo"
 
@@ -65,6 +74,7 @@ while [ $# -gt 0 ]; do
     -b|--branch) BRANCH="$2"; shift 2 ;;
     -t|--tags) PUSH_TAGS=true; shift ;;
     --dry-run) DRY_RUN=true; shift ;;
+    --force) FORCE=true; shift ;;
     -h|--help) usage 0 ;;
     *) echo "unknown argument: $1" >&2; usage 1 ;;
   esac
@@ -128,14 +138,22 @@ echo "==> All checks passed. Pushing $BRANCH ($LOCAL_SHA) to $REMOTE"
 GIT_SSH_COMMAND="ssh -i $SANDBOX_KEY -o IdentitiesOnly=yes -o BatchMode=yes"
 export GIT_SSH_COMMAND
 
+PUSH_FLAGS=()
+[ "$FORCE" = true ] && PUSH_FLAGS+=("--force")
+
 if [ "$DRY_RUN" = true ]; then
   echo "==> --dry-run set: would run:"
-  echo "    git push $REMOTE $BRANCH:main"
+  echo "    git push ${PUSH_FLAGS[*]} $REMOTE $BRANCH:main"
   [ "$PUSH_TAGS" = true ] && echo "    git push $REMOTE --tags"
   exit 0
 fi
 
-git push "$REMOTE" "$BRANCH:main"
+if [ "$FORCE" = true ]; then
+  echo "==> --force set: this will OVERWRITE $REMOTE main, discarding any history"
+  echo "    there that isn't reachable from $BRANCH (e.g. sandbox-only commits)."
+fi
+
+git push "${PUSH_FLAGS[@]}" "$REMOTE" "$BRANCH:main"
 
 if [ "$PUSH_TAGS" = true ]; then
   echo "==> Pushing tags"
