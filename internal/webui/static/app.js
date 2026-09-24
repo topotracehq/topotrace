@@ -2563,6 +2563,160 @@
     return form;
   }
 
+  // authLDAPEditor edits AD/LDAP dashboard login -- persist-for-next-
+  // restart, all-or-nothing (server validates with ldap.NewConfig).
+  function authLDAPEditor(s) {
+    const hostInput = el("input", { type: "text", value: s.auth.ldap_host || "" });
+    const portInput = el("input", { type: "text", placeholder: "636 (LDAPS) or 389", value: s.auth.ldap_port ? String(s.auth.ldap_port) : "" });
+    const useTLSBox = el("input", { type: "checkbox" });
+    useTLSBox.checked = s.auth.ldap_use_tls !== false;
+    const bindDNInput = el("input", { type: "text", class: "wide", placeholder: "CN=svc-topotrace,OU=Service Accounts,DC=example,DC=com", value: s.auth.ldap_bind_dn || "" });
+    const bindPasswordInput = el("input", { type: "password", placeholder: s.auth.ldap_bind_password_configured ? "leave blank to keep current password" : "" });
+    const userBaseDNInput = el("input", { type: "text", class: "wide", placeholder: "OU=People,DC=example,DC=com", value: s.auth.ldap_user_base_dn || "" });
+    const userAttrInput = el("input", { type: "text", placeholder: "sAMAccountName", value: s.auth.ldap_user_attr || "" });
+    const mailAttrInput = el("input", { type: "text", placeholder: "mail" });
+    const groupAttrInput = el("input", { type: "text", placeholder: "memberOf" });
+    const roleMapInput = el("input", { type: "text", class: "wide", placeholder: "CN=TopoTrace Admins,OU=Groups,DC=example,DC=com=admin;*=readonly", value: (s.auth.ldap_role_map || []).join(";") });
+    const disableBox = el("input", { type: "checkbox" });
+    const msg = el("span", { class: "save-msg" });
+    const form = el(
+      "form",
+      { class: "editor-row" },
+      el("label", { text: "Host" }), hostInput,
+      el("label", { text: "Port" }), portInput,
+      el("label", { text: "Use TLS (LDAPS)" }), useTLSBox,
+      el("label", { text: "Bind DN" }), bindDNInput,
+      el("label", { text: "Bind password" }), bindPasswordInput,
+      el("label", { text: "User base DN" }), userBaseDNInput,
+      el("label", { text: "User attr" }), userAttrInput,
+      el("label", { text: "Mail attr" }), mailAttrInput,
+      el("label", { text: "Group attr" }), groupAttrInput,
+      el("label", { text: "Role map" }), roleMapInput,
+      el("label", { text: "Disable" }), disableBox,
+      el("button", { type: "submit", text: "Save" }),
+      msg
+    );
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = {};
+      if (disableBox.checked) {
+        body.ldap_disable = true;
+      } else {
+        body.ldap_host = hostInput.value.trim();
+        if (portInput.value.trim()) body.ldap_port = parseInt(portInput.value.trim(), 10);
+        body.ldap_use_tls = useTLSBox.checked;
+        body.ldap_bind_dn = bindDNInput.value.trim();
+        if (bindPasswordInput.value.trim()) body.ldap_bind_password = bindPasswordInput.value.trim();
+        body.ldap_user_base_dn = userBaseDNInput.value.trim();
+        body.ldap_user_attr = userAttrInput.value.trim();
+        if (mailAttrInput.value.trim()) body.ldap_mail_attr = mailAttrInput.value.trim();
+        if (groupAttrInput.value.trim()) body.ldap_group_attr = groupAttrInput.value.trim();
+        body.ldap_role_map = roleMapInput.value.trim();
+      }
+      msg.textContent = "Saving…";
+      try {
+        const r = await api("/api/settings", { method: "PATCH", body });
+        msg.textContent = restartMessage(r, "ldap");
+        setTimeout(showSettings, 1200);
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    return form;
+  }
+
+  // authSAMLEditor edits SAML 2.0 dashboard SSO -- persist-for-next-
+  // restart, all-or-nothing (server validates with saml.NewConfig).
+  function authSAMLEditor(s) {
+    const entityIdInput = el("input", { type: "text", class: "wide", value: s.auth.saml_entity_id || "" });
+    const acsUrlInput = el("input", { type: "text", class: "wide", value: s.auth.saml_acs_url || "" });
+    const idpSSOUrlInput = el("input", { type: "text", class: "wide", value: s.auth.saml_idp_sso_url || "" });
+    const idpCertInput = el("textarea", { class: "wide", rows: "4", placeholder: s.auth.saml_configured ? "leave blank to keep current certificate" : "-----BEGIN CERTIFICATE-----..." });
+    const roleMapInput = el("input", { type: "text", class: "wide", placeholder: "admins=admin,*=readonly", value: (s.auth.saml_role_map || []).join(",") });
+    const disableBox = el("input", { type: "checkbox" });
+    const msg = el("span", { class: "save-msg" });
+    const form = el(
+      "form",
+      { class: "editor-row" },
+      el("label", { text: "Entity ID" }), entityIdInput,
+      el("label", { text: "ACS URL" }), acsUrlInput,
+      el("label", { text: "IdP SSO URL" }), idpSSOUrlInput,
+      el("label", { text: "IdP certificate (PEM)" }), idpCertInput,
+      el("label", { text: "Role map" }), roleMapInput,
+      el("label", { text: "Disable" }), disableBox,
+      el("button", { type: "submit", text: "Save" }),
+      msg
+    );
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = {};
+      if (disableBox.checked) {
+        body.saml_disable = true;
+      } else {
+        body.saml_entity_id = entityIdInput.value.trim();
+        body.saml_acs_url = acsUrlInput.value.trim();
+        body.saml_idp_sso_url = idpSSOUrlInput.value.trim();
+        if (idpCertInput.value.trim()) body.saml_idp_cert = idpCertInput.value.trim();
+        body.saml_role_map = roleMapInput.value.trim();
+      }
+      msg.textContent = "Saving…";
+      try {
+        const r = await api("/api/settings", { method: "PATCH", body });
+        msg.textContent = restartMessage(r, "saml");
+        setTimeout(showSettings, 1200);
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    return form;
+  }
+
+  // mfaEditor edits the org-wide TOTP/MFA enforcement policy --
+  // persist-for-next-restart, independent fields (see -mfa-* flags).
+  // Enrollment itself (POST /api/auth/mfa/enroll|confirm|verify) is a
+  // per-user login-time flow, not something an admin sets here.
+  function mfaEditor(s) {
+    const enforcedBox = el("input", { type: "checkbox" });
+    enforcedBox.checked = !!s.mfa.enforced;
+    const rolesInput = el("input", { type: "text", placeholder: "admin (blank = every role)", value: (s.mfa.roles || []).join(",") });
+    const graceDaysInput = el("input", { type: "text", placeholder: "3", value: s.mfa.grace_days != null ? String(s.mfa.grace_days) : "" });
+    const issuerInput = el("input", { type: "text", placeholder: "TopoTrace", value: s.mfa.issuer || "" });
+    const disableBox = el("input", { type: "checkbox" });
+    const msg = el("span", { class: "save-msg" });
+    const form = el(
+      "form",
+      { class: "editor-row" },
+      el("label", { text: "Require MFA" }), enforcedBox,
+      el("label", { text: "Roles (blank = all)" }), rolesInput,
+      el("label", { text: "Grace period (days)" }), graceDaysInput,
+      el("label", { text: "Issuer name" }), issuerInput,
+      el("label", { text: "Clear override" }), disableBox,
+      el("button", { type: "submit", text: "Save" }),
+      msg
+    );
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = {};
+      if (disableBox.checked) {
+        body.mfa_disable = true;
+      } else {
+        body.mfa_required = enforcedBox.checked;
+        body.mfa_roles = rolesInput.value.trim();
+        if (graceDaysInput.value.trim()) body.mfa_grace_days = parseInt(graceDaysInput.value.trim(), 10);
+        body.mfa_issuer = issuerInput.value.trim();
+      }
+      msg.textContent = "Saving…";
+      try {
+        const r = await api("/api/settings", { method: "PATCH", body });
+        msg.textContent = restartMessage(r, "mfa");
+        setTimeout(showSettings, 1200);
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      }
+    });
+    return form;
+  }
+
   // vulnFeedEditor edits the OSV.dev feed toggle/interval -- persist-
   // for-next-restart.
   function vulnFeedEditor(s) {
@@ -2830,6 +2984,31 @@
       ["OAuth role map", (s.auth.oauth_role_map || []).join(", ") || null],
     ], authOAuthEditor(s));
 
+    const ldap = settingsCardWithForm("AD / LDAP", [
+      ["Configured", boolLabel(s.auth.ldap_configured)],
+      ["Host", s.auth.ldap_host ? `${s.auth.ldap_host}:${s.auth.ldap_port || (s.auth.ldap_use_tls ? 636 : 389)}` : null],
+      ["Bind DN", s.auth.ldap_bind_dn || null],
+      ["Bind password configured", boolLabel(s.auth.ldap_bind_password_configured)],
+      ["User base DN", s.auth.ldap_user_base_dn || null],
+      ["User attr", s.auth.ldap_user_attr || null],
+      ["Role map", (s.auth.ldap_role_map || []).join(", ") || null],
+    ], authLDAPEditor(s));
+
+    const saml = settingsCardWithForm("SAML SSO", [
+      ["Configured", boolLabel(s.auth.saml_configured)],
+      ["Entity ID", s.auth.saml_entity_id || null],
+      ["ACS URL", s.auth.saml_acs_url || null],
+      ["IdP SSO URL", s.auth.saml_idp_sso_url || null],
+      ["Role map", (s.auth.saml_role_map || []).join(", ") || null],
+    ], authSAMLEditor(s));
+
+    const mfa = settingsCardWithForm("Multi-factor authentication (TOTP)", [
+      ["Enforced", boolLabel(s.mfa.enforced)],
+      ["Roles", (s.mfa.roles || []).join(", ") || "(every role)"],
+      ["Grace period", `${s.mfa.grace_days} day(s)`],
+      ["Issuer", s.mfa.issuer || "TopoTrace (default)"],
+    ], mfaEditor(s));
+
     const vulnFeed = settingsCardWithForm("Vulnerability feed", [
       ["Enabled", boolLabel(s.vuln_feed.enabled)],
       ["Interval", s.vuln_feed.interval || null],
@@ -2855,7 +3034,7 @@
       ["Backend", s.siem.backend || null],
     ], siemForwardingEditor(s));
 
-    app.replaceChildren(heading, general, auth, vulnFeed, askTopoTrace, webhooks, siem, pluginsCard(), demoCard());
+    app.replaceChildren(heading, general, auth, ldap, saml, mfa, vulnFeed, askTopoTrace, webhooks, siem, pluginsCard(), demoCard());
   }
 
   // demoCard is the Settings page's simulator: fire synthetic events

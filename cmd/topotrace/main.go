@@ -279,6 +279,23 @@ func main() {
 		*samlRoleMap = overrides.SAMLRoleMap
 		logger.Info("SAML: using settings saved from the dashboard (no -saml-* flags set)")
 	}
+	// TOTP/MFA -- independent fields, not all-or-nothing (see the PATCH
+	// handler's doc comment): each only falls back to its saved
+	// override when the matching flag is still at its built-in default.
+	if !*mfaRequired && overrides.MFARequired {
+		*mfaRequired = true
+	}
+	if *mfaRoles == "" && overrides.MFARoles != "" {
+		*mfaRoles = overrides.MFARoles
+	}
+	if *mfaGraceDays == 3 && overrides.MFAGraceDays != "" {
+		if d, err := strconv.Atoi(overrides.MFAGraceDays); err == nil {
+			*mfaGraceDays = d
+		}
+	}
+	if *mfaIssuer == "" && overrides.MFAIssuer != "" {
+		*mfaIssuer = overrides.MFAIssuer
+	}
 	if *logLevel == "" && overrides.LogLevel != "" {
 		*logLevel = overrides.LogLevel
 	}
