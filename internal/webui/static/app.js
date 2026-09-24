@@ -2284,7 +2284,7 @@
   // and Ask TopoTrace sections read the same as the other four (General,
   // Authentication, Vulnerability feed, Webhooks) but are actually
   // editable.
-  function settingsCardWithForm(title, rows, form) {
+  function settingsCardWithForm(title, rows, form, description = "") {
     const table = el("table", { class: "fact-table" });
     for (const [label, value] of rows) {
       if (value == null) continue;
@@ -2293,7 +2293,11 @@
       tr.appendChild(el("td", { text: String(value) }));
       table.appendChild(tr);
     }
-    return el("div", { class: "fact-card" }, el("h2", { text: title }), table, form);
+    const summary = el("summary", { class: "settings-summary" },
+      el("span", { class: "settings-summary-copy" }, el("strong", { text: title }), el("small", { text: description })),
+      el("span", { class: "settings-summary-action", text: "Review settings" })
+    );
+    return el("details", { class: "fact-card settings-card" }, summary, el("div", { class: "settings-card-body" }, table, form));
   }
 
   // notificationsTester is the Settings page's "send a test event"
@@ -2873,8 +2877,8 @@
   async function showLicense() {
     const heading = el(
       "div", { class: "section-heading" },
-      el("h1", { text: "License and seat usage" }),
-      el("span", { class: "meta", text: "Active seats against your contracted count, with trend -- see -licensed-seats." })
+      el("h1", { text: "Subscription" }),
+      el("span", { class: "meta", text: "A clear view of active users and available seats." })
     );
 
     let u;
@@ -2893,7 +2897,7 @@
     const stats = el(
       "div", { class: "stat-grid" },
       statCard("Active seats", u.active_users),
-      statCard("Licensed seats", configured ? u.licensed_seats : "not set"),
+      statCard("Available plan seats", configured ? u.licensed_seats : "Not configured"),
       statCard("Usage", configured ? `${u.usage_pct.toFixed(1)}%` : "--", overOrNear ? "stat-warn" : "")
     );
 
@@ -2906,7 +2910,7 @@
       const points = u.history.slice().reverse(); // oldest first, to match sparkline's left-to-right expectation
       trendCard.appendChild(licenseSparkline(points));
     } else {
-      trendCard.appendChild(el("p", { class: "meta", text: "Not enough history yet -- check back after a few days of snapshots." }));
+      trendCard.appendChild(el("p", { class: "meta", text: "Usage history will appear after TopoTrace has collected a few daily snapshots." }));
     }
 
     const table = el("table", { class: "fact-table" });
@@ -2956,7 +2960,7 @@
   // sees a clear "needs admin" message here instead of the tab just not
   // existing.
   async function showSettings() {
-    const heading = el("div", { class: "section-heading" }, el("h1", { text: "Settings" }));
+    const heading = el("div", { class: "manage-hero" }, el("p", { class: "eyebrow", text: "Workspace management" }), el("h1", { text: "Settings" }), el("p", { class: "page-intro", text: "Connect services, manage access, and choose how TopoTrace works. Open a section only when you need to change it." }));
 
     let s;
     try {
@@ -2974,7 +2978,7 @@
       ["Ingest address", s.ingest_addr],
       ["API address", s.api_addr],
       ["Evaluator interval", s.evaluator_interval],
-    ], generalEditor(s));
+    ], generalEditor(s), "Server addresses and evaluation timing.");
 
     const auth = settingsCardWithForm("Authentication", [
       ["Bearer token configured", boolLabel(s.auth.bearer_token_configured)],
@@ -2982,7 +2986,7 @@
       ["OAuth client ID", s.auth.oauth_client_id || null],
       ["OAuth client secret configured", boolLabel(s.auth.oauth_client_secret_configured)],
       ["OAuth role map", (s.auth.oauth_role_map || []).join(", ") || null],
-    ], authOAuthEditor(s));
+    ], authOAuthEditor(s), "Sign-in methods, single sign-on, and role mapping.");
 
     const ldap = settingsCardWithForm("AD / LDAP", [
       ["Configured", boolLabel(s.auth.ldap_configured)],
@@ -2992,7 +2996,7 @@
       ["User base DN", s.auth.ldap_user_base_dn || null],
       ["User attr", s.auth.ldap_user_attr || null],
       ["Role map", (s.auth.ldap_role_map || []).join(", ") || null],
-    ], authLDAPEditor(s));
+    ], authLDAPEditor(s), "Directory login against Active Directory or LDAP.");
 
     const saml = settingsCardWithForm("SAML SSO", [
       ["Configured", boolLabel(s.auth.saml_configured)],
@@ -3000,41 +3004,52 @@
       ["ACS URL", s.auth.saml_acs_url || null],
       ["IdP SSO URL", s.auth.saml_idp_sso_url || null],
       ["Role map", (s.auth.saml_role_map || []).join(", ") || null],
-    ], authSAMLEditor(s));
+    ], authSAMLEditor(s), "Single sign-on against a SAML 2.0 identity provider.");
 
     const mfa = settingsCardWithForm("Multi-factor authentication (TOTP)", [
       ["Enforced", boolLabel(s.mfa.enforced)],
       ["Roles", (s.mfa.roles || []).join(", ") || "(every role)"],
       ["Grace period", `${s.mfa.grace_days} day(s)`],
       ["Issuer", s.mfa.issuer || "TopoTrace (default)"],
-    ], mfaEditor(s));
+    ], mfaEditor(s), "Require a TOTP second factor at sign-in.");
 
     const vulnFeed = settingsCardWithForm("Vulnerability feed", [
       ["Enabled", boolLabel(s.vuln_feed.enabled)],
       ["Interval", s.vuln_feed.interval || null],
       ["Source", "OSV.dev, free, no API key"],
-    ], vulnFeedEditor(s));
+    ], vulnFeedEditor(s), "Keep vulnerability information current with OSV.dev.");
 
     const askTopoTrace = settingsCardWithForm("Ask TopoTrace", [
       ["Configured", boolLabel(s.ask_topotrace.configured)],
       ["Backend", s.ask_topotrace.backend || null],
       ["Model", s.ask_topotrace.model || null],
       ["Base URL", s.ask_topotrace.base_url || null],
-    ], askTopoTraceEditor(s));
+    ], askTopoTraceEditor(s), "Choose the model provider used for evidence questions.");
 
     const webhooks = settingsCardWithForm("Notifications", [
       ["Configured", boolLabel(s.webhooks.configured)],
       ["Sinks", (s.webhooks.sinks || []).join(", ") || null],
       ["Queued deliveries", s.webhooks.pending],
       ["Dead letters", s.webhooks.dead],
-    ], el("div", {}, notificationsEditor(s), notificationsTester(s)));
+    ], el("div", {}, notificationsEditor(s), notificationsTester(s)), "Send findings to the tools your team already uses.");
 
     const siem = settingsCardWithForm("SIEM forwarding", [
       ["Configured", boolLabel(s.siem.configured)],
       ["Backend", s.siem.backend || null],
-    ], siemForwardingEditor(s));
+    ], siemForwardingEditor(s), "Forward audit events to your security platform.");
 
-    app.replaceChildren(heading, general, auth, ldap, saml, mfa, vulnFeed, askTopoTrace, webhooks, siem, pluginsCard(), demoCard());
+    const overview = el("div", { class: "manage-overview", "aria-label": "Settings categories" },
+      el("div", { class: "manage-tile" }, el("span", { text: "Access" }), el("strong", { text: "Sign-in & security" }), el("small", { text: "OAuth, AD/LDAP, SAML, MFA, and roles" })),
+      el("div", { class: "manage-tile" }, el("span", { text: "Connect" }), el("strong", { text: "Integrations" }), el("small", { text: "Notifications, SIEM, and AI" })),
+      el("a", { href: "#/tools", class: "manage-tile" }, el("span", { text: "Protect" }), el("strong", { text: "Data & recovery" }), el("small", { text: "Back up workspace configuration" }))
+    );
+    auth.id = "access"; webhooks.id = "integrations";
+    const schedule = await workspaceUI.notificationPreferencesCard();
+    app.replaceChildren(heading, overview,
+      el("section", { class: "settings-group" }, el("div", { class: "settings-group-heading" }, el("p", { class: "eyebrow", text: "Core" }), el("h2", { text: "Workspace & access" })), general, auth, ldap, saml, mfa),
+      el("section", { class: "settings-group" }, el("div", { class: "settings-group-heading" }, el("p", { class: "eyebrow", text: "Services" }), el("h2", { text: "Integrations & delivery" })), askTopoTrace, webhooks, schedule, siem, vulnFeed),
+      el("details", { class: "advanced-settings" }, el("summary", { text: "Advanced platform extensions" }), pluginsCard())
+    );
   }
 
   // demoCard is the Settings page's simulator: fire synthetic events
