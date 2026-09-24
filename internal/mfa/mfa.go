@@ -37,7 +37,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha1" //nolint:gosec // required for TOTP/RFC 6238 interop with real authenticator apps, not used for anything security-critical on its own
+	"crypto/sha1" // #nosec G505,G401 -- required for TOTP/RFC 6238 interop with real authenticator apps; not used for anything security-critical on its own
 	"crypto/subtle"
 	"encoding/base32"
 	"encoding/binary"
@@ -131,7 +131,14 @@ func Validate(secret, code string) bool {
 		return false
 	}
 	now := time.Now().Unix() / stepSeconds
-	for _, counter := range []uint64{uint64(now - 1), uint64(now), uint64(now + 1)} {
+	counters := make([]uint64, 0, 3)
+	for _, c := range []int64{now - 1, now, now + 1} {
+		if c < 0 {
+			continue // clock is before the Unix epoch step window; nothing to check
+		}
+		counters = append(counters, uint64(c)) // #nosec G115 -- c is checked non-negative above
+	}
+	for _, counter := range counters {
 		want, err := hotp(secret, counter)
 		if err != nil {
 			return false
@@ -165,7 +172,7 @@ func StartEnrollment(ctx context.Context, st store.Store, email, issuer string) 
 		return "", "", err
 	}
 	e := Enrollment{Email: strings.ToLower(email), Secret: secret, Enabled: false, CreatedAt: time.Now().UTC()}
-	data, err := json.Marshal(e)
+	data, err := json.Marshal(e) // #nosec G101 -- Enrollment.Secret is the per-user TOTP seed being persisted by design, not a hardcoded credential
 	if err != nil {
 		return "", "", err
 	}
@@ -192,7 +199,7 @@ func Confirm(ctx context.Context, st store.Store, email, code string) error {
 	}
 	e.Enabled = true
 	e.EnrolledAt = time.Now().UTC()
-	data, err := json.Marshal(e)
+	data, err := json.Marshal(e) // #nosec G101 -- Enrollment.Secret is the per-user TOTP seed being persisted by design, not a hardcoded credential
 	if err != nil {
 		return err
 	}
