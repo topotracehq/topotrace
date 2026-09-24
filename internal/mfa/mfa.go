@@ -67,7 +67,7 @@ type Enrollment struct {
 	Email string `json:"email"`
 	// Secret is base32-encoded (RFC 4648, no padding), the standard
 	// otpauth:// wire format.
-	Secret string `json:"secret"`
+	Secret string `json:"secret"` // #nosec G101 -- the TOTP seed itself, meant to be persisted; not a hardcoded credential
 	// Enabled is false while a secret has been generated (via
 	// StartEnrollment) but not yet confirmed with a valid code
 	// (Confirm) -- an unconfirmed secret enforces nothing, so a typo'd
@@ -172,7 +172,7 @@ func StartEnrollment(ctx context.Context, st store.Store, email, issuer string) 
 		return "", "", err
 	}
 	e := Enrollment{Email: strings.ToLower(email), Secret: secret, Enabled: false, CreatedAt: time.Now().UTC()}
-	data, err := json.Marshal(e) // #nosec G101 -- Enrollment.Secret is the per-user TOTP seed being persisted by design, not a hardcoded credential
+	data, err := json.Marshal(e)
 	if err != nil {
 		return "", "", err
 	}
@@ -199,7 +199,7 @@ func Confirm(ctx context.Context, st store.Store, email, code string) error {
 	}
 	e.Enabled = true
 	e.EnrolledAt = time.Now().UTC()
-	data, err := json.Marshal(e) // #nosec G101 -- Enrollment.Secret is the per-user TOTP seed being persisted by design, not a hardcoded credential
+	data, err := json.Marshal(e)
 	if err != nil {
 		return err
 	}
