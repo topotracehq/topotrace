@@ -142,6 +142,16 @@
             "<b>Settings are locked in this sandbox.</b> Plugin upload, " +
             "OAuth/SSO, and notification config all require write/admin " +
             "access, which stays off for a public read-only demo.</div>"
+    },
+    {
+      match: /^License( and seat usage)?$/i,
+      html: '<span class="tt-icon">&#9432;</span><div>' +
+            "<b>License and seat usage is admin-only.</b> It reports active " +
+            "directory seats against a configured <code>-licensed-seats</code> " +
+            "ceiling, with trend history and a near-limit alert -- reporting " +
+            "only, it never blocks a login. Locked here along with the rest " +
+            "of Administration &amp; help for the same read-only reason as " +
+            "Settings.</div>"
     }
   ];
 
