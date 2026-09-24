@@ -2709,6 +2709,91 @@
       el("div", { class: "editor-row" }, el("label", { text: "Upload plugin executable" }), fileInput, uploadBtn, msg));
   }
 
+  // showLicense is GET /api/license/usage (#32) -- an admin view of
+  // active seats vs the licensed seat count, a usage-percentage trend
+  // (a plain sparkline over the same 0-100 mapping sparkline() uses for
+  // scores, since usage is already a percentage), and the same
+  // "always show the tab, let a failed call explain why" pattern as
+  // Settings: a readonly/remediate credential sees a clear message
+  // here rather than the tab not existing at all.
+  async function showLicense() {
+    const heading = el(
+      "div", { class: "section-heading" },
+      el("h1", { text: "License and seat usage" }),
+      el("span", { class: "meta", text: "Active seats against your contracted count, with trend -- see -licensed-seats." })
+    );
+
+    let u;
+    try {
+      u = await api("/api/license/usage");
+    } catch (err) {
+      app.replaceChildren(
+        heading,
+        el("div", { class: "fact-card" }, el("p", { text: `Couldn't load license usage: ${err.message} -- viewing this requires an admin API token (set one above) or an admin OAuth session.` }))
+      );
+      return;
+    }
+
+    const configured = u.licensed_seats > 0;
+    const overOrNear = !!u.alert;
+    const stats = el(
+      "div", { class: "stat-grid" },
+      statCard("Active seats", u.active_users),
+      statCard("Licensed seats", configured ? u.licensed_seats : "not set"),
+      statCard("Usage", configured ? `${u.usage_pct.toFixed(1)}%` : "--", overOrNear ? "stat-warn" : "")
+    );
+
+    const alertNote = u.alert
+      ? el("div", { class: "fact-card" }, el("p", { class: "posture-badge posture-bad", text: u.alert }))
+      : null;
+
+    const trendCard = el("div", { class: "fact-card" }, el("h2", { text: "Usage trend" }));
+    if (u.history && u.history.length >= 2) {
+      const points = u.history.slice().reverse(); // oldest first, to match sparkline's left-to-right expectation
+      trendCard.appendChild(licenseSparkline(points));
+    } else {
+      trendCard.appendChild(el("p", { class: "meta", text: "Not enough history yet -- check back after a few days of snapshots." }));
+    }
+
+    const table = el("table", { class: "fact-table" });
+    table.appendChild(el("tr", {}, el("th", { text: "Date" }), el("th", { text: "Active" }), el("th", { text: "Licensed" }), el("th", { text: "Usage" })));
+    for (const snap of u.history || []) {
+      table.appendChild(el(
+        "tr", {},
+        el("td", { text: snap.date }),
+        el("td", { text: String(snap.active_users) }),
+        el("td", { text: snap.licensed_seats > 0 ? String(snap.licensed_seats) : "--" }),
+        el("td", { text: snap.licensed_seats > 0 ? `${(100 * snap.active_users / snap.licensed_seats).toFixed(1)}%` : "--" })
+      ));
+    }
+    const historyCard = el("div", { class: "fact-card" }, el("h2", { text: "History" }), table);
+
+    const children = [heading, stats];
+    if (alertNote) children.push(alertNote);
+    children.push(trendCard, historyCard);
+    app.replaceChildren(...children);
+  }
+
+  // licenseSparkline is a single-series percentage sparkline (0-100
+  // already, no rescaling needed) for the license usage trend --
+  // structurally the same shape as sparkline() above, kept separate
+  // since that one is purpose-built for the two-series 0-100 score
+  // trend and threading a single-series case through it isn't worth
+  // the branching.
+  function licenseSparkline(points) {
+    const W = 420, H = 72;
+    const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "sparkline", role: "img", "aria-label": "Usage percentage history" });
+    if (points.length < 2) return svg;
+    const x = (i) => 4 + (i / (points.length - 1)) * (W - 110);
+    const y = (v) => 4 + (H - 8) - (Math.max(0, Math.min(100, v)) / 100) * (H - 8);
+    const pct = (p) => (p.licensed_seats > 0 ? (100 * p.active_users) / p.licensed_seats : 0);
+    const d = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(pct(p)).toFixed(1)}`).join(" ");
+    svg.appendChild(svgEl("path", { d, fill: "none", stroke: "#2f6fb3", "stroke-width": 2, "stroke-linejoin": "round" }));
+    const last = points[points.length - 1];
+    svg.appendChild(svgEl("text", { x: W - 98, y: y(pct(last)) + 4, class: "trend-label", text: `${pct(last).toFixed(0)}%` }));
+    return svg;
+  }
+
   // showSettings is GET /api/settings, rendered read-only -- admin-gated
   // server-side (internal/api's handleSettings), not hidden client-side:
   // same "always show the tab, let a failed call explain why" pattern
@@ -3327,6 +3412,8 @@
       showAskTopoTrace();
     } else if (hash === "#/docs" || hash.startsWith("#/docs/")) {
       showDocs(hash.slice(7));
+    } else if (hash === "#/license") {
+      showLicense();
     } else if (hash === "#/settings") {
       showSettings();
     } else {
