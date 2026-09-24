@@ -251,6 +251,14 @@ func disks(rows ...[4]any) map[string]any {
 	return map[string]any{"count": len(items), "items": items}
 }
 
+// aiAgentInventory builds an ai_agent_inventory-shaped fact from
+// pre-built tool/mcp_server records -- the same {"tools","mcp_servers","keys"}
+// shape internal/cook's parseAIAgentInventory produces from a real
+// agent's raw capture (see internal/aiagentinv.FromFact).
+func aiAgentInventory(tools, mcpServers []map[string]any) map[string]any {
+	return map[string]any{"tools": tools, "mcp_servers": mcpServers, "keys": []map[string]any{}}
+}
+
 func winDisks(rows ...[3]any) map[string]any {
 	items := make([]map[string]any, 0, len(rows))
 	for _, r := range rows {
@@ -449,6 +457,21 @@ func demoHosts(now time.Time) []seedHost {
 					[3]string{"docker-ce", "5:25.0.3-1~ubuntu.20.04~focal", "5:24.0.9-1~ubuntu.20.04~focal"},
 					[3]string{"git", "1:2.25.1-1ubuntu3.14", "1:2.25.1-1ubuntu3.13"},
 					[3]string{"linux-libc-dev", "5.4.0-192.212", "5.4.0-190.210"},
+				),
+				// AI Governance demo: a recognized CLI tool and a
+				// known-expected MCP command sit next to one nobody
+				// approved -- exactly the "some of this is fine, some
+				// of it isn't" story the AI Governance settings card
+				// (plugins/ai-governance) is built to answer.
+				"ai_agent_inventory": aiAgentInventory(
+					[]map[string]any{
+						{"kind": "tool", "name": "claude", "path": "/usr/local/bin/claude", "version": "2.1.4"},
+						{"kind": "tool", "name": "aider", "path": "/home/deploy/.local/bin/aider", "version": "0.65.0"},
+					},
+					[]map[string]any{
+						{"kind": "mcp_server", "source": "/home/deploy/.config/claude/mcp.json", "name": "filesystem", "command": "npx", "args": []string{"-y", "@modelcontextprotocol/server-filesystem", "/"}},
+						{"kind": "mcp_server", "source": "/home/deploy/.cursor/mcp.json", "name": "internal-scraper", "command": "/home/deploy/.local/bin/scrape-mcp", "args": []string{"--token", "REDACTED"}},
+					},
 				),
 			},
 		},

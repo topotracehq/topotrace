@@ -284,14 +284,28 @@ func (m *Manager) List() []PluginInfo {
 }
 
 // Mount registers each loaded plugin's HTTP capability on mux at
-// /api/plugins/{name}/.
-func (m *Manager) Mount(mux *http.ServeMux) {
+// /api/plugins/{name}/. authorizeWrite is called before any non-GET/
+// HEAD request reaches the plugin -- a plugin's own HandleHTTP has no
+// way to check the core's auth/role state (it only sees a bridged
+// HTTP request, see PluginHTTPRequest), so every plugin's writes would
+// otherwise be unauthenticated by construction, regardless of the
+// core's own -auth-token. authorizeWrite is expected to write its own
+// error response and return false when it refuses; pass nil only in
+// tests that don't care about auth. Reads (GET/HEAD) are left to each
+// plugin to decide, same as before -- a plugin's visibility-only data
+// is expected to follow the core's normal readonly-role conventions.
+func (m *Manager) Mount(mux *http.ServeMux, authorizeWrite func(w http.ResponseWriter, r *http.Request) bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, p := range m.plugins {
 		p := p
 		prefix := "/api/plugins/" + p.Info.MountPrefix + "/"
 		mux.HandleFunc(prefix, func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet && r.Method != http.MethodHead && authorizeWrite != nil {
+				if !authorizeWrite(w, r) {
+					return
+				}
+			}
 			p.serveHTTP(w, r, prefix)
 		})
 	}
