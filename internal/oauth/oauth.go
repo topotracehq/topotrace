@@ -358,9 +358,24 @@ func truncate(s string, n int) string {
 // be checked against, exactly like an API key's role, plus the email
 // it came from for audit logging.
 type Session struct {
-	Email  string
-	Role   string
-	Expiry time.Time
+	Email     string
+	Role      string
+	Expiry    time.Time
+	CreatedAt time.Time
+	// LastSeen is touched on every authenticated request through this
+	// session (see SessionStore.Touch) -- what IdleTimeout is measured
+	// against, independent of Expiry's fixed absolute lifetime. Session
+	// management controls (#27): a session now expires on whichever of
+	// "idle too long" or "absolute TTL reached" comes first.
+	LastSeen time.Time
+	// MFARequired/MFAVerified implement org-wide MFA enforcement (#26).
+	// A session with MFARequired true and MFAVerified false is a
+	// partially-authenticated session: internal/api's sessionFromCookie
+	// refuses to resolve it for any endpoint except the MFA
+	// enrollment/verification endpoints themselves, until
+	// SessionStore.MarkMFAVerified flips MFAVerified.
+	MFARequired bool
+	MFAVerified bool
 }
 
 // SessionStore is a small in-memory, mutex-guarded map from session ID
@@ -376,6 +391,15 @@ type Session struct {
 type SessionStore struct {
 	mu       sync.Mutex
 	sessions map[string]Session
+
+	// IdleTimeout, if non-zero, expires a session after this long
+	// without an authenticated request touching it (see Touch),
+	// regardless of Expiry. Session management controls (#27).
+	IdleTimeout time.Duration
+	// MaxConcurrent, if non-zero, caps how many live sessions one email
+	// may hold at once -- Create evicts that email's oldest session(s)
+	// (by CreatedAt) once creating a new one would exceed it.
+	MaxConcurrent int
 }
 
 // NewSessionStore returns an empty SessionStore ready to use.
@@ -389,20 +413,68 @@ func NewSessionStore() *SessionStore {
 // see gcLocked -- so this map can't grow unbounded over a long-running
 // server's lifetime without a background goroutine to do it.
 func (s *SessionStore) Create(email, role string) string {
+	return s.create(email, role, false)
+}
+
+// CreateRequiringMFA is Create for a login where org policy (#26)
+// requires MFA for this role: the returned session resolves for
+// nothing except the MFA enroll/verify endpoints until
+// MarkMFAVerified is called on it.
+func (s *SessionStore) CreateRequiringMFA(email, role string) string {
+	return s.create(email, role, true)
+}
+
+func (s *SessionStore) create(email, role string, mfaRequired bool) string {
 	id, err := randomToken(32)
 	if err != nil {
 		// crypto/rand failing at all is effectively unrecoverable for
 		// a security-sensitive ID, but a live server handling one
-		// dashboard login shouldn't panic over it -- fall back to a
+		// dashboard login should not panic over it -- fall back to a
 		// time-based ID; worst case this one session is guessable,
 		// not that the whole request crashes.
 		id = fmt.Sprintf("fallback-%d", time.Now().UnixNano())
 	}
+	now := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.gcLocked()
-	s.sessions[id] = Session{Email: email, Role: role, Expiry: time.Now().Add(SessionTTL)}
+	s.evictOverCapLocked(email)
+	s.sessions[id] = Session{
+		Email: email, Role: role, Expiry: now.Add(SessionTTL),
+		CreatedAt: now, LastSeen: now,
+		MFARequired: mfaRequired,
+	}
 	return id
+}
+
+// evictOverCapLocked deletes email's oldest sessions until it holds
+// fewer than MaxConcurrent, making room for the one about to be
+// created. Caller must hold s.mu. A MaxConcurrent of 0 disables the
+// cap entirely (unlimited, today's behavior).
+func (s *SessionStore) evictOverCapLocked(email string) {
+	if s.MaxConcurrent <= 0 {
+		return
+	}
+	type idAt struct {
+		id string
+		at time.Time
+	}
+	var mine []idAt
+	for id, sess := range s.sessions {
+		if sess.Email == email {
+			mine = append(mine, idAt{id, sess.CreatedAt})
+		}
+	}
+	for len(mine) >= s.MaxConcurrent {
+		oldest := 0
+		for i := range mine {
+			if mine[i].at.Before(mine[oldest].at) {
+				oldest = i
+			}
+		}
+		delete(s.sessions, mine[oldest].id)
+		mine = append(mine[:oldest], mine[oldest+1:]...)
+	}
 }
 
 // Get returns the session for id, or ok=false if it doesn't exist or
@@ -417,11 +489,86 @@ func (s *SessionStore) Get(id string) (Session, bool) {
 	if !ok {
 		return Session{}, false
 	}
-	if time.Now().After(sess.Expiry) {
+	now := time.Now()
+	if now.After(sess.Expiry) {
+		delete(s.sessions, id)
+		return Session{}, false
+	}
+	if s.IdleTimeout > 0 && !sess.LastSeen.IsZero() && now.Sub(sess.LastSeen) > s.IdleTimeout {
 		delete(s.sessions, id)
 		return Session{}, false
 	}
 	return sess, true
+}
+
+// Touch updates a session's LastSeen to now -- called on every request
+// that successfully resolves a session, so IdleTimeout measures actual
+// inactivity rather than time since login.
+func (s *SessionStore) Touch(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if sess, ok := s.sessions[id]; ok {
+		sess.LastSeen = time.Now()
+		s.sessions[id] = sess
+	}
+}
+
+// MarkMFAVerified flips a session's MFAVerified flag -- called once
+// the owner has proven a valid TOTP code (internal/mfa.Validate) for a
+// session created with CreateRequiringMFA.
+func (s *SessionStore) MarkMFAVerified(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if sess, ok := s.sessions[id]; ok {
+		sess.MFAVerified = true
+		s.sessions[id] = sess
+	}
+}
+
+// RevokeAll deletes every live session belonging to email -- called on
+// SCIM/directory deactivation and from the admin "revoke all sessions
+// for this user" endpoint. Returns how many were removed.
+func (s *SessionStore) RevokeAll(email string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for id, sess := range s.sessions {
+		if sess.Email == email {
+			delete(s.sessions, id)
+			n++
+		}
+	}
+	return n
+}
+
+// ListForEmail returns every live session belonging to email, newest
+// first -- what GET /api/auth/sessions/mine reports to the session's
+// own owner. Session IDs are never included in the result on purpose:
+// exposing them would hand out a bearer-equivalent credential for
+// hijacking any listed session.
+func (s *SessionStore) ListForEmail(email string) []Session {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []Session
+	for _, sess := range s.sessions {
+		if sess.Email == email {
+			out = append(out, sess)
+		}
+	}
+	return out
+}
+
+// ListAll returns every live session, for the admin-only
+// GET /api/auth/sessions endpoint. Same "no raw IDs" rule as
+// ListForEmail.
+func (s *SessionStore) ListAll() []Session {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]Session, 0, len(s.sessions))
+	for _, sess := range s.sessions {
+		out = append(out, sess)
+	}
+	return out
 }
 
 // Delete removes a session immediately -- what handleAuthLogout calls.

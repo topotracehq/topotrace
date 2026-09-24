@@ -4,7 +4,9 @@ TopoTrace's authorization model layers three kinds of credential, each
 narrower than the last, and access controls now extend that with
 optional OAuth2/OIDC, AD/LDAP, or SAML 2.0 login for humans using the
 dashboard -- any or all three can be enabled at once, alongside the
-bearer-token schemes below.
+bearer-token schemes below -- plus SCIM provisioning, attribute-based
+host visibility/masking, SIEM-exportable audit logging, org-wide MFA
+enforcement, and session management controls layered on top of them.
 
 ## The master token
 
@@ -91,6 +93,117 @@ handle -- but it is not a general XML-DSig verifier, does not support
 encrypted assertions, and has never been round-tripped against a live
 IdP in this environment. Test it against your actual IdP's real
 response format before relying on it to gate anything real.
+
+## SCIM 2.0 provisioning and JIT deprovisioning checks
+
+Configured with `-scim-token`. Every login method above computes a role
+live from the identity provider on each login and has never stored
+anything about the person logging in -- fine for authenticating them,
+but it means there was no way to say "this person is deprovisioned,
+refuse them" any faster than the IdP itself catching up, which for a
+slow HR-to-IdP pipeline can be days. `internal/directory` fixes that
+with a persisted user record per email (`kind: "user"` in the generic
+document store), and `/scim/v2/Users` lets an external identity system
+(Okta, Azure AD/Entra ID, OneLogin, ...) push create/update/deactivate
+operations to it directly, bearer-authenticated with `-scim-token` -- a
+separate, narrow-purpose credential from the three API-key roles.
+Deactivating a user through SCIM takes effect at their *next* login
+attempt, regardless of what OAuth/LDAP/SAML still say about them, and
+also immediately revokes every live dashboard session they currently
+hold.
+
+For customers who don't run SCIM at all, every successful OAuth/LDAP/
+SAML login still JIT-provisions (or refreshes the role on) a directory
+record automatically -- so the directory, and its deactivation check,
+apply either way.
+
+**This implements a practical subset of RFC 7644**, not a full SCIM 2.0
+server: `/Users` create/read/list/update/deactivate only, no `/Groups`,
+no filter query language beyond an exact `userName eq "..."` match, no
+bulk operations. See `internal/directory` and `internal/api/
+enterprise.go`'s doc comments, and test against your actual IdP's SCIM
+app before relying on it.
+
+## Attribute-based host visibility and field masking
+
+Configured via `POST /api/acl/policies` (admin-only) -- no flag, since
+policies are data, not startup configuration. `internal/acl` evaluates
+every policy against the *viewer's* role/email and a host's existing
+`Tags`/`Group` metadata (nothing new to tag), on every read, never
+pre-computed: `AllowTags`/`DenyTags` decide whether a viewer sees a host
+at all ("a user can see prod hosts but not the DB tier" is exactly an
+`AllowTags: ["prod"]` or `DenyTags: ["db-tier"]` policy), and
+`MaskFields` (currently just `hostname` -- TopoTrace doesn't store an
+IP or credentials directly on a host record) redacts a field on hosts
+the viewer can otherwise see. `POST /api/acl/preview` (admin-only) shows
+exactly what a given role or email would see across every current host,
+without needing to actually log in as them.
+
+Masking is applied at exactly one choke point (`maskHostForViewer`,
+called from the host list/detail handlers) -- a new endpoint that
+starts returning host data through a different path must call it too;
+nothing in `internal/acl` can enforce that on its own. A viewer with no
+matching policy at all sees hosts exactly as before this feature
+existed -- ACL is additive restriction, not default-deny.
+
+## Immutable, SIEM-exportable audit logging
+
+Every authenticated write and every login (`Store.RecordAudit`) has
+always been immutable and append-only -- there is no delete or edit
+method on the audit trail, by design, and it cannot be turned off. What
+was missing was getting it into a real SIEM: `-siem-backend` now
+includes `syslog` alongside the existing `splunk-hec`/`sumo-http`/
+`logrhythm-webhook` options (`internal/siemforward`), forwarding one
+RFC-5424-shaped line per event over TCP to a syslog receiver -- most
+SIEMs (QRadar, Microsoft Sentinel, Elastic via a syslog input,
+ArcSight) accept one directly. `GET /api/audit` remains the trail's own
+read path regardless of whether forwarding is configured.
+
+**S3/object-storage export is not implemented** -- it would need an AWS
+SDK this environment has no route to vendor, unlike every other backend
+here, which is stdlib `net/http`/`net` only. A webhook or syslog
+receiver in front of your own S3 pipeline is the documented workaround
+today.
+
+## Org-wide MFA enforcement policy
+
+Configured with `-mfa-required`, `-mfa-roles`, `-mfa-grace-days`, and
+`-mfa-issuer`. `internal/mfa` implements TOTP (RFC 6238) -- SHA-1, 30
+second step, 6 digits, the universal defaults nearly every authenticator
+app (Google Authenticator, Authy, 1Password, ...) assumes. When policy
+requires MFA for a role and an account has no enrollment yet, login
+still succeeds within a configurable grace window (measured from when
+the directory record was first created, not from when the policy was
+turned on) but is flagged `mfa_setup_required` so the dashboard can
+prompt enrollment; once the window passes, login is refused until an
+admin intervenes. An account with a *completed* enrollment gets a
+session that authenticates nothing beyond `POST /api/auth/mfa/enroll`/
+`/confirm`/`/verify` until a valid code is presented.
+
+**Untested against a real authenticator app** in this environment --
+the HOTP core is verified against RFC 4226's own published test
+vectors (see `internal/mfa`'s tests), which confirms the arithmetic is
+correct, but that is not the same thing as a phone actually scanning
+the QR code and agreeing. Verify with a real app before relying on it.
+
+## Session management controls
+
+`-session-idle-timeout` (default 30m) expires a dashboard session after
+that long without an authenticated request touching it, independent of
+its fixed 12-hour absolute lifetime. `-session-max-concurrent` (default
+5) caps how many live sessions one account may hold at once, evicting
+the oldest once a new login would exceed it. `GET /api/auth/sessions`
+(admin) and `GET /api/auth/sessions/mine` (self) show every live
+session's email/role/created/last-seen -- deliberately never the raw
+session ID itself, since that would hand out a bearer-equivalent
+credential for hijacking a listed session. `POST /api/auth/sessions/
+revoke {"email":...}` (admin) force-logs-out every session for one
+account; the same happens automatically on SCIM/directory
+deactivation.
+
+Sessions remain in-memory only, same as before this round -- see
+"OAuth2/OIDC login for the dashboard" above for why, and its
+consequences for restarts/multi-replica deployments.
 
 ## What's still a single shared secret, on purpose
 

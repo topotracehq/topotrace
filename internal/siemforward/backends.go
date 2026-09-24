@@ -18,14 +18,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
 
 // Backends lists the Forwarder implementations Dynamic knows how to
 // build, by the name PATCH /api/settings and -siem-backend accept.
-var Backends = []string{"splunk-hec", "sumo-http", "logrhythm-webhook"}
+var Backends = []string{"splunk-hec", "sumo-http", "logrhythm-webhook", "syslog"}
 
 // SumoHTTP forwards to a Sumo Logic HTTP Logs Source
 // (https://help.sumologic.com/docs/send-data/hosted-collectors/http-source/logs-metrics/):
@@ -125,6 +127,64 @@ func NewBackend(name, url, token string) (Forwarder, error) {
 		return NewSumoHTTP(url, token), nil
 	case "logrhythm-webhook":
 		return NewLogRhythmWebhook(url, token), nil
+	case "syslog":
+		return NewSyslog(url, token), nil
 	}
 	return nil, fmt.Errorf("siemforward: unknown backend %q (want one of %s)", name, strings.Join(Backends, ", "))
+}
+
+// Syslog forwards to a syslog receiver (most SIEMs -- QRadar, Sentinel,
+// Elastic via a syslog input, ArcSight -- accept one) over TCP, one
+// RFC 5424-shaped line per event: PRI, version, timestamp, this host's
+// name, "topotrace" as APP-NAME, the event ID as MSGID, and the event
+// itself as a set of SD-PARAMs. Deliberately TCP rather than UDP
+// -- UDP syslog has no delivery guarantee at all, a poor fit for an
+// audit trail whose entire point is not silently losing events. Url is
+// "host:port"; Token is unused (kept only so NewBackend's signature
+// stays uniform across backends) -- syslog itself carries no
+// credential, so any authentication has to happen at the network layer
+// (mTLS via a stunnel/relay in front of it, an allow-listed source IP,
+// ...), not in this package. A new TCP connection is opened per event
+// rather than pooled -- simple and correct, at the cost of being slower
+// under high event volume than a persistent-connection implementation
+// would be; fine for an audit trail's actual rate, not fine for a
+// high-frequency metrics pipeline, which this is not.
+type Syslog struct {
+	Addr    string // host:port
+	AppName string // defaults to "topotrace"
+	Dialer  *net.Dialer
+}
+
+// NewSyslog returns a Forwarder dialing addr for each event.
+func NewSyslog(addr, _ string) *Syslog {
+	return &Syslog{Addr: addr, AppName: "topotrace", Dialer: &net.Dialer{Timeout: 5 * time.Second}}
+}
+
+func (f *Syslog) Send(ctx context.Context, event SIEMEvent) error {
+	if f.Addr == "" {
+		return fmt.Errorf("siemforward: syslog: no address configured")
+	}
+	conn, err := f.Dialer.DialContext(ctx, "tcp", f.Addr)
+	if err != nil {
+		return fmt.Errorf("siemforward: syslog: dialing %s: %w", f.Addr, err)
+	}
+	defer func() { _ = conn.Close() }()
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = conn.SetWriteDeadline(deadline)
+	}
+	ts := time.Unix(event.Timestamp, 0).UTC().Format(time.RFC3339)
+	host, _ := os.Hostname()
+	if host == "" {
+		host = "-"
+	}
+	msgID := event.Action
+	if msgID == "" {
+		msgID = "-"
+	}
+	sd := fmt.Sprintf(`[topotrace@0 actor=%q target=%q detail=%q id=%q]`, event.Actor, event.Target, event.Detail, event.ID)
+	// PRI 13 = facility 1 (user-level), severity 5 (notice) -- an
+	// audit event is neither an error nor purely informational.
+	line := fmt.Sprintf("<13>1 %s %s %s - %s %s\n", ts, host, f.AppName, msgID, sd)
+	_, err = conn.Write([]byte(line))
+	return err
 }
