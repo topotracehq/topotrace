@@ -39,8 +39,7 @@ window.TopoTraceVisibility = function ({ api, el, app, timeAgo, workspaceUI }) {
     root.appendChild(el("h1", { text: "Device visibility" }));
     root.appendChild(el("p", {class:"page-intro",text:"Follow device changes, understand reporting health, and review discoveries."}));
     const nav = el("div", { class: "visibility-toolbar" },
-      el("a", { href: "#/visibility", class: "ghost", text: "Live inventory" }),
-      el("a", { href: "#/visibility/demo", class: "ghost", text: "Demo showcase" }));
+      el("a", { href: "#/visibility", class: "ghost", text: "Live inventory" }));
     const refresh = el("button", { type: "button", text: demo ? "Reset demo" : "Refresh" });
     refresh.addEventListener("click", () => show(demo)); nav.appendChild(refresh); root.appendChild(nav);
     nav.appendChild(workspaceUI.presentationButton());

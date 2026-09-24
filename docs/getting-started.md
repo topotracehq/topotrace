@@ -53,35 +53,17 @@ Open **Work queue** to prioritize findings, assign owners and deadlines, manage
 expiring exceptions, create dynamic groups, and schedule staged service restarts.
 See **Work Queue & Governed Changes** in Docs for supported actions and limits.
 
-Open **Visibility** for searchable device changes, agent reporting health, and
-discovered-device review. Switch between live inventory and the **Demo showcase**.
-
-## Presenting a demo
-
-The **Tools** page includes presentation mode, branded live/demo reports,
-configuration backup and recovery, and notification controls. The **About TopoTrace**
-footer link shows the installed version and support guidance. See **Workspace
-Tools & Presentation** in Docs for all eight additions and their limits.
-
-Open `/#/visibility/demo` after signing in with your existing credential. Six
-fictional devices and four sample discoveries are included automatically. No
-database import or agent installation is needed. A three-minute walkthrough is
-displayed above the views, with a longer guide under **Device Visibility & Demo
-Walkthrough** in Docs.
-
-Show **Device history**, then **Agent health**, then **Discovery review**. You can
-try sample review decisions and select **Reset demo** to restore the sample story.
-The yellow DEMO DATA banner remains visible. Sample records are isolated from
-live inventory and do not send notifications or execute actions. Other dashboard
-pages continue to show live data; this is a showcase for the Visibility page.
+Open **Device visibility** for searchable device changes, agent reporting health,
+and discovered-device review. Open **Data & recovery** when you need a portable
+workspace backup or want to restore missing configuration.
 
 After installing a new server binary, restart the service and refresh the browser
 with Ctrl+F5 if the new navigation has not appeared.
 
 ## Navigate the dashboard
 
-Use the labeled sidebar to switch between Overview, Operations, and Workspace
-pages. Less frequently used configuration and reference pages are under
-**Administration & help**, which opens automatically when one is active. On
-smaller screens, select Menu. See [Dashboard & Navigation](interface.md) for the
-documentation reader, work sections, printing, and presentation layout.
+Use the labeled sidebar to switch between Overview, Operations, Workspace,
+Manage, and Help. **Manage** contains editable settings, data recovery, and
+subscription status. **Help** contains the searchable help center and product
+information. On smaller screens, select Menu. See
+[Dashboard & Navigation](interface.md) for the complete layout.

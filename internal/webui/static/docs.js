@@ -61,15 +61,21 @@ window.TopoTraceDocs = function ({api, el, app}) {
     const nav=el("ul",{class:"docs-nav"}),search=el("input",{class:"docs-search",type:"search",placeholder:"Find a guide…","aria-label":"Find a documentation guide"});
     const body=el("article",{class:"docs-body","aria-label":"Documentation article"},el("p",{text:"Loading documentation…",role:"status"}));
     const library=el("nav",{class:"docs-library","aria-label":"Documentation library"},search,nav);
-    const root=el("div",{class:"docs-page"},el("h1",{text:"Documentation"}),el("p",{class:"page-intro",text:"Practical guides, operator workflows, and technical references. Start with a task or find the details you need."}),el("div",{class:"docs-layout"},library,body));app.replaceChildren(root);
+    const topics=el("div",{class:"help-topics","aria-label":"Popular help topics"},
+      el("a",{href:"#/docs/getting-started"},el("span",{text:"Start here"}),el("strong",{text:"Set up TopoTrace"}),el("small",{text:"From first sign-in to fresh device evidence"})),
+      el("a",{href:"#/docs/workflows"},el("span",{text:"Daily work"}),el("strong",{text:"Review and assign findings"}),el("small",{text:"A short guide to the work queue"})),
+      el("a",{href:"#/docs/recovery"},el("span",{text:"Get help"}),el("strong",{text:"Protect and recover data"}),el("small",{text:"Backups, recovery, and troubleshooting"}))
+    );
+    const root=el("div",{class:"docs-page"},el("p",{class:"eyebrow",text:"Help"}),el("h1",{text:"Help center"}),el("p",{class:"page-intro",text:"Search the full documentation or start with a short guide for the task in front of you."}),topics,el("div",{class:"docs-layout"},library,body));app.replaceChildren(root);
     let pages;try{pages=await api("/api/docs");}catch(e){body.replaceChildren(el("p",{text:e.message,role:"alert"}));return;}
     if(!root.isConnected)return;
-    const groups=[['Start here',['getting-started','visibility','workspace-tools','interface']],['Operate',['workflows','agents','compliance','recovery']],['Reference',['api-reference','security-model','scanner-import','entity-graph','data-model','ask-topotrace','siem-integration','legal']]];
+    const libraryPages=pages.filter(p=>!['visibility','workspace-tools'].includes(p.name));
+    const groups=[['Start here',['getting-started','interface']],['Operate',['workflows','agents','compliance','recovery']],['Reference',['api-reference','security-model','scanner-import','entity-graph','data-model','ask-topotrace','siem-integration','legal']]];
     const selected=pages.find(p=>p.name===requested)||(!requested?pages[0]:null);
     function draw(){nav.replaceChildren();let count=0;
-      for(const [title,names] of groups){const matches=pages.filter(p=>names.includes(p.name)&&(p.title+" "+p.name).toLowerCase().includes(search.value.toLowerCase()));if(!matches.length)continue;nav.append(el("li",{class:"docs-category",text:title}));for(const page of matches){count++;nav.append(el("li",{},el("a",{href:`#/docs/${page.name}`,text:page.title,...(page.name===selected?.name?{class:"active","aria-current":"page"}:{})})));}}
+      for(const [title,names] of groups){const matches=libraryPages.filter(p=>names.includes(p.name)&&(p.title+" "+p.name).toLowerCase().includes(search.value.toLowerCase()));if(!matches.length)continue;nav.append(el("li",{class:"docs-category",text:title}));for(const page of matches){count++;nav.append(el("li",{},el("a",{href:`#/docs/${page.name}`,text:page.title,...(page.name===selected?.name?{class:"active","aria-current":"page"}:{})})));}}
       // New guides remain reachable even before being assigned a library category.
-      for(const page of pages.filter(p=>!groups.some(g=>g[1].includes(p.name))&&(p.title+" "+p.name).toLowerCase().includes(search.value.toLowerCase()))){count++;nav.append(el("li",{},el("a",{href:`#/docs/${page.name}`,text:page.title})));}
+      for(const page of libraryPages.filter(p=>!groups.some(g=>g[1].includes(p.name))&&(p.title+" "+p.name).toLowerCase().includes(search.value.toLowerCase()))){count++;nav.append(el("li",{},el("a",{href:`#/docs/${page.name}`,text:page.title})));}
       if(!count)nav.append(el("li",{class:"docs-empty",text:"No matching guides. Try a broader search."}));
     }draw();search.addEventListener("input",draw);
     if(!selected){body.replaceChildren(el("h2",{text:"Guide not found"}),el("p",{text:"Choose a guide from the library to continue."}));return;}
