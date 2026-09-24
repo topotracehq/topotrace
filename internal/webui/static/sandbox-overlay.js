@@ -151,7 +151,14 @@
             "ceiling, with trend history and a near-limit alert -- reporting " +
             "only, it never blocks a login. Locked here along with the rest " +
             "of Administration &amp; help for the same read-only reason as " +
-            "Settings.</div>"
+            "Settings.<br><br>" +
+            "<b>This page tracks usage, not entitlement.</b> TopoTrace " +
+            "Community is free and open source (Apache 2.0) with no seat " +
+            "limit enforced anywhere in the software -- run it for 5 hosts " +
+            "or 5,000. A paid TopoTrace license only comes into play if you " +
+            "want the separate Commercial edition's governance features, " +
+            "or vendor support/SLAs on top of Community -- it's never a " +
+            "requirement to use what you see in this sandbox.</div>"
     }
   ];
 
